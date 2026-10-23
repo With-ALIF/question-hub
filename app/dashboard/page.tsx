@@ -97,7 +97,6 @@ export default async function UserDashboard() {
             </div>
           </div>
 
-          {/* Account — read from qb_profiles / Supabase Auth */}
           <Card className="mt-8">
             <CardHeader className="pb-2">
               <CardTitle className="font-display text-lg">Your account</CardTitle>
@@ -126,7 +125,6 @@ export default async function UserDashboard() {
             </CardContent>
           </Card>
 
-          {/* Question bank — read from the Storage manifest */}
           <section aria-label="Question bank" className="mt-8">
             <h2 className="font-display text-lg font-semibold text-foreground">Question bank</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

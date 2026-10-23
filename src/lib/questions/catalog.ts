@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  DEFAULT_CHAPTERS,
   SUBJECT_PRESENTATION,
   normalizeAccent,
   normalizeIcon,
@@ -14,19 +15,6 @@ function presentationFor(slug: string) {
   return SUBJECT_PRESENTATION[slug] ?? { icon: "book" as const, accent: "chart-1" as const };
 }
 
-/**
- * Builds the subject list the public pages render.
- *
- * Metadata (name, tagline, icon, accent, chapters) is read from
- * `qb_subjects`/`qb_chapters`; question counts are read from the Storage
- * manifest, which is the source of truth for question volume. Subjects that
- * exist only in the manifest — currently `other` — are appended with their real
- * counts and no invented tagline or chapters.
- *
- * Every source is allowed to fail independently: a missing manifest leaves
- * zero counts, a missing database leaves manifest-only subjects, and total
- * failure returns an empty list rather than fabricated rows.
- */
 export async function getSubjects(): Promise<Subject[]> {
   let rows: {
     id: string;
@@ -60,7 +48,6 @@ export async function getSubjects(): Promise<Subject[]> {
     rows = subjectsResult.data ?? [];
     chapterRows = chaptersResult.data ?? [];
   } catch {
-    // Database unavailable — fall back to whatever the manifest knows.
     rows = [];
     chapterRows = [];
   }
@@ -79,6 +66,8 @@ export async function getSubjects(): Promise<Subject[]> {
 
   const subjects: Subject[] = rows.map((row) => {
     const fallback = presentationFor(row.slug);
+    const dbChapters = chaptersBySubject.get(row.id) ?? [];
+    const chapters = dbChapters.length > 0 ? dbChapters : (DEFAULT_CHAPTERS[row.slug] ?? []);
 
     return {
       id: row.id,
@@ -87,7 +76,7 @@ export async function getSubjects(): Promise<Subject[]> {
       tagline: row.tagline ?? "",
       icon: normalizeIcon(row.icon, fallback.icon),
       accent: normalizeAccent(row.accent, fallback.accent),
-      chapters: chaptersBySubject.get(row.id) ?? [],
+      chapters,
       questionCount: counts.get(row.slug) ?? 0,
     };
   });
@@ -104,7 +93,7 @@ export async function getSubjects(): Promise<Subject[]> {
       tagline: "",
       icon: fallback.icon,
       accent: fallback.accent,
-      chapters: [],
+      chapters: DEFAULT_CHAPTERS[subject.slug] ?? [],
       questionCount: subject.total,
     });
   }

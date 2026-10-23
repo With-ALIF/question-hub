@@ -7,13 +7,6 @@ import {
 } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/supabase/types";
 
-/**
- * Returns the verified Supabase user for the current request.
- *
- * getUser() validates the access token with Supabase Auth, so the result is
- * safe to use for server-side authorization decisions. It is intentionally
- * request-scoped via React cache() and must not be used in Client Components.
- */
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   if (!isSupabaseConfigured()) {
     return null;

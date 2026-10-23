@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { plans } from "@/data/plans";
 import type { Subject } from "@/data/subjects";
 
-/** A question row taken from the Storage manifest's live sample. */
 export type RecentQuestion = {
   id: string;
   question: string;
@@ -48,7 +47,6 @@ export function HomePage({
     );
   }, [query, subjects]);
 
-  // Only counts the app can actually verify are shown.
   const stats: { icon: LucideIcon; value: string; label: string }[] = [];
   if (typeof totalQuestions === "number") {
     stats.push({ icon: BookOpen, value: totalQuestions.toLocaleString(), label: "Questions" });
@@ -63,7 +61,6 @@ export function HomePage({
       <Navbar />
 
       <main className="flex-1">
-        {/* Hero */}
         <section className="relative overflow-hidden">
           <div className="hero-grid absolute inset-0" aria-hidden="true" />
           <div className="relative mx-auto max-w-6xl px-4 pb-16 pt-16 text-center sm:px-6 sm:pt-24">
@@ -81,7 +78,6 @@ export function HomePage({
               subject filters and a plan that fits you.
             </p>
 
-            {/* Search bar */}
             <form
               role="search"
               className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm"
@@ -116,7 +112,6 @@ export function HomePage({
           </div>
         </section>
 
-        {/* Subject cards */}
         <section aria-labelledby="subjects-heading" className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -148,7 +143,6 @@ export function HomePage({
           )}
         </section>
 
-        {/* Latest questions */}
         <section aria-labelledby="latest-heading" className="bg-secondary/40 py-14">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="flex flex-wrap items-end justify-between gap-3">
@@ -197,7 +191,6 @@ export function HomePage({
           </div>
         </section>
 
-        {/* Subscription plans */}
         <section aria-labelledby="plans-heading" className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
           <div className="text-center">
             <h2 id="plans-heading" className="font-display text-2xl font-bold text-foreground sm:text-3xl">

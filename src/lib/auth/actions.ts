@@ -135,13 +135,6 @@ export async function signUpAction(
   redirect("/dashboard");
 }
 
-/**
- * Signs in an admin and lands them on the dashboard.
- *
- * Unlike `signInAction`, a successful password check is not enough: the role is
- * re-read from `qb_profiles` and non-admins are signed straight back out, so a
- * regular account can never leave a usable admin session behind.
- */
 export async function adminSignInAction(
   _previousState: AuthState,
   formData: FormData,
@@ -190,24 +183,18 @@ export async function signOutAction(): Promise<void> {
       const supabase = await createSupabaseServerClient();
       await supabase.auth.signOut();
     } catch {
-      // Clear the local session by returning to the public home page below.
     }
   }
 
   redirect("/");
 }
 
-/**
- * Signs out and returns the admin to the sign-in screen rather than the public
- * home page, so ending a session from the dashboard lands somewhere usable.
- */
 export async function adminSignOutAction(): Promise<void> {
   if (isSupabaseConfigured()) {
     try {
       const supabase = await createSupabaseServerClient();
       await supabase.auth.signOut();
     } catch {
-      // Clear the local session by returning to the login screen below.
     }
   }
 

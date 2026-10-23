@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { QuestionOption } from "@/lib/supabase/types";
+import { formatChapterLabel } from "@/data/chapters";
+import { renderMathInContent } from "@/lib/math";
 import { cn } from "@/lib/utils";
 
 export type QuestionListItem = {
@@ -38,9 +40,6 @@ function plainText(value: string | null | undefined) {
     .trim();
 }
 
-// Source dumps keep diagrams/figures as <img> tags, which plain text
-// extraction drops. `html` is the sanitized variant built by the shard script,
-// so it only ever contains whitelisted tags and remote images.
 function RichText({
   html,
   text,
@@ -50,18 +49,14 @@ function RichText({
   text: string | null | undefined;
   className?: string;
 }) {
-  const markup = typeof html === "string" ? html.trim() : "";
-
-  if (!markup) {
-    return <p className={cn("whitespace-pre-wrap", className)}>{plainText(text)}</p>;
-  }
+  const content = html || text || "";
+  const rendered = renderMathInContent(content);
 
   return (
     <div
-      className={cn("rich-text", className)}
-      dangerouslySetInnerHTML={{ __html: markup }}
+      className={cn("rich-text whitespace-pre-wrap", className)}
+      dangerouslySetInnerHTML={{ __html: rendered }}
       onClick={(event) => {
-        // Tap an image to open the full-size figure in a new tab.
         const target = event.target;
         if (target instanceof HTMLImageElement && target.src) {
           window.open(target.src, "_blank", "noopener,noreferrer");
@@ -99,7 +94,12 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
           {question.source_db && <Badge variant="secondary">{question.source_db}</Badge>}
           {question.institution && <Badge variant="outline">{question.institution}</Badge>}
           {question.year && <Badge variant="outline">{question.year}</Badge>}
-          {question.topic_code && <Badge variant="outline">{question.topic_code}</Badge>}
+          {question.topic_code && (
+            <Badge variant="outline" title={question.topic_code}>
+              {formatChapterLabel(question.topic_code)}
+            </Badge>
+          )}
+          {question.keyword && <Badge variant="secondary" className="font-normal">{question.keyword}</Badge>}
           {!question.is_mcq && <Badge variant="secondary">Written</Badge>}
         </div>
 
@@ -113,7 +113,8 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
           {hasOptions ? (
             <div className="grid gap-2">
               {options.map((option, optionIndex) => {
-                const optionText = plainText(option.t) || plainText(option.h);
+                const rawOption = option.h || option.t || "";
+                const renderedOption = renderMathInContent(rawOption) || "—";
                 const state = !revealed
                   ? selected === optionIndex
                     ? "selected"
@@ -146,7 +147,10 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
                     <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-current font-mono text-xs font-semibold">
                       {String.fromCharCode(65 + optionIndex)}
                     </span>
-                    <span className="leading-relaxed">{optionText || "—"}</span>
+                    <span
+                      className="leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: renderedOption }}
+                    />
                   </button>
                 );
               })}
@@ -185,7 +189,10 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
               {question.answer && (
                 <p>
                   <span className="font-semibold text-foreground">Answer: </span>
-                  <span className="text-muted-foreground">{plainText(question.answer)}</span>
+                  <span
+                    className="text-muted-foreground"
+                    dangerouslySetInnerHTML={{ __html: renderMathInContent(question.answer) }}
+                  />
                 </p>
               )}
               {(question.explanation || question.explanation_html) && (

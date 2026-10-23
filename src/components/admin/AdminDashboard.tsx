@@ -65,12 +65,10 @@ export function AdminDashboard({
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 border-r border-sidebar-border bg-sidebar p-3 lg:block">
         {sidebar}
       </aside>
 
-      {/* Mobile sidebar */}
       {menuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-foreground/40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
@@ -81,7 +79,6 @@ export function AdminDashboard({
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Topbar */}
         <header className="flex h-16 items-center justify-between border-b border-border bg-card px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <button
@@ -97,7 +94,6 @@ export function AdminDashboard({
           </div>
         </header>
 
-        {/* Content */}
         <main className="flex-1 space-y-8 p-4 sm:p-6">
           {error && (
             <div
@@ -108,7 +104,6 @@ export function AdminDashboard({
             </div>
           )}
 
-          {/* Stats */}
           <section aria-label="Overview statistics" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {data.stats.map((stat) => (
               <Card key={stat.label}>
@@ -123,7 +118,6 @@ export function AdminDashboard({
             ))}
           </section>
 
-          {/* Subjects summary */}
           <section aria-labelledby="subject-summary-heading">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>

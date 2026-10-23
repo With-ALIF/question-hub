@@ -38,7 +38,6 @@ export function Navbar() {
           </span>
         </Link>
 
-        {/* Desktop nav */}
         <div className="hidden items-center gap-1 md:flex">
           {navLinks.map((link) => (
             <Link
@@ -63,7 +62,6 @@ export function Navbar() {
           </Button>
         </div>
 
-        {/* Mobile toggle */}
         <button
           type="button"
           className="inline-flex size-10 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-secondary md:hidden"
@@ -75,7 +73,6 @@ export function Navbar() {
         </button>
       </nav>
 
-      {/* Mobile menu */}
       {open && (
         <div className="border-t border-border bg-background px-4 pb-4 pt-2 md:hidden">
           <div className="flex flex-col gap-1">

@@ -1,7 +1,7 @@
-/* eslint-disable @next/next/no-page-custom-font -- This App Router root layout applies the font stylesheet to every route. */
 import type { Metadata, Viewport } from "next";
 
 import "./globals.css";
+import "katex/dist/katex.min.css";
 
 export const metadata: Metadata = {
   title: "QuestionBank — Practice Questions for Every Subject",
@@ -35,11 +35,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap"
+          rel="preload"
+          href="/fonts/solaiman-lipi-regular.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
         />
       </head>
       <body>{children}</body>

@@ -95,8 +95,6 @@ const Carousel = React.forwardRef<
       return;
     }
 
-    // Embla only exposes the initial selection through the API, so sync it once.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     onSelect(api);
     api.on("reInit", onSelect);
     api.on("select", onSelect);

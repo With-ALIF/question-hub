@@ -3,6 +3,19 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { QuestionOption } from "@/lib/supabase/types";
 
+import {
+  buildFilterOptions,
+  filterIndexMatches,
+  getQuestionFilterIndex,
+  sanitizeFilters,
+  selectFilterRows,
+  QUESTION_FILTER_KEYS,
+  type QuestionFilterKey,
+  type QuestionFilterOptions,
+  type QuestionFilters,
+  type QuestionFiltersInput,
+} from "./filters";
+
 export const QUESTION_PAGE_SIZE = 10;
 
 const BUCKET = process.env["SUPABASE_QUESTIONS_BUCKET"] ?? "qb-raw";
@@ -15,13 +28,11 @@ export type StorageQuestion = {
   id: string;
   external_id: number;
   question_text: string;
-  /** Sanitized HTML from the source dump; present only when it carried an image. */
   question_html: string | null;
   options: QuestionOption[];
   correct_option: number | null;
   answer: string | null;
   explanation: string | null;
-  /** Sanitized HTML from the source dump; present only when it carried an image. */
   explanation_html: string | null;
   source_db: string | null;
   institution: string | null;
@@ -86,6 +97,8 @@ export type QuestionPageResult = {
   totalPages: number;
   total: number;
   error: string | null;
+  filters: QuestionFilterOptions | null;
+  activeFilters: QuestionFilters;
 };
 
 export function isQuestionType(value: unknown): value is QuestionType {
@@ -141,8 +154,6 @@ function isQuestionManifest(value: unknown): value is QuestionManifest {
   );
 }
 
-// Upgrade a v1 manifest (where each subject had a single `shards` number) to
-// the v2 shape so an older Storage payload still renders instead of crashing.
 function normalizeManifest(manifest: QuestionManifest): QuestionManifest {
   const shardSize = manifest.shardSize > 0 ? manifest.shardSize : 100;
 
@@ -204,7 +215,6 @@ export async function getQuestionManifest(): Promise<QuestionManifest> {
 
 function shardPathFor(subject: string, type: QuestionType, shardNumber: number) {
   const fileName = `shard-${String(shardNumber).padStart(4, "0")}.json`;
-  // "all" shards live at the subject root; mcq/written shards live in sub-folders.
   return type === "all"
     ? `${PREFIX}/${subject}/${fileName}`
     : `${PREFIX}/${subject}/${type}/${fileName}`;
@@ -246,16 +256,70 @@ export async function getQuestionShard(
   }
 }
 
+function matchesChapterQuery(q: StorageQuestion, query: string): boolean {
+  const qText = (q.question_text ?? "").toLowerCase();
+  const topic = (q.topic_code ?? "").toLowerCase();
+  const keyword = (q.keyword ?? "").toLowerCase();
+
+  if (topic.includes(query) || keyword.includes(query) || qText.includes(query)) {
+    return true;
+  }
+
+  const words = query
+    .split(/[\s,&+/\-]+/)
+    .map((w) => w.trim().toLowerCase())
+    .filter((w) => w.length >= 3 && !["and", "the", "for", "with"].includes(w));
+
+  if (words.length > 1) {
+    return words.some(
+      (word) => topic.includes(word) || keyword.includes(word) || qText.includes(word),
+    );
+  }
+
+  return false;
+}
+
+type PagePosition = {
+  shard: number;
+  offset: number;
+};
+
+async function loadQuestionsAt(
+  subject: string,
+  positions: PagePosition[],
+): Promise<StorageQuestion[]> {
+  if (positions.length === 0) return [];
+
+  const shardNumbers = [...new Set(positions.map((position) => position.shard))];
+  const shards = await Promise.all(
+    shardNumbers.map((shard) => getQuestionShard(subject, shard, "all")),
+  );
+  const byShard = new Map(shardNumbers.map((shard, index) => [shard, shards[index] ?? []]));
+
+  const questions: StorageQuestion[] = [];
+
+  for (const position of positions) {
+    const question = byShard.get(position.shard)?.[position.offset];
+    if (question) questions.push(question);
+  }
+
+  return questions;
+}
+
 export async function getQuestionPage({
   subject,
   page,
   type = "all",
+  filters,
 }: {
   subject: string;
   page: number;
   type?: QuestionType;
+  filters?: QuestionFiltersInput;
 }): Promise<QuestionPageResult> {
   const selectedType: QuestionType = isQuestionType(type) ? type : "all";
+  const activeFilters = sanitizeFilters(filters);
+  const legacyQuery = activeFilters.chapter ?? activeFilters.topic ?? "";
 
   try {
     const manifest = await getQuestionManifest();
@@ -275,26 +339,126 @@ export async function getQuestionPage({
         totalPages: 1,
         total: 0,
         error: "No question subjects are available in Storage.",
+        filters: null,
+        activeFilters,
       };
     }
 
     const pageSize = manifest.pageSize > 0 ? manifest.pageSize : QUESTION_PAGE_SIZE;
+    const shardSize = manifest.shardSize > 0 ? manifest.shardSize : 100;
     const total =
       selectedType === "mcq"
         ? selectedSubject.mcq
         : selectedType === "written"
           ? selectedSubject.written
           : selectedSubject.total;
+    const maxShards = selectedSubject.shards[selectedType] ?? 0;
+
+    const index = await getQuestionFilterIndex(selectedSubject.slug);
+    const indexUsable = index !== null && filterIndexMatches(index, selectedSubject, shardSize);
+
+    if (index && !indexUsable) {
+      console.warn(
+        `[questions] filter index for "${selectedSubject.slug}" does not match Storage ` +
+          `(index ${index.total}/${index.mcq}/${index.written}, ` +
+          `manifest ${selectedSubject.total}/${selectedSubject.mcq}/${selectedSubject.written}). ` +
+          "Run scripts/build-filter-index.mjs after rebuilding the shards.",
+      );
+    }
+
+    if (index && indexUsable) {
+      const validFilters: QuestionFilters = { ...activeFilters };
+      for (const key of QUESTION_FILTER_KEYS) {
+        const val = validFilters[key];
+        if (val && !index.dict[key].includes(val)) {
+          delete validFilters[key];
+        }
+      }
+
+      const matched = selectFilterRows(index, validFilters, selectedType);
+      const filterOptions = buildFilterOptions(index, validFilters, selectedType);
+      const matchedTotal = matched.length;
+      const matchedPages = Math.max(1, Math.ceil(matchedTotal / pageSize));
+      const safePage = Math.min(Math.max(1, Math.floor(page || 1)), matchedPages);
+      const start = (safePage - 1) * pageSize;
+
+      const positions: PagePosition[] = matched.slice(start, start + pageSize).map((row) => ({
+        shard: Math.floor(row / shardSize) + 1,
+        offset: row % shardSize,
+      }));
+
+      return {
+        manifest,
+        subjects,
+        subject: selectedSubject,
+        type: selectedType,
+        questions: await loadQuestionsAt(selectedSubject.slug, positions),
+        page: safePage,
+        pageSize,
+        totalPages: matchedPages,
+        total: matchedTotal,
+        error: null,
+        filters: filterOptions,
+        activeFilters: validFilters,
+      };
+    }
+
+    if (legacyQuery) {
+      const query = legacyQuery.toLowerCase();
+
+      if (total === 0 || maxShards === 0) {
+        return {
+          manifest,
+          subjects,
+          subject: selectedSubject,
+          type: selectedType,
+          questions: [],
+          page: 1,
+          pageSize,
+          totalPages: 1,
+          total: 0,
+          error: null,
+          filters: null,
+          activeFilters,
+        };
+      }
+
+      const shardsToLoad = Math.min(maxShards, 30);
+      const shardPromises: Promise<StorageQuestion[]>[] = [];
+      for (let s = 1; s <= shardsToLoad; s++) {
+        shardPromises.push(getQuestionShard(selectedSubject.slug, s, selectedType));
+      }
+      const loadedShards = await Promise.all(shardPromises);
+      const allQuestions = loadedShards.flat();
+      const filtered = allQuestions.filter((q) => matchesChapterQuery(q, query));
+
+      const filteredTotal = filtered.length;
+      const filteredTotalPages = Math.max(1, Math.ceil(filteredTotal / pageSize));
+      const safePage = Math.min(Math.max(1, Math.floor(page || 1)), filteredTotalPages);
+      const offset = (safePage - 1) * pageSize;
+
+      return {
+        manifest,
+        subjects,
+        subject: selectedSubject,
+        type: selectedType,
+        questions: filtered.slice(offset, offset + pageSize),
+        page: safePage,
+        pageSize,
+        totalPages: filteredTotalPages,
+        total: filteredTotal,
+        error: null,
+        filters: null,
+        activeFilters,
+      };
+    }
+
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(Math.max(1, Math.floor(page || 1)), totalPages);
     const from = (safePage - 1) * pageSize;
-    const shardSize = manifest.shardSize > 0 ? manifest.shardSize : 100;
     const shardNumber = Math.floor(from / shardSize) + 1;
     const offset = from % shardSize;
-    const maxShards = selectedSubject.shards[selectedType] ?? 0;
 
-    // A filtered type can legitimately have zero shards (e.g. no written
-    // questions for a subject) — render an empty result instead of a 404.
     if (total === 0 || shardNumber > maxShards) {
       return {
         manifest,
@@ -307,6 +471,8 @@ export async function getQuestionPage({
         totalPages,
         total,
         error: null,
+        filters: null,
+        activeFilters,
       };
     }
 
@@ -323,6 +489,8 @@ export async function getQuestionPage({
       totalPages,
       total,
       error: null,
+      filters: null,
+      activeFilters,
     };
   } catch (error) {
     return {
@@ -336,6 +504,8 @@ export async function getQuestionPage({
       totalPages: 1,
       total: 0,
       error: getErrorMessage(error),
+      filters: null,
+      activeFilters,
     };
   }
 }

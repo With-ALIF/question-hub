@@ -29,8 +29,6 @@ export async function createSupabaseServerClient() {
             cookieStore.set(name, value, options);
           });
         } catch {
-          // Server Components cannot write cookies. The root proxy refreshes
-          // the session and writes the updated cookies on the response instead.
         }
       },
     },

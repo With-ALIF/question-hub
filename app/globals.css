@@ -6,9 +6,33 @@
 @custom-variant dark (&:is(.dark *));
 
 
+@font-face {
+  font-family: "SolaimanLipi";
+  src: url("/fonts/solaiman-lipi-regular.woff2") format("woff2");
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SolaimanLipi";
+  src: url("/fonts/solaiman-lipi-semibold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SolaimanLipi";
+  src: url("/fonts/solaiman-lipi-bold.woff2") format("woff2");
+  font-weight: 700 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme inline {
-  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "SolaimanLipi", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "SolaimanLipi", ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -73,11 +97,11 @@
   --border: oklch(0.915 0.012 95);
   --input: oklch(0.915 0.012 95);
   --ring: oklch(0.6 0.09 202);
-  --chart-1: oklch(0.55 0.13 265); /* Physics — indigo */
-  --chart-2: oklch(0.55 0.11 202); /* Chemistry — teal */
-  --chart-3: oklch(0.58 0.14 150); /* Biology — green */
-  --chart-4: oklch(0.58 0.13 55);  /* Mathematics — amber */
-  --chart-5: oklch(0.55 0.15 320); /* ICT — magenta */
+  --chart-1: oklch(0.55 0.13 265); 
+  --chart-2: oklch(0.55 0.11 202); 
+  --chart-3: oklch(0.58 0.14 150); 
+  --chart-4: oklch(0.58 0.13 55);  
+  --chart-5: oklch(0.55 0.15 320); 
   --sidebar: oklch(0.985 0.006 190);
   --sidebar-foreground: oklch(0.24 0.035 230);
   --sidebar-primary: oklch(0.51 0.105 202);
@@ -140,7 +164,7 @@
   h3,
   h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: normal;
   }
 }
 
@@ -152,7 +176,7 @@
   mask-image: radial-gradient(ellipse 90% 70% at 50% 20%, black 40%, transparent 100%);
 }
 
-/* Sanitized question/explanation HTML (see scripts/build-question-shards.mjs). */
+
 .rich-text {
   overflow-wrap: anywhere;
 }
@@ -178,4 +202,30 @@
   border-radius: 0.5rem;
   background-color: var(--color-background);
   cursor: zoom-in;
+}
+
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.25rem;
+  margin-block: 0.5rem;
+}
+
+.katex {
+  font-size: 1.05em;
+  text-rendering: auto;
+}
+
+.rich-text sup,
+sup {
+  vertical-align: super;
+  font-size: 0.75em;
+  line-height: 0;
+}
+
+.rich-text sub,
+sub {
+  vertical-align: sub;
+  font-size: 0.75em;
+  line-height: 0;
 }

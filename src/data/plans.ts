@@ -1,10 +1,3 @@
-/**
- * Subscription plan copy.
- *
- * Product/pricing content rather than record data: there is no payment or
- * subscription table yet, so the tiers are configured here and rendered as-is.
- * Nothing in this file is derived from user or question records.
- */
 
 export type Plan = {
   id: string;

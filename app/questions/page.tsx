@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Cloud } from "lucide-react";
+import { ChevronLeft, ChevronRight, Cloud, X } from "lucide-react";
 
 import { QuestionCard } from "@/components/questions/QuestionCard";
 import { Footer } from "@/components/site/Footer";
@@ -9,6 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  QUESTION_FILTER_KEYS,
+  QUESTION_FILTER_LABELS,
+  hasActiveFilters,
+  sanitizeFilters,
+  type QuestionFilterFacet,
+  type QuestionFilterKey,
+  type QuestionFilters,
+} from "@/lib/questions/filters";
+import {
   getQuestionPage,
   isQuestionType,
   QUESTION_PAGE_SIZE,
@@ -16,11 +25,20 @@ import {
   QUESTION_TYPE_LABELS,
   type QuestionType,
 } from "@/lib/questions/storage";
+import { formatChapterLabel } from "@/data/chapters";
+import { formatPaperLabel } from "@/data/papers";
+import { QuestionFiltersForm } from "@/components/questions/QuestionFiltersForm";
 
 type QuestionsSearchParams = Promise<{
   subject?: string | string[];
   type?: string | string[];
   page?: string | string[];
+  db?: string | string[];
+  un?: string | string[];
+  year?: string | string[];
+  paper?: string | string[];
+  chapter?: string | string[];
+  topic?: string | string[];
 }>;
 
 export const metadata: Metadata = {
@@ -32,13 +50,39 @@ function firstValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function buildPageHref(subject: string, nextPage: number, type: QuestionType) {
+function withFilter(
+  filters: QuestionFilters,
+  key: QuestionFilterKey,
+  value: string | null,
+): QuestionFilters {
+  const next: QuestionFilters = { ...filters };
+
+  if (value === null) delete next[key];
+  else next[key] = value;
+
+  return next;
+}
+
+function buildPageHref(
+  subject: string,
+  nextPage: number,
+  type: QuestionType,
+  filters: QuestionFilters,
+) {
   const params = new URLSearchParams();
   params.set("subject", subject);
   params.set("type", type);
+
+  for (const key of QUESTION_FILTER_KEYS) {
+    const value = filters[key];
+    if (value) params.set(key, value);
+  }
+
   if (nextPage > 1) params.set("page", String(nextPage));
   return `/questions?${params.toString()}`;
 }
+
+
 
 export default async function QuestionsPage({
   searchParams,
@@ -52,17 +96,35 @@ export default async function QuestionsPage({
   const page =
     Number.isFinite(requestedPage) && requestedPage > 0 ? Math.floor(requestedPage) : 1;
   const type: QuestionType = isQuestionType(requestedType) ? requestedType : "all";
+  const requestedFilters = sanitizeFilters(params);
 
   const result = await getQuestionPage({
     subject: requestedSubject || "physics",
     page,
     type,
+    filters: requestedFilters,
   });
+
   const subject = result.subject;
+  const currentSubjectSlug = subject?.slug ?? (requestedSubject || "physics");
+  const facetFilters = result.filters;
+  const activeFilters = result.activeFilters;
+  const filtering = hasActiveFilters(activeFilters);
   const pageSize = result.pageSize || QUESTION_PAGE_SIZE;
   const from = (result.page - 1) * pageSize;
   const hasPrevious = result.page > 1;
   const hasNext = result.page < result.totalPages;
+
+  const summaryFilters = QUESTION_FILTER_KEYS.filter((key) => activeFilters[key]).map(
+    (key) =>
+      `${QUESTION_FILTER_LABELS[key]}: ${
+        key === "chapter"
+          ? formatChapterLabel(activeFilters[key])
+          : key === "paper"
+            ? formatPaperLabel(activeFilters[key])
+            : activeFilters[key]
+      }`,
+  );
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -70,115 +132,68 @@ export default async function QuestionsPage({
       <main className="flex-1">
         <section className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-12">
           <div className="space-y-3">
-            <Badge variant="secondary" className="gap-1.5">
-              <Cloud className="size-3.5" aria-hidden="true" />
-              Storage-backed question bank
-            </Badge>
             <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Practice questions
             </h1>
-            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Questions are stored as sharded JSON files in Supabase Storage. Choose a subject
-              below; only the current page shard is downloaded, so the database stays empty.
-            </p>
           </div>
 
-          <form
-            action="/questions"
-            method="get"
-            className="mt-7 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-sm"
-          >
-            <label className="min-w-52 flex-1 space-y-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Subject
-              </span>
-              <select
-                name="subject"
-                defaultValue={subject?.slug ?? "physics"}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {result.subjects.length === 0 ? (
-                  <option value="physics">Physics</option>
-                ) : (
-                  result.subjects.map((item) => (
-                    <option key={item.slug} value={item.slug}>
-                      {item.name} ({item.total.toLocaleString()})
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
+          <QuestionFiltersForm
+            subjects={result.subjects}
+            selectedSubject={currentSubjectSlug}
+            type={type}
+            facetFilters={facetFilters}
+            activeFilters={activeFilters}
+            filtering={filtering}
+          />
 
-            <label className="min-w-40 space-y-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Type
-              </span>
-              <select
-                name="type"
-                defaultValue={type}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {QUESTION_TYPES.map((item) => {
-                  const count = subject
-                    ? item === "mcq"
-                      ? subject.mcq
-                      : item === "written"
-                        ? subject.written
-                        : subject.total
-                    : 0;
+          {!facetFilters && filtering && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Detailed filters are unavailable for this subject right now.
+            </p>
+          )}
 
-                  return (
-                    <option key={item} value={item}>
-                      {QUESTION_TYPE_LABELS[item]} ({count.toLocaleString()})
-                    </option>
-                  );
-                })}
-              </select>
-            </label>
-
-            <Button type="submit">Show questions</Button>
-          </form>
-
-          {subject && (subject.mcq > 0 || subject.written > 0) && (
+          {filtering && (
             <nav
-              aria-label="Question type filter"
+              aria-label="Active filters"
               className="mt-3 flex flex-wrap items-center gap-1.5"
             >
-              <span className="mr-1 text-xs text-muted-foreground">Quick filter:</span>
-              {QUESTION_TYPES.map((item) => {
-                const count =
-                  item === "mcq" ? subject.mcq : item === "written" ? subject.written : subject.total;
-                const isActive = item === type;
-
-                return (
-                  <Link
-                    key={item}
-                    href={buildPageHref(subject.slug, 1, item)}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                      isActive
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                    }`}
-                  >
-                    {QUESTION_TYPE_LABELS[item]} ({count.toLocaleString()})
-                  </Link>
-                );
-              })}
+              <span className="mr-1 text-xs text-muted-foreground">Filtered by:</span>
+              {QUESTION_FILTER_KEYS.filter((key) => activeFilters[key]).map((key) => (
+                <Link
+                  key={key}
+                  href={buildPageHref(currentSubjectSlug, 1, type, withFilter(activeFilters, key, null))}
+                  className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs text-foreground transition-colors hover:border-primary hover:bg-primary/20"
+                >
+                  {QUESTION_FILTER_LABELS[key]}:{" "}
+                  {key === "chapter"
+                    ? formatChapterLabel(activeFilters[key])
+                    : key === "paper"
+                      ? formatPaperLabel(activeFilters[key])
+                      : activeFilters[key]}
+                  <X className="size-3" aria-hidden="true" />
+                </Link>
+              ))}
             </nav>
           )}
+
+
+
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
               {result.error
                 ? "Could not load questions from Storage."
                 : result.questions.length === 0
-                  ? "No questions"
+                  ? filtering
+                    ? "No questions match these filters."
+                    : "No questions"
                   : `Showing ${from + 1}–${from + result.questions.length} of ${result.total.toLocaleString()}`}
               {!result.error && subject && (
                 <span className="text-muted-foreground/70">
                   {" "}
-                  · {subject.name} · {QUESTION_TYPE_LABELS[type]} · page {result.page} of{" "}
+                  · {subject.name}
+                  {summaryFilters.length > 0 && ` · ${summaryFilters.join(" · ")}`}
+                  {" "}· {QUESTION_TYPE_LABELS[type]} · page {result.page} of{" "}
                   {result.totalPages}
                 </span>
               )}
@@ -209,9 +224,19 @@ export default async function QuestionsPage({
             </Card>
           ) : result.questions.length === 0 ? (
             <Card className="mt-4 border-dashed">
-              <CardContent className="p-8 text-center text-sm text-muted-foreground">
-                No {QUESTION_TYPE_LABELS[type].toLowerCase()} questions found for{" "}
-                {subject?.name ?? "this subject"}. Pick another type or subject above.
+              <CardContent className="space-y-3 p-8 text-center text-sm text-muted-foreground">
+                <p>
+                  No {QUESTION_TYPE_LABELS[type].toLowerCase()} questions found for{" "}
+                  {subject?.name ?? "this subject"}
+                  {filtering ? " matching the selected filters." : ". Pick another type or subject above."}
+                </p>
+                {filtering && (
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={buildPageHref(currentSubjectSlug, 1, type, {})}>
+                      Clear filters
+                    </Link>
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -230,7 +255,12 @@ export default async function QuestionsPage({
               <Button variant="outline" size="sm" asChild={hasPrevious} disabled={!hasPrevious}>
                 {hasPrevious ? (
                   <Link
-                    href={buildPageHref(subject?.slug ?? "physics", result.page - 1, type)}
+                    href={buildPageHref(
+                      currentSubjectSlug,
+                      result.page - 1,
+                      type,
+                      activeFilters,
+                    )}
                     rel="prev"
                   >
                     <ChevronLeft className="size-4" aria-hidden="true" />
@@ -251,7 +281,7 @@ export default async function QuestionsPage({
               <Button variant="outline" size="sm" asChild={hasNext} disabled={!hasNext}>
                 {hasNext ? (
                   <Link
-                    href={buildPageHref(subject?.slug ?? "physics", result.page + 1, type)}
+                    href={buildPageHref(currentSubjectSlug, result.page + 1, type, activeFilters)}
                     rel="next"
                   >
                     Next

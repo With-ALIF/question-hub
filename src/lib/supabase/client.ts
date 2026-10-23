@@ -8,10 +8,6 @@ import type { Database } from "./types";
 
 let browserClient: SupabaseClient<Database> | undefined;
 
-/**
- * Returns a singleton browser client. Use this only in Client Components;
- * Server Components and Server Actions should use createSupabaseServerClient.
- */
 export function createSupabaseBrowserClient(): SupabaseClient<Database> {
   const config = getSupabaseConfig();
 

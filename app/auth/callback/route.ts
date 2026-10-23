@@ -32,7 +32,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(new URL(next, origin));
       }
     } catch {
-      // Fall through to the login page with a generic error marker.
     }
   }
 
