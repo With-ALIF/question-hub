@@ -157,6 +157,13 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    padding-bottom: 4.5rem;
+  }
+
+  @media (min-width: 768px) {
+    body {
+      padding-bottom: 0;
+    }
   }
 
   h1,

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Cloud, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Cloud, Lock, LogIn, X } from "lucide-react";
 
 import { QuestionCard } from "@/components/questions/QuestionCard";
 import { Footer } from "@/components/site/Footer";
@@ -8,6 +8,7 @@ import { Navbar } from "@/components/site/Navbar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { getCurrentUser } from "@/lib/auth/session";
 import {
   QUESTION_FILTER_KEYS,
   QUESTION_FILTER_LABELS,
@@ -89,6 +90,7 @@ export default async function QuestionsPage({
 }: {
   searchParams: QuestionsSearchParams;
 }) {
+  const user = await getCurrentUser();
   const params = await searchParams;
   const requestedSubject = firstValue(params.subject)?.trim() ?? "";
   const requestedType = firstValue(params.type)?.trim() ?? "";
@@ -128,177 +130,215 @@ export default async function QuestionsPage({
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <Navbar />
+      <Navbar initialUser={user} />
       <main className="flex-1">
         <section className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-12">
-          <div className="space-y-3">
-            <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Practice questions
-            </h1>
-          </div>
-
-          <QuestionFiltersForm
-            subjects={result.subjects}
-            selectedSubject={currentSubjectSlug}
-            type={type}
-            facetFilters={facetFilters}
-            activeFilters={activeFilters}
-            filtering={filtering}
-          />
-
-          {!facetFilters && filtering && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Detailed filters are unavailable for this subject right now.
-            </p>
-          )}
-
-          {filtering && (
-            <nav
-              aria-label="Active filters"
-              className="mt-3 flex flex-wrap items-center gap-1.5"
-            >
-              <span className="mr-1 text-xs text-muted-foreground">Filtered by:</span>
-              {QUESTION_FILTER_KEYS.filter((key) => activeFilters[key]).map((key) => (
-                <Link
-                  key={key}
-                  href={buildPageHref(currentSubjectSlug, 1, type, withFilter(activeFilters, key, null))}
-                  className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-xs text-foreground transition-colors hover:border-primary hover:bg-primary/20"
-                >
-                  {QUESTION_FILTER_LABELS[key]}:{" "}
-                  {key === "chapter"
-                    ? formatChapterLabel(activeFilters[key])
-                    : key === "paper"
-                      ? formatPaperLabel(activeFilters[key])
-                      : activeFilters[key]}
-                  <X className="size-3" aria-hidden="true" />
-                </Link>
-              ))}
-            </nav>
-          )}
-
-
-
-
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              {result.error
-                ? "Could not load questions from Storage."
-                : result.questions.length === 0
-                  ? filtering
-                    ? "No questions match these filters."
-                    : "No questions"
-                  : `Showing ${from + 1}–${from + result.questions.length} of ${result.total.toLocaleString()}`}
-              {!result.error && subject && (
-                <span className="text-muted-foreground/70">
-                  {" "}
-                  · {subject.name}
-                  {summaryFilters.length > 0 && ` · ${summaryFilters.join(" · ")}`}
-                  {" "}· {QUESTION_TYPE_LABELS[type]} · page {result.page} of{" "}
-                  {result.totalPages}
-                </span>
-              )}
-            </p>
-
-            {result.manifest && (
-              <Badge variant="outline" className="font-normal">
-                {result.manifest.totalQuestions.toLocaleString()} questions in Storage
-              </Badge>
-            )}
-          </div>
-
-          {result.error ? (
-            <Card className="mt-4 border-dashed">
-              <CardContent className="space-y-2 p-6 text-sm">
-                <p className="font-semibold text-foreground">Storage question files are not ready.</p>
-                <p className="text-muted-foreground">
-                  Run{" "}
-                  <code className="rounded bg-secondary px-1.5 py-0.5 text-xs">
-                    node --env-file=.env.local scripts/build-question-shards.mjs
-                  </code>{" "}
-                  once to generate the shard files and manifest in the private{" "}
-                  <code className="rounded bg-secondary px-1.5 py-0.5 text-xs">qb-raw</code>{" "}
-                  bucket.
-                </p>
-                <p className="break-words font-mono text-xs text-destructive">{result.error}</p>
-              </CardContent>
-            </Card>
-          ) : result.questions.length === 0 ? (
-            <Card className="mt-4 border-dashed">
-              <CardContent className="space-y-3 p-8 text-center text-sm text-muted-foreground">
-                <p>
-                  No {QUESTION_TYPE_LABELS[type].toLowerCase()} questions found for{" "}
-                  {subject?.name ?? "this subject"}
-                  {filtering ? " matching the selected filters." : ". Pick another type or subject above."}
-                </p>
-                {filtering && (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={buildPageHref(currentSubjectSlug, 1, type, {})}>
-                      Clear filters
-                    </Link>
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="mt-4 space-y-4">
-              {result.questions.map((question, index) => (
-                <QuestionCard key={question.id} question={question} index={from + index + 1} />
-              ))}
+          {!user ? (
+            <div className="flex flex-col items-center justify-center py-6 sm:py-12">
+              <Card className="w-full max-w-md border-border/80 bg-card/80 p-8 text-center sm:p-10 shadow-lg backdrop-blur">
+                <CardContent className="flex flex-col items-center p-0">
+                  <span className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner">
+                    <Lock className="size-8" aria-hidden="true" />
+                  </span>
+                  <h2 className="font-display text-2xl font-bold tracking-tight text-foreground">
+                    questions দেখতে লগইন করুন
+                  </h2>
+                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                    প্রশ্ন ব্যাংকের বিষয়ভিত্তিক প্রশ্নসমূহ ও প্র্যাকটিস করতে অনুগ্রহ করে আপনার অ্যাকাউন্টে লগইন করুন।
+                  </p>
+                  <div className="mt-6 flex w-full flex-col gap-2.5 sm:flex-row sm:justify-center">
+                    <Button asChild size="default" className="gap-2">
+                      <Link href="/login">
+                        <LogIn className="size-4" aria-hidden="true" />
+                        লগইন করুন
+                      </Link>
+                    </Button>
+                    <Button variant="outline" size="default" asChild>
+                      <Link href="/register">
+                        রেজিস্ট্রেশন করুন
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          )}
+          ) : (
+            <>
+              <div className="space-y-3">
+                <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                  Practice questions
+                </h1>
+              </div>
 
-          {!result.error && result.total > 0 && (hasPrevious || hasNext) && (
-            <nav
-              aria-label="Question pagination"
-              className="mt-8 flex items-center justify-between gap-3"
-            >
-              <Button variant="outline" size="sm" asChild={hasPrevious} disabled={!hasPrevious}>
-                {hasPrevious ? (
-                  <Link
-                    href={buildPageHref(
-                      currentSubjectSlug,
-                      result.page - 1,
-                      type,
-                      activeFilters,
+              <QuestionFiltersForm
+                subjects={result.subjects}
+                selectedSubject={currentSubjectSlug}
+                type={type}
+                facetFilters={facetFilters}
+                activeFilters={activeFilters}
+                filtering={filtering}
+              />
+
+              {!facetFilters && filtering && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Detailed filters are unavailable for this subject right now.
+                </p>
+              )}
+
+              {filtering && (
+                <nav
+                  aria-label="Active filters"
+                  className="mt-3 flex flex-wrap items-center gap-1.5"
+                >
+                  <span className="mr-1 text-xs text-muted-foreground">Filtered by:</span>
+                  {QUESTION_FILTER_KEYS.filter((key) => activeFilters[key]).map((key) => (
+                    <Link
+                      key={key}
+                      href={buildPageHref(
+                        currentSubjectSlug,
+                        1,
+                        type,
+                        withFilter(activeFilters, key, null),
+                      )}
+                      className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/60 px-2 py-0.5 text-xs text-foreground transition-colors hover:border-destructive hover:bg-destructive/10 hover:text-destructive"
+                      title={`Remove ${QUESTION_FILTER_LABELS[key]} filter`}
+                    >
+                      <span className="text-muted-foreground">{QUESTION_FILTER_LABELS[key]}:</span>
+                      <span className="font-medium">
+                        {key === "chapter"
+                          ? formatChapterLabel(activeFilters[key])
+                          : key === "paper"
+                            ? formatPaperLabel(activeFilters[key])
+                            : activeFilters[key]}
+                      </span>
+                      <X className="size-3" aria-hidden="true" />
+                    </Link>
+                  ))}
+                </nav>
+              )}
+
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  {result.error
+                    ? "Could not load questions from Storage."
+                    : result.questions.length === 0
+                      ? filtering
+                        ? "No questions match these filters."
+                        : "No questions"
+                      : `Showing ${from + 1}–${from + result.questions.length} of ${result.total.toLocaleString()}`}
+                  {!result.error && subject && (
+                    <span className="text-muted-foreground/70">
+                      {" "}
+                      · {subject.name}
+                      {summaryFilters.length > 0 && ` · ${summaryFilters.join(" · ")}`}
+                      {" "}· {QUESTION_TYPE_LABELS[type]} · page {result.page} of{" "}
+                      {result.totalPages}
+                    </span>
+                  )}
+                </p>
+
+                {result.manifest && (
+                  <Badge variant="outline" className="font-normal">
+                    {result.manifest.totalQuestions.toLocaleString()} questions in Storage
+                  </Badge>
+                )}
+              </div>
+
+              {result.error ? (
+                <Card className="mt-4 border-dashed">
+                  <CardContent className="space-y-2 p-6 text-sm">
+                    <p className="font-semibold text-foreground">Storage question files are not ready.</p>
+                    <p className="text-muted-foreground">
+                      Run{" "}
+                      <code className="rounded bg-secondary px-1.5 py-0.5 text-xs">
+                        node --env-file=.env.local scripts/build-question-shards.mjs
+                      </code>{" "}
+                      once to generate the shard files and manifest in the private{" "}
+                      <code className="rounded bg-secondary px-1.5 py-0.5 text-xs">qb-raw</code>{" "}
+                      bucket.
+                    </p>
+                    <p className="break-words font-mono text-xs text-destructive">{result.error}</p>
+                  </CardContent>
+                </Card>
+              ) : result.questions.length === 0 ? (
+                <Card className="mt-4 border-dashed">
+                  <CardContent className="space-y-3 p-8 text-center text-sm text-muted-foreground">
+                    <p>
+                      No {QUESTION_TYPE_LABELS[type].toLowerCase()} questions found for{" "}
+                      {subject?.name ?? "this subject"}
+                      {filtering ? " matching the selected filters." : ". Pick another type or subject above."}
+                    </p>
+                    {filtering && (
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={buildPageHref(currentSubjectSlug, 1, type, {})}>
+                          Clear filters
+                        </Link>
+                      </Button>
                     )}
-                    rel="prev"
-                  >
-                    <ChevronLeft className="size-4" aria-hidden="true" />
-                    Previous
-                  </Link>
-                ) : (
-                  <span>
-                    <ChevronLeft className="size-4" aria-hidden="true" />
-                    Previous
-                  </span>
-                )}
-              </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  {result.questions.map((question, index) => (
+                    <QuestionCard key={question.id} question={question} index={from + index + 1} />
+                  ))}
+                </div>
+              )}
 
-              <span className="text-sm text-muted-foreground">
-                Page {result.page} of {result.totalPages}
-              </span>
+              {!result.error && result.total > 0 && (hasPrevious || hasNext) && (
+                <nav
+                  aria-label="Question pagination"
+                  className="mt-8 flex items-center justify-between gap-3"
+                >
+                  <Button variant="outline" size="sm" asChild={hasPrevious} disabled={!hasPrevious}>
+                    {hasPrevious ? (
+                      <Link
+                        href={buildPageHref(
+                          currentSubjectSlug,
+                          result.page - 1,
+                          type,
+                          activeFilters,
+                        )}
+                        rel="prev"
+                      >
+                        <ChevronLeft className="size-4" aria-hidden="true" />
+                        Previous
+                      </Link>
+                    ) : (
+                      <span>
+                        <ChevronLeft className="size-4" aria-hidden="true" />
+                        Previous
+                      </span>
+                    )}
+                  </Button>
 
-              <Button variant="outline" size="sm" asChild={hasNext} disabled={!hasNext}>
-                {hasNext ? (
-                  <Link
-                    href={buildPageHref(currentSubjectSlug, result.page + 1, type, activeFilters)}
-                    rel="next"
-                  >
-                    Next
-                    <ChevronRight className="size-4" aria-hidden="true" />
-                  </Link>
-                ) : (
-                  <span>
-                    Next
-                    <ChevronRight className="size-4" aria-hidden="true" />
+                  <span className="text-sm text-muted-foreground">
+                    Page {result.page} of {result.totalPages}
                   </span>
-                )}
-              </Button>
-            </nav>
+
+                  <Button variant="outline" size="sm" asChild={hasNext} disabled={!hasNext}>
+                    {hasNext ? (
+                      <Link
+                        href={buildPageHref(currentSubjectSlug, result.page + 1, type, activeFilters)}
+                        rel="next"
+                      >
+                        Next
+                        <ChevronRight className="size-4" aria-hidden="true" />
+                      </Link>
+                    ) : (
+                      <span>
+                        Next
+                        <ChevronRight className="size-4" aria-hidden="true" />
+                      </span>
+                    )}
+                  </Button>
+                </nav>
+              )}
+            </>
           )}
         </section>
       </main>
-      <Footer />
+      <Footer initialUser={user} />
     </div>
   );
 }

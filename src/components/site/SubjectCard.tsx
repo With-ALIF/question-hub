@@ -39,7 +39,7 @@ export function SubjectCard({ subject }: { subject: Subject }) {
           </span>
           <div>
             <h3 className="font-display text-base font-semibold text-foreground">{subject.name}</h3>
-            <p className="text-xs text-muted-foreground">{subject.questionCount.toLocaleString()} questions</p>
+            <p className="text-xs text-muted-foreground">{subject.questionCount.toLocaleString("bn-BD")} টি প্রশ্ন</p>
           </div>
         </div>
       </CardHeader>
@@ -48,13 +48,13 @@ export function SubjectCard({ subject }: { subject: Subject }) {
         {subject.chapters.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {subject.chapters.slice(0, 3).map((chapter) => (
-              <Badge key={chapter} variant="secondary" className="font-normal">
+              <Badge key={chapter} variant="secondary" className="font-normal text-xs">
                 {chapter}
               </Badge>
             ))}
             {subject.chapters.length > 3 && (
-              <Badge variant="secondary" className="font-normal">
-                +{subject.chapters.length - 3} more
+              <Badge variant="secondary" className="font-normal text-xs">
+                +{(subject.chapters.length - 3).toLocaleString("bn-BD")} টি আরও
               </Badge>
             )}
           </div>
@@ -65,7 +65,7 @@ export function SubjectCard({ subject }: { subject: Subject }) {
           href={`/questions?subject=${subject.slug}`}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition-colors hover:text-primary/80"
         >
-          Browse questions
+          প্রশ্নসমূহ দেখুন
           <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">→</span>
         </Link>
       </CardFooter>

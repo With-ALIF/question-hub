@@ -5,22 +5,24 @@ import { Navbar } from "@/components/site/Navbar";
 import { StorageSubjectCard } from "@/components/site/StorageSubjectCard";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { getCurrentUser } from "@/lib/auth/session";
 import { getQuestionManifest, type QuestionManifest } from "@/lib/questions/storage";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Subjects — QuestionBank",
+  title: "সকল বিষয় — QuestionBank",
   description:
-    "Browse Physics, Chemistry, Biology, Mathematics, ICT and other subjects from the Storage-backed question bank.",
+    "পদার্থবিজ্ঞান, রসায়ন, জীববিজ্ঞান, উচ্চতর গণিত, আইসিটি ও অন্যান্য বিষয়ের প্রশ্ন ব্যাংক।",
   openGraph: {
-    title: "Subjects — QuestionBank",
+    title: "সকল বিষয় — QuestionBank",
     description:
-      "Browse Physics, Chemistry, Biology, Mathematics, ICT and other subjects from the Storage-backed question bank.",
+      "পদার্থবিজ্ঞান, রসায়ন, জীববিজ্ঞান, উচ্চতর গণিত, আইসিটি ও অন্যান্য বিষয়ের প্রশ্ন ব্যাংক।",
   },
 };
 
 export default async function SubjectsPage() {
+  const user = await getCurrentUser();
   let manifest: QuestionManifest | null = null;
   let error: string | null = null;
 
@@ -34,23 +36,22 @@ export default async function SubjectsPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <Navbar />
+    <div className="flex min-h-screen flex-col bg-background font-sans">
+      <Navbar initialUser={user} />
       <main className="flex-1">
         <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                All subjects
+                সকল বিষয়
               </h1>
               <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
-                Every subject is available as Storage shards, so only the page you open is
-                downloaded. Choose a subject to start practising.
+                স্টোরেজ-ব্যাকড প্রশ্ন ব্যাংক থেকে আপনার পছন্দের বিষয় নির্বাচন করে অনুশীলন শুরু করুন।
               </p>
             </div>
             {manifest && (
-              <Badge variant="outline" className="font-normal">
-                {manifest.totalQuestions.toLocaleString()} questions in Storage
+              <Badge variant="outline" className="font-normal text-xs">
+                {manifest.totalQuestions.toLocaleString("bn-BD")} টি মোট প্রশ্ন
               </Badge>
             )}
           </div>
@@ -78,7 +79,7 @@ export default async function SubjectsPage() {
           )}
         </section>
       </main>
-      <Footer />
+      <Footer initialUser={user} />
     </div>
   );
 }
