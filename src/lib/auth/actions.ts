@@ -7,6 +7,7 @@ import {
   createSupabaseServerClient,
   isSupabaseConfigured,
 } from "@/lib/supabase/server";
+import { readAdminRole } from "./roles";
 import type { AuthState } from "./state";
 
 const NOT_CONFIGURED_MESSAGE =
@@ -134,6 +135,55 @@ export async function signUpAction(
   redirect("/dashboard");
 }
 
+/**
+ * Signs in an admin and lands them on the dashboard.
+ *
+ * Unlike `signInAction`, a successful password check is not enough: the role is
+ * re-read from `qb_profiles` and non-admins are signed straight back out, so a
+ * regular account can never leave a usable admin session behind.
+ */
+export async function adminSignInAction(
+  _previousState: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const email = readField(formData, "email");
+  const password = String(formData.get("password") ?? "");
+
+  if (!email || !password) {
+    return { status: "error", message: "Enter your email and password." };
+  }
+
+  if (!isSupabaseConfigured()) {
+    return { status: "error", message: NOT_CONFIGURED_MESSAGE };
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error || !data.user) {
+      return { status: "error", message: error?.message ?? "Invalid email or password." };
+    }
+
+    const role = await readAdminRole(data.user.id);
+
+    if (!role) {
+      await supabase.auth.signOut();
+      return {
+        status: "error",
+        message: "This account does not have admin access.",
+      };
+    }
+  } catch {
+    return {
+      status: "error",
+      message: "Unable to sign in right now. Please try again.",
+    };
+  }
+
+  redirect("/admin/dashboard");
+}
+
 export async function signOutAction(): Promise<void> {
   if (isSupabaseConfigured()) {
     try {
@@ -145,4 +195,21 @@ export async function signOutAction(): Promise<void> {
   }
 
   redirect("/");
+}
+
+/**
+ * Signs out and returns the admin to the sign-in screen rather than the public
+ * home page, so ending a session from the dashboard lands somewhere usable.
+ */
+export async function adminSignOutAction(): Promise<void> {
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createSupabaseServerClient();
+      await supabase.auth.signOut();
+    } catch {
+      // Clear the local session by returning to the login screen below.
+    }
+  }
+
+  redirect("/admin/login");
 }

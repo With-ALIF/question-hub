@@ -48,15 +48,17 @@ bun.lockb
 
 # Lovable
 .lovable/
-
-AGENTS.md
+# Markdown files (ignore all .md files except README.md)
+*.md
+!README.md
+!readme.md
 
 # Scripts
 scripts/build-favicon.cjs
 scripts/
 
 # Supabase
-supabase/
+# supabase/
 *.sql
 
 # Data

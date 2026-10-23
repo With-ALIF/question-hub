@@ -1,24 +1,78 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Bookmark, CalendarClock, Flame, ListChecks, Sparkles } from "lucide-react";
+import { redirect } from "next/navigation";
+import { BookOpen, Layers, ListChecks, UserRound } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { userSummary, userRecentActivity } from "@/data/mock";
+import { getCurrentProfile, getCurrentUser } from "@/lib/auth/session";
+import { getQuestionManifest } from "@/lib/questions/storage";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "My Dashboard — QuestionBank",
-  description: "Your practice overview: subscription status, progress and recent activity.",
+  description: "Your account and the live question bank at a glance.",
   openGraph: {
     title: "My Dashboard — QuestionBank",
-    description: "Your practice overview: subscription status, progress and recent activity.",
+    description: "Your account and the live question bank at a glance.",
   },
 };
 
-export default function UserDashboard() {
+function formatDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+export default async function UserDashboard() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const profile = await getCurrentProfile();
+  const manifest = await getQuestionManifest().catch(() => null);
+
+  const displayName =
+    profile?.full_name?.trim() ||
+    (typeof user.user_metadata?.["full_name"] === "string"
+      ? user.user_metadata["full_name"]
+      : "") ||
+    user.email?.split("@")[0] ||
+    "there";
+
+  const email = profile?.email ?? user.email ?? "";
+  const memberSince = formatDate(profile?.created_at);
+
+  const bankStats = [
+    {
+      icon: BookOpen,
+      label: "Questions in the bank",
+      value: manifest ? manifest.totalQuestions.toLocaleString() : null,
+    },
+    {
+      icon: ListChecks,
+      label: "MCQ questions",
+      value: manifest ? manifest.mcqTotal.toLocaleString() : null,
+    },
+    {
+      icon: Layers,
+      label: "Written questions",
+      value: manifest ? manifest.writtenTotal.toLocaleString() : null,
+    },
+    {
+      icon: UserRound,
+      label: "Subjects",
+      value: manifest ? String(manifest.subjects.length) : null,
+    },
+  ];
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
@@ -27,84 +81,77 @@ export default function UserDashboard() {
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">
-                Hi, {userSummary.name.split(" ")[0]} 👋
+                Hi, {displayName.split(" ")[0]} 👋
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Here&apos;s your practice overview. Keep your {userSummary.streak}-day streak going!
+                Here&apos;s your account and the live question bank.
               </p>
             </div>
-            <Button asChild>
-              <Link href="/subjects">Practise now</Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button asChild variant="outline">
+                <Link href="/questions">Browse questions</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/subjects">Practise now</Link>
+              </Button>
+            </div>
           </div>
 
-          {/* Subscription card */}
-          <Card className="mt-8 border-primary/40">
+          {/* Account — read from qb_profiles / Supabase Auth */}
+          <Card className="mt-8">
             <CardHeader className="pb-2">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <CardTitle className="flex items-center gap-2 font-display text-lg">
-                  <Sparkles className="size-5 text-accent-foreground" aria-hidden="true" />
-                  Your plan
-                </CardTitle>
-                <Badge className="bg-accent text-accent-foreground">{userSummary.plan}</Badge>
-              </div>
+              <CardTitle className="font-display text-lg">Your account</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
-              <p className="text-muted-foreground">
-                Duration: <span className="font-medium text-foreground">{userSummary.planDuration}</span>
-              </p>
-              <p className="text-muted-foreground">
-                Renews on: <span className="font-medium text-foreground">{userSummary.renewsOn}</span>
-              </p>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/plans">Manage plan</Link>
-              </Button>
+            <CardContent className="flex flex-wrap items-center gap-x-8 gap-y-3 text-sm">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Name</p>
+                <p className="font-medium text-foreground">{displayName}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Email</p>
+                <p className="font-medium text-foreground">{email || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Role</p>
+                <Badge variant="secondary" className="font-normal capitalize">
+                  {profile?.role ?? "user"}
+                </Badge>
+              </div>
+              {memberSince && (
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Member since</p>
+                  <p className="font-medium text-foreground">{memberSince}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Quick stats */}
-          <section aria-label="Your progress" className="mt-8 grid gap-4 sm:grid-cols-3">
-            {[
-              { icon: ListChecks, label: "Questions solved", value: userSummary.solvedCount },
-              { icon: Bookmark, label: "Bookmarked", value: userSummary.bookmarked },
-              { icon: Flame, label: "Day streak", value: userSummary.streak },
-            ].map(({ icon: Icon, label, value }) => (
-              <Card key={label}>
-                <CardContent className="flex items-center gap-4 pt-5">
-                  <span className="flex size-11 items-center justify-center rounded-xl bg-secondary text-primary">
-                    <Icon className="size-5" aria-hidden="true" />
-                  </span>
-                  <div>
-                    <p className="font-display text-2xl font-bold text-foreground">{value}</p>
-                    <p className="text-xs text-muted-foreground">{label}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </section>
-
-          {/* Recent activity */}
-          <section aria-labelledby="activity-heading" className="mt-10">
-            <h2 id="activity-heading" className="font-display text-lg font-semibold text-foreground">
-              Recent activity
-            </h2>
-            <ul className="mt-4 divide-y divide-border rounded-2xl border border-border bg-card">
-              {userRecentActivity.map((item) => (
-                <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-4">
-                  <p className="text-sm text-foreground">{item.text}</p>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <Badge variant="secondary" className="font-normal">{item.subject}</Badge>
-                    <CalendarClock className="size-3.5" aria-hidden="true" />
-                    {item.time}
-                  </div>
-                </li>
+          {/* Question bank — read from the Storage manifest */}
+          <section aria-label="Question bank" className="mt-8">
+            <h2 className="font-display text-lg font-semibold text-foreground">Question bank</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {bankStats.map(({ icon: Icon, label, value }) => (
+                <Card key={label}>
+                  <CardContent className="flex items-center gap-4 pt-5">
+                    <span className="flex size-11 items-center justify-center rounded-xl bg-secondary text-primary">
+                      <Icon className="size-5" aria-hidden="true" />
+                    </span>
+                    <div>
+                      <p className="font-display text-2xl font-bold text-foreground">
+                        {value ?? "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
-            </ul>
+            </div>
+            {manifest && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Updated {new Date(manifest.generatedAt).toLocaleString("en-GB")}.
+              </p>
+            )}
           </section>
-
-          <p className="mt-10 text-center text-xs text-muted-foreground">
-            UI prototype — dashboard data is mocked and nothing is saved yet.
-          </p>
         </section>
       </main>
       <Footer />

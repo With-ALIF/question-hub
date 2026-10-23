@@ -1,58 +1,43 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Cloud } from "lucide-react";
 
-import { QuestionCard, type QuestionListItem } from "@/components/questions/QuestionCard";
+import { QuestionCard } from "@/components/questions/QuestionCard";
 import { Footer } from "@/components/site/Footer";
 import { Navbar } from "@/components/site/Navbar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-const PAGE_SIZE = 10;
-
-const SOURCE_OPTIONS = ["Ac.QB", "Ad.QB", "qb5", "EAP", "MAP", "JOB", "Ex.MCQ", "AAP"];
-const TYPE_OPTIONS = [
-  { value: "mcq", label: "MCQ only" },
-  { value: "written", label: "Written only" },
-  { value: "all", label: "All questions" },
-] as const;
+import {
+  getQuestionPage,
+  isQuestionType,
+  QUESTION_PAGE_SIZE,
+  QUESTION_TYPES,
+  QUESTION_TYPE_LABELS,
+  type QuestionType,
+} from "@/lib/questions/storage";
 
 type QuestionsSearchParams = Promise<{
-  q?: string | string[];
-  source?: string | string[];
+  subject?: string | string[];
   type?: string | string[];
   page?: string | string[];
 }>;
 
 export const metadata: Metadata = {
   title: "Questions — QuestionBank",
-  description: "Search and practise questions from the QuestionBank collection.",
+  description: "Browse subject-wise questions streamed from Supabase Storage.",
 };
 
 function firstValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function normalizeType(value: string | undefined): "mcq" | "written" | "all" {
-  return value === "written" || value === "all" || value === "mcq" ? value : "mcq";
-}
-
-function buildPageHref(
-  nextPage: number,
-  filters: { q: string; source: string; questionType: string },
-) {
+function buildPageHref(subject: string, nextPage: number, type: QuestionType) {
   const params = new URLSearchParams();
-
-  if (filters.q) params.set("q", filters.q);
-  if (filters.source) params.set("source", filters.source);
-  if (filters.questionType !== "mcq") params.set("type", filters.questionType);
+  params.set("subject", subject);
+  params.set("type", type);
   if (nextPage > 1) params.set("page", String(nextPage));
-
-  const query = params.toString();
-  return query ? `/questions?${query}` : "/questions";
+  return `/questions?${params.toString()}`;
 }
 
 export default async function QuestionsPage({
@@ -61,35 +46,23 @@ export default async function QuestionsPage({
   searchParams: QuestionsSearchParams;
 }) {
   const params = await searchParams;
-  const q = firstValue(params.q)?.trim() ?? "";
-  const source = firstValue(params.source)?.trim() ?? "";
-  const questionType = normalizeType(firstValue(params.type));
+  const requestedSubject = firstValue(params.subject)?.trim() ?? "";
+  const requestedType = firstValue(params.type)?.trim() ?? "";
   const requestedPage = Number(firstValue(params.page) ?? "1");
   const page =
     Number.isFinite(requestedPage) && requestedPage > 0 ? Math.floor(requestedPage) : 1;
-  const from = (page - 1) * PAGE_SIZE;
+  const type: QuestionType = isQuestionType(requestedType) ? requestedType : "all";
 
-  const supabase = await createSupabaseServerClient();
-
-  let query = supabase
-    .from("qb_questions")
-    .select(
-      "id, external_id, question_text, options, correct_option, answer, explanation, source_db, institution, year, topic_code, keyword, is_mcq",
-    )
-    .eq("is_published", true)
-    .order("external_id", { ascending: true })
-    .range(from, from + PAGE_SIZE - 1);
-
-  if (q) query = query.ilike("question_text", `%${q}%`);
-  if (source) query = query.eq("source_db", source);
-  if (questionType === "mcq") query = query.eq("is_mcq", true);
-  if (questionType === "written") query = query.eq("is_mcq", false);
-
-  const { data, error } = await query;
-  const questions = (data ?? []) as QuestionListItem[];
-  const hasFilters = Boolean(q || source || questionType !== "mcq");
-  const hasPrevious = page > 1;
-  const hasNext = questions.length === PAGE_SIZE;
+  const result = await getQuestionPage({
+    subject: requestedSubject || "physics",
+    page,
+    type,
+  });
+  const subject = result.subject;
+  const pageSize = result.pageSize || QUESTION_PAGE_SIZE;
+  const from = (result.page - 1) * pageSize;
+  const hasPrevious = result.page > 1;
+  const hasNext = result.page < result.totalPages;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -97,123 +70,159 @@ export default async function QuestionsPage({
       <main className="flex-1">
         <section className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-12">
           <div className="space-y-3">
-            <Badge variant="secondary">Question bank</Badge>
+            <Badge variant="secondary" className="gap-1.5">
+              <Cloud className="size-3.5" aria-hidden="true" />
+              Storage-backed question bank
+            </Badge>
             <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Practice questions
             </h1>
             <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Search the imported collection by question text, source and type. Answers and
-              explanations stay hidden until you reveal them.
+              Questions are stored as sharded JSON files in Supabase Storage. Choose a subject
+              below; only the current page shard is downloaded, so the database stays empty.
             </p>
           </div>
 
           <form
             action="/questions"
             method="get"
-            className="mt-7 grid gap-3 rounded-xl border border-border bg-card p-4 shadow-sm sm:grid-cols-[1fr_auto_auto_auto] sm:items-end"
+            className="mt-7 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-sm"
           >
-            <label className="space-y-1.5">
+            <label className="min-w-52 flex-1 space-y-1.5">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Search
-              </span>
-              <Input
-                name="q"
-                defaultValue={q}
-                placeholder="Search question text..."
-                aria-label="Search question text"
-              />
-            </label>
-
-            <label className="space-y-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Source
+                Subject
               </span>
               <select
-                name="source"
-                defaultValue={source}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring sm:w-32"
+                name="subject"
+                defaultValue={subject?.slug ?? "physics"}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <option value="">All</option>
-                {SOURCE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
+                {result.subjects.length === 0 ? (
+                  <option value="physics">Physics</option>
+                ) : (
+                  result.subjects.map((item) => (
+                    <option key={item.slug} value={item.slug}>
+                      {item.name} ({item.total.toLocaleString()})
+                    </option>
+                  ))
+                )}
               </select>
             </label>
 
-            <label className="space-y-1.5">
+            <label className="min-w-40 space-y-1.5">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Type
               </span>
               <select
                 name="type"
-                defaultValue={questionType}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring sm:w-36"
+                defaultValue={type}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring"
               >
-                {TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
+                {QUESTION_TYPES.map((item) => {
+                  const count = subject
+                    ? item === "mcq"
+                      ? subject.mcq
+                      : item === "written"
+                        ? subject.written
+                        : subject.total
+                    : 0;
+
+                  return (
+                    <option key={item} value={item}>
+                      {QUESTION_TYPE_LABELS[item]} ({count.toLocaleString()})
+                    </option>
+                  );
+                })}
               </select>
             </label>
 
-            <Button type="submit" className="sm:mb-0">
-              <Search className="size-4" aria-hidden="true" />
-              Search
-            </Button>
+            <Button type="submit">Show questions</Button>
           </form>
+
+          {subject && (subject.mcq > 0 || subject.written > 0) && (
+            <nav
+              aria-label="Question type filter"
+              className="mt-3 flex flex-wrap items-center gap-1.5"
+            >
+              <span className="mr-1 text-xs text-muted-foreground">Quick filter:</span>
+              {QUESTION_TYPES.map((item) => {
+                const count =
+                  item === "mcq" ? subject.mcq : item === "written" ? subject.written : subject.total;
+                const isActive = item === type;
+
+                return (
+                  <Link
+                    key={item}
+                    href={buildPageHref(subject.slug, 1, item)}
+                    aria-current={isActive ? "page" : undefined}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      isActive
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    {QUESTION_TYPE_LABELS[item]} ({count.toLocaleString()})
+                  </Link>
+                );
+              })}
+            </nav>
+          )}
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
-              {error
-                ? "Could not load questions."
-                : questions.length === 0
+              {result.error
+                ? "Could not load questions from Storage."
+                : result.questions.length === 0
                   ? "No questions"
-                  : `Showing ${from + 1}–${from + questions.length}`}
-              {!error && questions.length > 0 && (
-                <span className="text-muted-foreground/70"> · page {page}</span>
+                  : `Showing ${from + 1}–${from + result.questions.length} of ${result.total.toLocaleString()}`}
+              {!result.error && subject && (
+                <span className="text-muted-foreground/70">
+                  {" "}
+                  · {subject.name} · {QUESTION_TYPE_LABELS[type]} · page {result.page} of{" "}
+                  {result.totalPages}
+                </span>
               )}
             </p>
 
-            {hasFilters && (
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/questions">Clear filters</Link>
-              </Button>
+            {result.manifest && (
+              <Badge variant="outline" className="font-normal">
+                {result.manifest.totalQuestions.toLocaleString()} questions in Storage
+              </Badge>
             )}
           </div>
 
-          {error ? (
+          {result.error ? (
             <Card className="mt-4 border-dashed">
               <CardContent className="space-y-2 p-6 text-sm">
-                <p className="font-semibold text-foreground">The question table is not ready yet.</p>
+                <p className="font-semibold text-foreground">Storage question files are not ready.</p>
                 <p className="text-muted-foreground">
-                  Apply the raw-import SQL migration, then import the JSONL files. Once the
-                  columns exist, this page will load automatically.
+                  Run{" "}
+                  <code className="rounded bg-secondary px-1.5 py-0.5 text-xs">
+                    node --env-file=.env.local scripts/build-question-shards.mjs
+                  </code>{" "}
+                  once to generate the shard files and manifest in the private{" "}
+                  <code className="rounded bg-secondary px-1.5 py-0.5 text-xs">qb-raw</code>{" "}
+                  bucket.
                 </p>
-                <p className="break-words font-mono text-xs text-destructive">{error.message}</p>
+                <p className="break-words font-mono text-xs text-destructive">{result.error}</p>
               </CardContent>
             </Card>
-          ) : questions.length === 0 ? (
+          ) : result.questions.length === 0 ? (
             <Card className="mt-4 border-dashed">
               <CardContent className="p-8 text-center text-sm text-muted-foreground">
-                No questions found. Try a different search or clear the filters.
+                No {QUESTION_TYPE_LABELS[type].toLowerCase()} questions found for{" "}
+                {subject?.name ?? "this subject"}. Pick another type or subject above.
               </CardContent>
             </Card>
           ) : (
             <div className="mt-4 space-y-4">
-              {questions.map((question, index) => (
-                <QuestionCard
-                  key={question.id}
-                  question={question}
-                  index={from + index + 1}
-                />
+              {result.questions.map((question, index) => (
+                <QuestionCard key={question.id} question={question} index={from + index + 1} />
               ))}
             </div>
           )}
 
-          {!error && (hasPrevious || hasNext) && (
+          {!result.error && result.total > 0 && (hasPrevious || hasNext) && (
             <nav
               aria-label="Question pagination"
               className="mt-8 flex items-center justify-between gap-3"
@@ -221,7 +230,7 @@ export default async function QuestionsPage({
               <Button variant="outline" size="sm" asChild={hasPrevious} disabled={!hasPrevious}>
                 {hasPrevious ? (
                   <Link
-                    href={buildPageHref(page - 1, { q, source, questionType })}
+                    href={buildPageHref(subject?.slug ?? "physics", result.page - 1, type)}
                     rel="prev"
                   >
                     <ChevronLeft className="size-4" aria-hidden="true" />
@@ -235,12 +244,14 @@ export default async function QuestionsPage({
                 )}
               </Button>
 
-              <span className="text-sm text-muted-foreground">Page {page}</span>
+              <span className="text-sm text-muted-foreground">
+                Page {result.page} of {result.totalPages}
+              </span>
 
               <Button variant="outline" size="sm" asChild={hasNext} disabled={!hasNext}>
                 {hasNext ? (
                   <Link
-                    href={buildPageHref(page + 1, { q, source, questionType })}
+                    href={buildPageHref(subject?.slug ?? "physics", result.page + 1, type)}
                     rel="next"
                   >
                     Next

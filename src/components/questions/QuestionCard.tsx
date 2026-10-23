@@ -12,10 +12,12 @@ export type QuestionListItem = {
   id: string;
   external_id: number | null;
   question_text: string;
+  question_html?: string | null;
   options: QuestionOption[];
   correct_option: number | null;
   answer: string | null;
   explanation: string | null;
+  explanation_html?: string | null;
   source_db: string | null;
   institution: string | null;
   year: string | null;
@@ -34,6 +36,39 @@ function plainText(value: string | null | undefined) {
     .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// Source dumps keep diagrams/figures as <img> tags, which plain text
+// extraction drops. `html` is the sanitized variant built by the shard script,
+// so it only ever contains whitelisted tags and remote images.
+function RichText({
+  html,
+  text,
+  className,
+}: {
+  html: string | null | undefined;
+  text: string | null | undefined;
+  className?: string;
+}) {
+  const markup = typeof html === "string" ? html.trim() : "";
+
+  if (!markup) {
+    return <p className={cn("whitespace-pre-wrap", className)}>{plainText(text)}</p>;
+  }
+
+  return (
+    <div
+      className={cn("rich-text", className)}
+      dangerouslySetInnerHTML={{ __html: markup }}
+      onClick={(event) => {
+        // Tap an image to open the full-size figure in a new tab.
+        const target = event.target;
+        if (target instanceof HTMLImageElement && target.src) {
+          window.open(target.src, "_blank", "noopener,noreferrer");
+        }
+      }}
+    />
+  );
 }
 
 export function QuestionCard({ question, index }: QuestionCardProps) {
@@ -69,9 +104,11 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
         </div>
 
         <div className="space-y-5 p-5 sm:p-6">
-          <p className="whitespace-pre-wrap text-base font-medium leading-relaxed text-foreground">
-            {plainText(question.question_text)}
-          </p>
+          <RichText
+            html={question.question_html}
+            text={question.question_text}
+            className="text-base font-medium leading-relaxed text-foreground"
+          />
 
           {hasOptions ? (
             <div className="grid gap-2">
@@ -151,15 +188,17 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
                   <span className="text-muted-foreground">{plainText(question.answer)}</span>
                 </p>
               )}
-              {question.explanation && (
-                <p>
-                  <span className="font-semibold text-foreground">Explanation: </span>
-                  <span className="whitespace-pre-wrap text-muted-foreground">
-                    {plainText(question.explanation)}
-                  </span>
-                </p>
+              {(question.explanation || question.explanation_html) && (
+                <div className="space-y-1.5">
+                  <p className="font-semibold text-foreground">Explanation:</p>
+                  <RichText
+                    html={question.explanation_html}
+                    text={question.explanation}
+                    className="text-muted-foreground"
+                  />
+                </div>
               )}
-              {!question.answer && !question.explanation && (
+              {!question.answer && !question.explanation && !question.explanation_html && (
                 <p className="text-muted-foreground">No answer or explanation is available.</p>
               )}
             </div>

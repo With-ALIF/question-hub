@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Plan } from "@/data/mock";
+import type { Plan } from "@/data/plans";
 
 export function PlanCard({ plan }: { plan: Plan }) {
   return (

@@ -1,8 +1,16 @@
 import Link from "next/link";
-import { Atom, Dna, FlaskConical, MonitorSmartphone, Sigma, type LucideIcon } from "lucide-react";
+import {
+  Atom,
+  BookOpen,
+  Dna,
+  FlaskConical,
+  MonitorSmartphone,
+  Sigma,
+  type LucideIcon,
+} from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Subject } from "@/data/mock";
+import type { Subject } from "@/data/subjects";
 
 const iconMap: Record<Subject["icon"], LucideIcon> = {
   atom: Atom,
@@ -10,6 +18,7 @@ const iconMap: Record<Subject["icon"], LucideIcon> = {
   dna: Dna,
   sigma: Sigma,
   monitor: MonitorSmartphone,
+  book: BookOpen,
 };
 
 export function SubjectCard({ subject }: { subject: Subject }) {
@@ -35,23 +44,25 @@ export function SubjectCard({ subject }: { subject: Subject }) {
         </div>
       </CardHeader>
       <CardContent className="flex-1 pb-4">
-        <p className="text-sm text-muted-foreground">{subject.tagline}</p>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {subject.chapters.slice(0, 3).map((chapter) => (
-            <Badge key={chapter} variant="secondary" className="font-normal">
-              {chapter}
-            </Badge>
-          ))}
-          {subject.chapters.length > 3 && (
-            <Badge variant="secondary" className="font-normal">
-              +{subject.chapters.length - 3} more
-            </Badge>
-          )}
-        </div>
+        {subject.tagline && <p className="text-sm text-muted-foreground">{subject.tagline}</p>}
+        {subject.chapters.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {subject.chapters.slice(0, 3).map((chapter) => (
+              <Badge key={chapter} variant="secondary" className="font-normal">
+                {chapter}
+              </Badge>
+            ))}
+            {subject.chapters.length > 3 && (
+              <Badge variant="secondary" className="font-normal">
+                +{subject.chapters.length - 3} more
+              </Badge>
+            )}
+          </div>
+        )}
       </CardContent>
       <CardFooter className="pt-0">
         <Link
-          href="/subjects"
+          href={`/questions?subject=${subject.slug}`}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition-colors hover:text-primary/80"
         >
           Browse questions

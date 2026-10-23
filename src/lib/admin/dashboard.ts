@@ -1,4 +1,4 @@
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getQuestionManifest } from "@/lib/questions/storage";
 
 export type AdminStat = {
   label: string;
@@ -10,8 +10,9 @@ export type AdminSubject = {
   id: string;
   slug: string;
   name: string;
-  tagline: string | null;
-  chapterCount: number;
+  questionCount: number;
+  mcqCount: number;
+  writtenCount: number;
 };
 
 export type AdminRecentQuestion = {
@@ -19,7 +20,7 @@ export type AdminRecentQuestion = {
   question: string;
   source: string | null;
   topic: string | null;
-  date: string;
+  year: string | null;
 };
 
 export type AdminDashboardData = {
@@ -35,7 +36,7 @@ export type AdminDashboardResult = {
 
 const EMPTY_DATA: AdminDashboardData = {
   stats: [
-    { label: "Total Questions", value: "0", hint: "No questions yet" },
+    { label: "Total Questions", value: "0", hint: "No Storage shards yet" },
     { label: "Registered Users", value: "0", hint: "No profiles yet" },
     { label: "Active Subscriptions", value: "—", hint: "Not configured yet" },
     { label: "Subjects", value: "0", hint: "No subjects yet" },
@@ -43,19 +44,6 @@ const EMPTY_DATA: AdminDashboardData = {
   subjects: [],
   recentQuestions: [],
 };
-
-function formatDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-  }).format(date);
-}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -74,114 +62,49 @@ function getErrorMessage(error: unknown) {
 
 export async function getAdminDashboardData(): Promise<AdminDashboardResult> {
   try {
-    const supabase = createSupabaseAdminClient();
-
-    const [questionCountResult, mcqCountResult, userCountResult, subjectResult, recentResult] =
-      await Promise.all([
-        supabase
-          .from("qb_questions")
-          .select("*", { count: "estimated", head: true })
-          .eq("is_published", true),
-        supabase
-          .from("qb_questions")
-          .select("*", { count: "estimated", head: true })
-          .eq("is_published", true)
-          .eq("is_mcq", true),
-        supabase.from("qb_profiles").select("*", { count: "exact", head: true }),
-        supabase
-          .from("qb_subjects")
-          .select("id, slug, name, tagline")
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("qb_questions")
-          .select("id, question_text, source_db, topic_code, created_at")
-          .eq("is_published", true)
-          .order("external_id", { ascending: false })
-          .limit(5),
-      ]);
-
-    const firstError =
-      questionCountResult.error ??
-      mcqCountResult.error ??
-      userCountResult.error ??
-      subjectResult.error ??
-      recentResult.error;
-
-    if (firstError) {
-      throw firstError;
-    }
-
-    const subjectRows = subjectResult.data ?? [];
-    const subjectIds = subjectRows.map((subject) => subject.id);
-
-    const chapterResult =
-      subjectIds.length > 0
-        ? await supabase
-            .from("qb_chapters")
-            .select("subject_id")
-            .eq("is_active", true)
-            .in("subject_id", subjectIds)
-        : { data: [], error: null };
-
-    if (chapterResult.error) {
-      throw chapterResult.error;
-    }
-
-    const chapterCounts = new Map<string, number>();
-
-    for (const chapter of chapterResult.data ?? []) {
-      chapterCounts.set(chapter.subject_id, (chapterCounts.get(chapter.subject_id) ?? 0) + 1);
-    }
-
-    const totalQuestions = questionCountResult.count ?? 0;
-    const mcqQuestions = mcqCountResult.count ?? 0;
-    const writtenQuestions = Math.max(0, totalQuestions - mcqQuestions);
-    const users = userCountResult.count ?? 0;
-    const subjects: AdminSubject[] = subjectRows.map((subject) => ({
-      id: subject.id,
+    const manifest = await getQuestionManifest();
+    const subjects: AdminSubject[] = manifest.subjects.map((subject) => ({
+      id: subject.slug,
       slug: subject.slug,
       name: subject.name,
-      tagline: subject.tagline,
-      chapterCount: chapterCounts.get(subject.id) ?? 0,
+      questionCount: subject.total,
+      mcqCount: subject.mcq,
+      writtenCount: subject.written,
     }));
 
-    const firstSubject = subjects[0];
-    const lastSubject = subjects[subjects.length - 1];
+    const coreSubjects = subjects.filter((subject) => subject.slug !== "other");
+    const firstSubject = coreSubjects[0];
+    const lastSubject = coreSubjects[coreSubjects.length - 1];
+    const hasOther = subjects.some((subject) => subject.slug === "other");
     const subjectHint =
       firstSubject && lastSubject
-        ? `${firstSubject.name} → ${lastSubject.name}`
+        ? `${firstSubject.name} → ${lastSubject.name}${hasOther ? " + Other" : ""}`
         : "No subjects yet";
 
     const stats: AdminStat[] = [
       {
         label: "Total Questions",
-        value: totalQuestions.toLocaleString(),
-        hint: `${mcqQuestions.toLocaleString()} MCQ · ${writtenQuestions.toLocaleString()} written (estimated)`,
-      },
-      {
-        label: "Registered Users",
-        value: users.toLocaleString(),
-        hint: "Live from qb_profiles",
-      },
-      {
-        label: "Active Subscriptions",
-        value: "—",
-        hint: "No subscription table yet",
+        value: manifest.totalQuestions.toLocaleString(),
+        hint: `${manifest.mcqTotal.toLocaleString()} MCQ · ${manifest.writtenTotal.toLocaleString()} written`,
       },
       {
         label: "Subjects",
         value: subjects.length.toLocaleString(),
         hint: subjectHint,
       },
+      {
+        label: "Active Subscriptions",
+        value: "—",
+        hint: "No subscription table yet",
+      },
     ];
 
-    const recentQuestions: AdminRecentQuestion[] = (recentResult.data ?? []).map((question) => ({
+    const recentQuestions: AdminRecentQuestion[] = manifest.recentQuestions.map((question) => ({
       id: question.id,
-      question: question.question_text,
-      source: question.source_db,
-      topic: question.topic_code,
-      date: formatDate(question.created_at),
+      question: question.question,
+      source: question.source,
+      topic: question.topic,
+      year: question.year,
     }));
 
     return {

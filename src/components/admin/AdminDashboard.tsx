@@ -9,19 +9,16 @@ import {
   Menu,
   MessageSquareText,
   ReceiptText,
-  Users,
   X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import type { AdminDashboardData } from "@/lib/admin/dashboard";
 
 const sidebarItems = [
   { icon: LayoutDashboard, label: "Dashboard", active: true },
   { icon: ListChecks, label: "Questions", active: false },
   { icon: BookOpen, label: "Subjects", active: false },
-  { icon: Users, label: "Users", active: false },
   { icon: ReceiptText, label: "Subscriptions", active: false },
   { icon: MessageSquareText, label: "Feedback", active: false },
 ] as const;
@@ -98,9 +95,6 @@ export function AdminDashboard({
             </button>
             <h1 className="font-display text-lg font-bold text-foreground">Dashboard</h1>
           </div>
-          <Badge variant="secondary" className="font-medium">
-            Live data
-          </Badge>
         </header>
 
         {/* Content */}
@@ -115,7 +109,7 @@ export function AdminDashboard({
           )}
 
           {/* Stats */}
-          <section aria-label="Overview statistics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section aria-label="Overview statistics" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {data.stats.map((stat) => (
               <Card key={stat.label}>
                 <CardHeader className="pb-1">
@@ -137,16 +131,15 @@ export function AdminDashboard({
                   Subjects
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Live from the subject catalogue.
+                  Live from the Storage manifest.
                 </p>
               </div>
-              <Button variant="outline" size="sm">Manage subjects</Button>
             </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
               {data.subjects.length === 0 ? (
-                <Card className="border-dashed sm:col-span-2 xl:col-span-5">
+                <Card className="border-dashed sm:col-span-2 xl:col-span-6">
                   <CardContent className="p-6 text-sm text-muted-foreground">
-                    No active subjects yet. Add rows to <code>qb_subjects</code> to populate this section.
+                    No Storage subjects yet. Run the shard build script to populate this section.
                   </CardContent>
                 </Card>
               ) : (
@@ -157,11 +150,11 @@ export function AdminDashboard({
                         <p className="text-sm font-semibold text-foreground">{subject.name}</p>
                         <Badge variant="secondary" className="font-normal">Active</Badge>
                       </div>
-                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                        {subject.tagline ?? "No description"}
+                      <p className="mt-2 font-display text-2xl font-bold text-primary">
+                        {subject.questionCount.toLocaleString()}
                       </p>
-                      <p className="mt-3 text-xs text-muted-foreground">
-                        {subject.chapterCount} chapter{subject.chapterCount === 1 ? "" : "s"}
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        {subject.mcqCount.toLocaleString()} MCQ · {subject.writtenCount.toLocaleString()} written
                       </p>
                     </CardContent>
                   </Card>
@@ -170,49 +163,6 @@ export function AdminDashboard({
             </div>
           </section>
 
-          {/* Recent questions table */}
-          <section aria-labelledby="recent-heading" className="rounded-2xl border border-border bg-card">
-            <div className="flex items-center justify-between border-b border-border px-5 py-4">
-              <h2 id="recent-heading" className="font-display text-lg font-semibold text-foreground">
-                Recent questions
-              </h2>
-              <Button variant="outline" size="sm" asChild>
-                <a href="/questions">View all</a>
-              </Button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-                    <th scope="col" className="px-5 py-3 font-medium">Question</th>
-                    <th scope="col" className="px-5 py-3 font-medium">Source</th>
-                    <th scope="col" className="px-5 py-3 font-medium">Topic</th>
-                    <th scope="col" className="px-5 py-3 font-medium">Added</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.recentQuestions.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-5 py-8 text-center text-muted-foreground">
-                        No questions imported yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    data.recentQuestions.map((row) => (
-                      <tr key={row.id} className="border-b border-border last:border-0">
-                        <td className="max-w-xs px-5 py-3.5 text-foreground">{row.question}</td>
-                        <td className="px-5 py-3.5">
-                          <Badge variant="secondary" className="font-normal">{row.source ?? "—"}</Badge>
-                        </td>
-                        <td className="px-5 py-3.5 text-muted-foreground">{row.topic ?? "—"}</td>
-                        <td className="px-5 py-3.5 text-muted-foreground">{row.date}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
         </main>
       </div>
     </div>

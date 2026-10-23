@@ -1,21 +1,23 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { AdminDashboard } from "@/components/admin/AdminDashboard";
-import { getAdminDashboardData } from "@/lib/admin/dashboard";
+import { getCurrentRole } from "@/lib/auth/roles";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Admin Dashboard — QuestionBank",
-  description: "Admin overview of questions, users, subjects and subscriptions.",
-  openGraph: {
-    title: "Admin Dashboard — QuestionBank",
-    description: "Admin overview of questions, users, subjects and subscriptions.",
-  },
+  title: "Admin — QuestionBank",
+  description: "QuestionBank administration.",
 };
 
-export default async function AdminPage() {
-  const { data, error } = await getAdminDashboardData();
+/**
+ * `/admin` is a forwarding route only: the dashboard lives at
+ * `/admin/dashboard` behind the role guard, and everyone else is sent to the
+ * admin sign-in screen. Keeping the data fetching out of this file means there
+ * is no unprotected path into the admin aggregates.
+ */
+export default async function AdminIndexPage() {
+  const role = await getCurrentRole();
 
-  return <AdminDashboard data={data} error={error} />;
+  redirect(role ? "/admin/dashboard" : "/admin/login");
 }

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { PlanCard } from "@/components/site/PlanCard";
-import { plans } from "@/data/mock";
+import { plans } from "@/data/plans";
 
 export const metadata: Metadata = {
   title: "Subscription Plans — QuestionBank",
