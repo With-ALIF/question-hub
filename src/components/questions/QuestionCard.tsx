@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Bookmark } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { QuestionOption } from "@/lib/supabase/types";
 import { formatChapterLabel } from "@/data/chapters";
 import { renderMathInContent } from "@/lib/math";
+import { isQuestionSaved, toggleSaveQuestion, SAVED_QUESTIONS_EVENT } from "@/lib/saved-questions";
 import { cn } from "@/lib/utils";
 
 export type QuestionListItem = {
@@ -26,6 +28,7 @@ export type QuestionListItem = {
   topic_code: string | null;
   keyword: string | null;
   is_mcq: boolean;
+  subject?: string | null;
 };
 
 type QuestionCardProps = {
@@ -49,12 +52,24 @@ function RichText({
   text: string | null | undefined;
   className?: string;
 }) {
-  const content = html || text || "";
+  let content = "";
+  if (html && text) {
+    const textTrimmed = text.trim();
+    const htmlClean = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    if (htmlClean.includes(textTrimmed)) {
+      content = html;
+    } else {
+      content = `${html}<p>${textTrimmed}</p>`;
+    }
+  } else {
+    content = html || text || "";
+  }
+
   const rendered = renderMathInContent(content);
 
   return (
     <div
-      className={cn("rich-text whitespace-pre-wrap", className)}
+      className={cn("rich-text", !html && "whitespace-pre-line", className)}
       dangerouslySetInnerHTML={{ __html: rendered }}
       onClick={(event) => {
         const target = event.target;
@@ -69,6 +84,24 @@ function RichText({
 export function QuestionCard({ question, index }: QuestionCardProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    setIsSaved(isQuestionSaved(question.id));
+
+    const handleUpdate = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail) return;
+      if (detail.cleared || detail.id === question.id) {
+        setIsSaved(isQuestionSaved(question.id));
+      }
+    };
+
+    window.addEventListener(SAVED_QUESTIONS_EVENT, handleUpdate);
+    return () => {
+      window.removeEventListener(SAVED_QUESTIONS_EVENT, handleUpdate);
+    };
+  }, [question.id]);
 
   const options = Array.isArray(question.options) ? question.options : [];
   const hasOptions = question.is_mcq && options.length > 0;
@@ -86,21 +119,41 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-0">
-        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-secondary/30 px-5 py-3 text-xs text-muted-foreground">
-          <span className="font-mono font-semibold text-foreground">#{index}</span>
-          {question.external_id !== null && (
-            <span className="font-mono">ID {question.external_id}</span>
-          )}
-          {question.source_db && <Badge variant="secondary">{question.source_db}</Badge>}
-          {question.institution && <Badge variant="outline">{question.institution}</Badge>}
-          {question.year && <Badge variant="outline">{question.year}</Badge>}
-          {question.topic_code && (
-            <Badge variant="outline" title={question.topic_code}>
-              {formatChapterLabel(question.topic_code)}
-            </Badge>
-          )}
-          {question.keyword && <Badge variant="secondary" className="font-normal">{question.keyword}</Badge>}
-          {!question.is_mcq && <Badge variant="secondary">Written</Badge>}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary/30 px-5 py-2.5 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono font-semibold text-foreground">#{index}</span>
+            {question.external_id !== null && (
+              <span className="font-mono">ID {question.external_id}</span>
+            )}
+            {question.source_db && <Badge variant="secondary">{question.source_db}</Badge>}
+            {question.institution && <Badge variant="outline">{question.institution}</Badge>}
+            {question.year && <Badge variant="outline">{question.year}</Badge>}
+            {question.topic_code && (
+              <Badge variant="outline" title={question.topic_code}>
+                {formatChapterLabel(question.topic_code)}
+              </Badge>
+            )}
+            {question.keyword && <Badge variant="secondary" className="font-normal">{question.keyword}</Badge>}
+            {!question.is_mcq && <Badge variant="secondary">Written</Badge>}
+          </div>
+
+          <Button
+            type="button"
+            variant={isSaved ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => {
+              const nextSaved = toggleSaveQuestion(question);
+              setIsSaved(nextSaved);
+            }}
+            className={cn(
+              "h-7 px-2.5 text-xs gap-1.5 transition-colors cursor-pointer",
+              isSaved && "text-primary font-medium bg-primary/10 hover:bg-primary/20",
+            )}
+            title={isSaved ? "সেভ তালিকা থেকে মুছুন" : "প্রশ্নটি সেভ করুন"}
+          >
+            <Bookmark className={cn("size-3.5 transition-transform", isSaved && "fill-primary text-primary scale-110")} />
+            <span>{isSaved ? "সেভ করা" : "সেভ"}</span>
+          </Button>
         </div>
 
         <div className="space-y-5 p-5 sm:p-6">

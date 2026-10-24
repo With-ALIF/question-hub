@@ -2,7 +2,8 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { BookOpenCheck, Eye, EyeOff } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, BookOpenCheck, Eye, EyeOff } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import { signInAction } from "@/lib/auth/actions";
 import { INITIAL_AUTH_STATE } from "@/lib/auth/state";
 
 export function LoginForm() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction, isPending] = useActionState(
     signInAction,
@@ -20,6 +22,24 @@ export function LoginForm() {
     <div className="flex min-h-screen flex-col bg-background">
       <main className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
+          <div className="mb-6 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.push("/");
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary/60 hover:text-foreground cursor-pointer shadow-2xs"
+              title="আগের পেজে ফিরে যান"
+            >
+              <ArrowLeft className="size-3.5" aria-hidden="true" />
+              <span>ফিরে যান</span>
+            </button>
+          </div>
+
           <Link
             href="/"
             className="mb-8 flex items-center justify-center gap-2"
@@ -33,15 +53,19 @@ export function LoginForm() {
             </span>
           </Link>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-display text-2xl">Welcome back</CardTitle>
-              <CardDescription>Log in to continue where you left off.</CardDescription>
+          <Card className="border-border/80 bg-card shadow-sm">
+            <CardHeader className="space-y-1.5 pb-4">
+              <CardTitle className="font-display text-2xl font-bold tracking-tight text-foreground">
+                আবারও স্বাগতম!
+              </CardTitle>
+              <CardDescription className="text-sm text-muted-foreground leading-relaxed">
+                যেখান থেকে শেষ করেছিলেন সেখান থেকেই আবার প্রস্তুতি শুরু করতে অ্যাকাউন্টে লগইন করুন।
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form className="space-y-4" action={formAction}>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">ইমেইল</Label>
                   <input
                     id="email"
                     name="email"
@@ -53,7 +77,7 @@ export function LoginForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">পাসওয়ার্ড</Label>
                   <div className="relative">
                     <input
                       id="password"
@@ -67,15 +91,15 @@ export function LoginForm() {
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
                       aria-label={showPassword ? "Hide password" : "Show password"}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
                     </button>
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isPending} aria-busy={isPending}>
-                  Log in
+                <Button type="submit" className="w-full font-medium cursor-pointer" disabled={isPending} aria-busy={isPending}>
+                  {isPending ? "লগইন হচ্ছে..." : "লগইন করুন"}
                 </Button>
               </form>
 
@@ -93,9 +117,9 @@ export function LoginForm() {
               )}
 
               <p className="mt-6 text-center text-sm text-muted-foreground">
-                New here?{" "}
+                নতুন শিক্ষার্থী?{" "}
                 <Link href="/register" className="font-semibold text-primary hover:underline">
-                  Create an account
+                  অ্যাকাউন্ট তৈরি করুন
                 </Link>
               </p>
             </CardContent>

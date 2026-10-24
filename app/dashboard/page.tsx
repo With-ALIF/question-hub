@@ -312,7 +312,7 @@ export default async function UserDashboard() {
               </Link>
 
               <Link
-                href="/questions"
+                href="/saved"
                 className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-blue-500/50 hover:shadow-md"
               >
                 <div>

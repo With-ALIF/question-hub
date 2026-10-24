@@ -1,100 +1,56 @@
 "use client";
 
-import { useState } from "react";
-import {
-  BookOpen,
-  LayoutDashboard,
-  ListChecks,
-  LogOut,
-  Menu,
-  MessageSquareText,
-  ReceiptText,
-  X,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
+import { ArrowRight, BookOpen, Layers, ListChecks } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminSidebar } from "./AdminSidebar";
 import type { AdminDashboardData } from "@/lib/admin/dashboard";
-
-const sidebarItems = [
-  { icon: LayoutDashboard, label: "Dashboard", active: true },
-  { icon: ListChecks, label: "Questions", active: false },
-  { icon: BookOpen, label: "Subjects", active: false },
-  { icon: ReceiptText, label: "Subscriptions", active: false },
-  { icon: MessageSquareText, label: "Feedback", active: false },
-] as const;
 
 export function AdminDashboard({
   data,
   error,
+  role = "admin",
 }: {
   data: AdminDashboardData;
   error: string | null;
+  role?: string;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const sidebar = (
-    <div className="flex h-full flex-col">
-      <p className="px-4 pb-4 font-display text-sm font-bold uppercase tracking-wider text-muted-foreground">
-        Admin panel
-      </p>
-      <nav aria-label="Admin sections" className="flex flex-col gap-1">
-        {sidebarItems.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            className={`flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-              item.active
-                ? "bg-primary text-primary-foreground"
-                : "text-sidebar-foreground hover:bg-sidebar-accent"
-            }`}
-          >
-            <item.icon className="size-4" aria-hidden="true" />
-            {item.label}
-          </button>
-        ))}
-      </nav>
-      <button
-        type="button"
-        className="mt-auto flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
-      >
-        <LogOut className="size-4" aria-hidden="true" />
-        Log out
-      </button>
-    </div>
-  );
+  const totalQuestionsNum = parseInt(data.stats[0]?.value.replace(/,/g, "") ?? "0", 10);
 
   return (
     <div className="flex min-h-screen bg-background">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 border-r border-sidebar-border bg-sidebar p-3 lg:block">
-        {sidebar}
-      </aside>
-
-      {menuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-foreground/40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
-          <aside className="absolute inset-y-0 left-0 w-60 border-r border-sidebar-border bg-sidebar p-3">
-            {sidebar}
-          </aside>
-        </div>
-      )}
+      {/* Shared Admin Sidebar */}
+      <AdminSidebar
+        currentPath="/admin/dashboard"
+        role={role}
+        totalQuestions={totalQuestionsNum}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 items-center justify-between border-b border-border bg-card px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="inline-flex size-9 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-secondary lg:hidden"
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((v) => !v)}
-            >
-              {menuOpen ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
-            </button>
-            <h1 className="font-display text-lg font-bold text-foreground">Dashboard</h1>
+        {/* Top Header */}
+        <header className="flex h-16 items-center justify-between border-b border-border bg-card/60 px-4 sm:px-6 backdrop-blur">
+          <div>
+            <h1 className="font-display text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+              Admin Dashboard
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              সিস্টেম ওভারভিউ ও পরিসংখ্যান
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button asChild size="sm" className="gap-2">
+              <Link href="/admin/questions">
+                <ListChecks className="size-4" />
+                <span>প্রশ্নব্যাংক দেখুন</span>
+              </Link>
+            </Button>
           </div>
         </header>
 
-        <main className="flex-1 space-y-8 p-4 sm:p-6">
+        <main className="flex-1 space-y-8 p-4 sm:p-6 max-w-7xl">
           {error && (
             <div
               role="alert"
@@ -104,59 +60,103 @@ export function AdminDashboard({
             </div>
           )}
 
-          <section aria-label="Overview statistics" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Quick Access Action Card */}
+          <Card className="border-primary/20 bg-primary/5 shadow-xs overflow-hidden relative">
+            <CardContent className="p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 mb-1">
+                  Database Active
+                </Badge>
+                <h3 className="font-display text-xl font-bold text-foreground">
+                  মোট {data.stats[0]?.value ?? "210,000+"} টি প্রশ্ন প্রস্তুত রয়েছে
+                </h3>
+                <p className="text-xs text-muted-foreground max-w-xl">
+                  সকল বিষয় ও অধ্যায়ের প্রশ্নসমূহ ফিল্টার করুন, সঠিক উত্তর ও পূর্ণাঙ্গ ব্যাখ্যা যাচাই করুন সরাসরি অ্যাডমিন প্রশ্নব্যাংক থেকে।
+                </p>
+              </div>
+              <Button asChild className="gap-2 shrink-0">
+                <Link href="/admin/questions">
+                  <span>প্রশ্নব্যাংকে যান</span>
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Stats Grid */}
+          <section aria-label="Overview statistics" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {data.stats.map((stat) => (
-              <Card key={stat.label}>
+              <Card key={stat.label} className="border-border/80 bg-card shadow-xs">
                 <CardHeader className="pb-1">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {stat.label}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="font-display text-3xl font-bold text-foreground">{stat.value}</p>
+                  <p className="font-display text-3xl font-bold text-foreground tracking-tight">
+                    {stat.value}
+                  </p>
                   <p className="mt-1 text-xs text-muted-foreground">{stat.hint}</p>
                 </CardContent>
               </Card>
             ))}
           </section>
 
-          <section aria-labelledby="subject-summary-heading">
+          {/* Subject Breakdown */}
+          <section aria-labelledby="subject-summary-heading" className="space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
-                <h2 id="subject-summary-heading" className="font-display text-lg font-semibold text-foreground">
-                  Subjects
+                <h2 id="subject-summary-heading" className="font-display text-lg font-bold text-foreground">
+                  বিষয়ভিত্তিক প্রশ্ন পরিসংখ্যান
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Live from the Storage manifest.
+                <p className="text-xs text-muted-foreground">
+                  সুপাবেস স্টোরেজ ম্যানিফেস্ট অনুযায়ী লাইভ কাউন্ট
                 </p>
               </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/admin/questions">সকল প্রশ্ন ফিল্টার করুন →</Link>
+              </Button>
             </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               {data.subjects.length === 0 ? (
                 <Card className="border-dashed sm:col-span-2 xl:col-span-6">
                   <CardContent className="p-6 text-sm text-muted-foreground">
-                    No Storage subjects yet. Run the shard build script to populate this section.
+                    No Storage subjects yet.
                   </CardContent>
                 </Card>
               ) : (
                 data.subjects.map((subject) => (
-                  <Card key={subject.id}>
-                    <CardContent className="pt-5">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-semibold text-foreground">{subject.name}</p>
-                        <Badge variant="secondary" className="font-normal">Active</Badge>
-                      </div>
-                      <p className="mt-2 font-display text-2xl font-bold text-primary">
-                        {subject.questionCount.toLocaleString()}
-                      </p>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        {subject.mcqCount.toLocaleString()} MCQ · {subject.writtenCount.toLocaleString()} written
-                      </p>
-                    </CardContent>
-                  </Card>
+                  <Link
+                    key={subject.id}
+                    href={`/admin/questions?subject=${subject.slug}`}
+                    className="block group"
+                  >
+                    <Card className="h-full border-border/80 bg-card transition-all group-hover:border-primary/50 group-hover:shadow-md cursor-pointer">
+                      <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+                        <div className="flex items-start justify-between gap-1">
+                          <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                            {subject.name}
+                          </p>
+                          <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                            সক্রিয়
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-display text-2xl font-bold text-primary">
+                            {subject.questionCount.toLocaleString()}
+                          </p>
+                          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                            {subject.mcqCount.toLocaleString()} MCQ · {subject.writtenCount.toLocaleString()} লিখিত
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
                 ))
               )}
             </div>
           </section>
-
         </main>
       </div>
     </div>

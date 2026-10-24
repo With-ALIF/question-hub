@@ -2,7 +2,8 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, ShieldCheck, Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import type { AuthState } from "@/lib/auth/state";
 const INITIAL_STATE: AuthState = { status: "idle", message: "" };
 
 export function AdminLoginForm() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction, isPending] = useActionState(
     adminSignInAction,
@@ -23,6 +25,30 @@ export function AdminLoginForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md space-y-6">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                router.back();
+              } else {
+                router.push("/");
+              }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary/60 hover:text-foreground cursor-pointer shadow-2xs"
+            title="আগের পেজে ফিরে যান"
+          >
+            <ArrowLeft className="size-3.5" aria-hidden="true" />
+            <span>ফিরে যান</span>
+          </button>
+
+          <Link
+            href="/"
+            className="text-xs text-muted-foreground transition-colors hover:text-primary"
+          >
+            হোম পেজ
+          </Link>
+        </div>
         <div className="flex flex-col items-center gap-2 text-center">
           <span className="flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
             <ShieldCheck className="size-6" aria-hidden="true" />

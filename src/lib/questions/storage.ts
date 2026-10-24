@@ -41,6 +41,7 @@ export type StorageQuestion = {
   keyword: string | null;
   is_mcq: boolean;
   subject: string;
+  _shard?: number | undefined;
 };
 
 export type QuestionSubject = {
@@ -284,6 +285,24 @@ type PagePosition = {
   offset: number;
 };
 
+export function invalidateShardCache(subject?: string, shardNumber?: number) {
+  if (!subject) {
+    shardCache.clear();
+    return;
+  }
+  if (typeof shardNumber === "number") {
+    shardCache.delete(`${subject}:all:${shardNumber}`);
+    shardCache.delete(`${subject}:mcq:${shardNumber}`);
+    shardCache.delete(`${subject}:written:${shardNumber}`);
+  } else {
+    for (const key of shardCache.keys()) {
+      if (key.startsWith(`${subject}:`)) {
+        shardCache.delete(key);
+      }
+    }
+  }
+}
+
 async function loadQuestionsAt(
   subject: string,
   positions: PagePosition[],
@@ -300,7 +319,7 @@ async function loadQuestionsAt(
 
   for (const position of positions) {
     const question = byShard.get(position.shard)?.[position.offset];
-    if (question) questions.push(question);
+    if (question) questions.push({ ...question, _shard: position.shard });
   }
 
   return questions;
@@ -483,7 +502,9 @@ export async function getQuestionPage({
       subjects,
       subject: selectedSubject,
       type: selectedType,
-      questions: shard.slice(offset, offset + pageSize),
+      questions: shard
+        .slice(offset, offset + pageSize)
+        .map((q) => ({ ...q, _shard: shardNumber })),
       page: safePage,
       pageSize,
       totalPages,

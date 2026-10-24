@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { BookOpen, ListChecks, Search, Sparkles, type LucideIcon } from "lucide-react";
+import { BookOpen, ListChecks, Sparkles, type LucideIcon } from "lucide-react";
 
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
@@ -77,29 +77,6 @@ export function HomePage({
               Practice questions across core subjects and other topics — with clear solutions,
               subject filters and a plan that fits you.
             </p>
-
-            <form
-              role="search"
-              className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm"
-              onSubmit={(e) => e.preventDefault()}
-            >
-              <Search className="ml-2 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <label htmlFor="hero-search" className="sr-only">
-                Search subjects or chapters
-              </label>
-              <input
-                id="hero-search"
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search a subject or chapter, e.g. “Genetics”"
-                className="h-10 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-              />
-              <Button type="submit" className="shrink-0">
-                Search
-              </Button>
-            </form>
-
             <div className="mt-10 mx-auto grid max-w-lg grid-cols-3 gap-4 text-center">
               {stats.map(({ icon: Icon, value, label }) => (
                 <div key={label} className="rounded-2xl border border-border bg-card/70 p-4">
@@ -141,54 +118,6 @@ export function HomePage({
                 : `No subjects match “${query}”. Try “Physics” or “Calculus”.`}
             </p>
           )}
-        </section>
-
-        <section aria-labelledby="latest-heading" className="bg-secondary/40 py-14">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h2 id="latest-heading" className="font-display text-2xl font-bold text-foreground sm:text-3xl">
-                  Latest questions
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  A live sample drawn straight from the question bank.
-                </p>
-              </div>
-              <Button variant="outline" asChild>
-                <Link href="/questions">Browse questions</Link>
-              </Button>
-            </div>
-
-            {recentQuestions.length > 0 ? (
-              <ul className="mt-8 grid gap-4 md:grid-cols-2">
-                {recentQuestions.map((q) => (
-                  <li key={q.id}>
-                    <article className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 transition-colors hover:border-primary/40">
-                      <div className="flex items-center gap-2">
-                        {q.source && (
-                          <Badge variant="secondary" className="font-medium">
-                            {q.source}
-                          </Badge>
-                        )}
-                        {q.topic && <span className="text-xs text-muted-foreground">{q.topic}</span>}
-                        {q.year && (
-                          <span className="ml-auto text-xs text-muted-foreground">{q.year}</span>
-                        )}
-                      </div>
-                      <p className="mt-3 flex-1 text-sm font-medium leading-relaxed text-foreground">
-                        {q.question}
-                      </p>
-                    </article>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-8 rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
-                Question samples are unavailable right now. Open the question bank to browse
-                everything.
-              </p>
-            )}
-          </div>
         </section>
 
         <section aria-labelledby="plans-heading" className="mx-auto max-w-6xl px-4 py-14 sm:px-6">

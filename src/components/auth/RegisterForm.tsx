@@ -2,7 +2,8 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { BookOpenCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, BookOpenCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ const inputClass =
   "flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring";
 
 export function RegisterForm() {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(
     signUpAction,
     INITIAL_AUTH_STATE,
@@ -22,6 +24,31 @@ export function RegisterForm() {
     <div className="flex min-h-screen flex-col bg-background">
       <main className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
+          <div className="mb-6 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.push("/");
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary/60 hover:text-foreground cursor-pointer shadow-2xs"
+              title="আগের পেজে ফিরে যান"
+            >
+              <ArrowLeft className="size-3.5" aria-hidden="true" />
+              <span>ফিরে যান</span>
+            </button>
+
+            <Link
+              href="/"
+              className="text-xs text-muted-foreground transition-colors hover:text-primary"
+            >
+              হোম পেজ
+            </Link>
+          </div>
+
           <Link href="/" className="mb-8 flex items-center justify-center gap-2" aria-label="Question Bank home">
             <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <BookOpenCheck className="size-5" aria-hidden="true" />

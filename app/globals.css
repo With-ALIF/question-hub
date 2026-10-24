@@ -200,6 +200,7 @@
   margin-block-end: 0;
 }
 
+.rich-text img,
 .rich-text :where(img) {
   display: block;
   max-width: 100%;
@@ -221,6 +222,10 @@
 .katex {
   font-size: 1.05em;
   text-rendering: auto;
+}
+
+.katex-mathml {
+  display: none !important;
 }
 
 .rich-text sup,
