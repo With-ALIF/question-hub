@@ -38,10 +38,10 @@ const baseNavLinks: NavItem[] = [
 
 const loggedInNavLinks: NavItem[] = [
   { href: "/dashboard", label: "ড্যাশবোর্ড", icon: LayoutDashboard },
+  { href: "/subjects", label: "বিষয়সমূহ", icon: Layers },
   { href: "/questions", label: "অনুশীলন", icon: BookOpenCheck },
   { href: "/saved", label: "সেভ করা প্রশ্ন", icon: BookmarkCheck },
   { href: "/model-test", label: "মডেল টেস্ট", icon: Timer },
-  { href: "/subjects", label: "বিষয়সমূহ", icon: Layers },
 ];
 
 function isActivePath(pathname: string, href: string) {
@@ -102,10 +102,10 @@ export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
   const mobileNavItems = user
     ? [
         { href: "/dashboard", label: "ড্যাশবোর্ড", icon: LayoutDashboard },
+        { href: "/subjects", label: "বিষয়সমূহ", icon: Layers },
         { href: "/questions", label: "অনুশীলন", icon: BookOpenCheck },
         { href: "/saved", label: "সেভড", icon: BookmarkCheck },
         { href: "/model-test", label: "মডেল টেস্ট", icon: Timer },
-        { href: "/subjects", label: "বিষয়সমূহ", icon: Layers },
       ]
     : [
         { href: "/", label: "হোম", icon: Home },

@@ -20,7 +20,7 @@ export function AdminDashboard({
   const totalQuestionsNum = parseInt(data.stats[0]?.value.replace(/,/g, "") ?? "0", 10);
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex flex-col lg:flex-row min-h-screen bg-background w-full overflow-x-hidden">
       {/* Shared Admin Sidebar */}
       <AdminSidebar
         currentPath="/admin/dashboard"
@@ -28,19 +28,19 @@ export function AdminDashboard({
         totalQuestions={totalQuestionsNum}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col w-full">
         {/* Top Header */}
-        <header className="flex h-16 items-center justify-between border-b border-border bg-card/60 px-4 sm:px-6 backdrop-blur">
-          <div>
-            <h1 className="font-display text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/60 px-4 py-3.5 sm:px-6 backdrop-blur min-h-16">
+          <div className="min-w-0">
+            <h1 className="font-display text-xl font-bold tracking-tight text-foreground sm:text-2xl truncate">
               Admin Dashboard
             </h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground truncate">
               সিস্টেম ওভারভিউ ও পরিসংখ্যান
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Button asChild size="sm" className="gap-2">
               <Link href="/admin/questions">
                 <ListChecks className="size-4" />
@@ -50,7 +50,7 @@ export function AdminDashboard({
           </div>
         </header>
 
-        <main className="flex-1 space-y-8 p-4 sm:p-6 max-w-7xl">
+        <main className="flex-1 space-y-6 sm:space-y-8 p-4 sm:p-6 pb-24 lg:pb-8 max-w-7xl w-full mx-auto">
           {error && (
             <div
               role="alert"
@@ -62,19 +62,19 @@ export function AdminDashboard({
 
           {/* Quick Access Action Card */}
           <Card className="border-primary/20 bg-primary/5 shadow-xs overflow-hidden relative">
-            <CardContent className="p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
+            <CardContent className="p-5 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1.5 min-w-0">
                 <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 mb-1">
                   Database Active
                 </Badge>
-                <h3 className="font-display text-xl font-bold text-foreground">
+                <h3 className="font-display text-lg sm:text-xl font-bold text-foreground break-words">
                   মোট {data.stats[0]?.value ?? "210,000+"} টি প্রশ্ন প্রস্তুত রয়েছে
                 </h3>
-                <p className="text-xs text-muted-foreground max-w-xl">
+                <p className="text-xs text-muted-foreground max-w-xl leading-relaxed">
                   সকল বিষয় ও অধ্যায়ের প্রশ্নসমূহ ফিল্টার করুন, সঠিক উত্তর ও পূর্ণাঙ্গ ব্যাখ্যা যাচাই করুন সরাসরি অ্যাডমিন প্রশ্নব্যাংক থেকে।
                 </p>
               </div>
-              <Button asChild className="gap-2 shrink-0">
+              <Button asChild className="gap-2 shrink-0 w-full sm:w-auto">
                 <Link href="/admin/questions">
                   <span>প্রশ্নব্যাংকে যান</span>
                   <ArrowRight className="size-4" />
@@ -84,19 +84,19 @@ export function AdminDashboard({
           </Card>
 
           {/* Stats Grid */}
-          <section aria-label="Overview statistics" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <section aria-label="Overview statistics" className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
             {data.stats.map((stat) => (
               <Card key={stat.label} className="border-border/80 bg-card shadow-xs">
-                <CardHeader className="pb-1">
-                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <CardHeader className="pb-1 p-4">
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
                     {stat.label}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="font-display text-3xl font-bold text-foreground tracking-tight">
+                <CardContent className="p-4 pt-0">
+                  <p className="font-display text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
                     {stat.value}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">{stat.hint}</p>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed truncate">{stat.hint}</p>
                 </CardContent>
               </Card>
             ))}
@@ -118,10 +118,10 @@ export function AdminDashboard({
               </Button>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               {data.subjects.length === 0 ? (
                 <Card className="border-dashed sm:col-span-2 xl:col-span-6">
-                  <CardContent className="p-6 text-sm text-muted-foreground">
+                  <CardContent className="p-6 text-sm text-muted-foreground text-center">
                     No Storage subjects yet.
                   </CardContent>
                 </Card>
@@ -138,7 +138,7 @@ export function AdminDashboard({
                           <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
                             {subject.name}
                           </p>
-                          <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                          <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 shrink-0">
                             সক্রিয়
                           </span>
                         </div>

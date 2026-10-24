@@ -48,7 +48,7 @@ function RichAdminContent({
 
   return (
     <div
-      className={cn("rich-text text-foreground leading-relaxed", !html && "whitespace-pre-line", className)}
+      className={cn("rich-text text-foreground leading-relaxed break-words overflow-x-auto", !html && "whitespace-pre-line", className)}
       dangerouslySetInnerHTML={{ __html: rendered }}
       onClick={(e) => {
         const target = e.target;
@@ -88,7 +88,7 @@ export function AdminQuestionCard({
 
   return (
     <Card className="overflow-hidden border-border/80 bg-card shadow-sm transition-all hover:border-border hover:shadow-md">
-      <CardContent className="p-5 sm:p-6 space-y-4">
+      <CardContent className="p-4 sm:p-6 space-y-4">
         {/* Header Metadata Bar */}
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-border/60">
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -194,7 +194,7 @@ export function AdminQuestionCard({
             <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               অপশনসমূহ (সঠিক উত্তর সবুজ চিহ্নিত)
             </p>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
               {currentQuestion.options.map((opt, optIdx) => {
                 const isCorrect = opt.n === currentQuestion.correct_option;
                 const banglaLabel = BANGLA_OPTIONS[optIdx] ?? String(opt.n);
@@ -220,9 +220,9 @@ export function AdminQuestionCard({
                       {banglaLabel}
                     </span>
 
-                    <div className="flex-1 min-w-0 pt-0.5">
+                    <div className="flex-1 min-w-0 pt-0.5 overflow-x-auto">
                       <div
-                        className="rich-text font-medium"
+                        className="rich-text font-medium break-words"
                         dangerouslySetInnerHTML={{ __html: renderMathInContent(opt.t) }}
                       />
                     </div>

@@ -152,7 +152,7 @@ export function AdminQuestionsView({
     : questions;
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex flex-col lg:flex-row min-h-screen bg-background w-full overflow-x-hidden">
       {/* Shared Admin Sidebar */}
       <AdminSidebar
         currentPath="/admin/questions"
@@ -161,7 +161,7 @@ export function AdminQuestionsView({
       />
 
       {/* Main Content Area */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col w-full">
         {/* Top Header */}
         <header className="border-b border-border bg-card/60 backdrop-blur sticky top-0 z-20">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
@@ -233,13 +233,13 @@ export function AdminQuestionsView({
         </header>
 
         {/* Content Body */}
-        <main className="flex-1 p-4 sm:p-6 space-y-5 max-w-7xl">
+        <main className="flex-1 p-4 sm:p-6 pb-24 lg:pb-8 space-y-5 max-w-7xl">
           {/* Controls Bar: Type Selector + Search + Filters */}
           <Card className="border-border/80 bg-card shadow-xs">
             <CardContent className="p-4 space-y-3.5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 {/* Type Switcher */}
-                <div className="flex items-center rounded-xl bg-muted/60 p-1 border border-border/50">
+                <div className="flex flex-wrap items-center rounded-xl bg-muted/60 p-1 border border-border/50 gap-1 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => handleTypeChange("all")}
@@ -293,7 +293,7 @@ export function AdminQuestionsView({
               </div>
 
               {/* Search and Secondary Filter Row */}
-              <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 w-full">
                 {/* Search input */}
                 <form onSubmit={handleSearchSubmit} className="relative sm:col-span-2">
                   <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" aria-hidden="true" />
