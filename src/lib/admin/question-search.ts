@@ -11,59 +11,73 @@ const PREFIX_SUBJECT_MAP: Record<string, string> = {
   o: "other",
 };
 
+type SearchResult = { question: StorageQuestion; subject: string; shardNumber: number };
+const qCache = new Map<string, SearchResult>();
+
 export async function findQuestionById(
   rawQuery: string,
   preferredSubject = "physics"
-): Promise<{ question: StorageQuestion; subject: string; shardNumber: number } | null> {
+): Promise<SearchResult | null> {
   const query = rawQuery.trim().toLowerCase();
   if (!query) return null;
 
-  // Check if query is formatted like "p-399548"
+  // Check in-memory cache first (O(1))
+  const direct = qCache.get(query);
+  if (direct) return direct;
+
   const prefixMatch = query.match(/^([a-z])-(\d+)$/);
-  let targetSubject = preferredSubject;
+  let targetSubject: string | null = null;
   let targetId = query;
   let numericId: number | null = null;
 
   if (prefixMatch && prefixMatch[1] && prefixMatch[2]) {
-    const prefix = prefixMatch[1];
-    targetSubject = PREFIX_SUBJECT_MAP[prefix] || preferredSubject;
-    targetId = `${prefix}-${prefixMatch[2]}`;
+    const p = prefixMatch[1];
+    targetSubject = PREFIX_SUBJECT_MAP[p] || null;
+    targetId = `${p}-${prefixMatch[2]}`;
     numericId = parseInt(prefixMatch[2], 10);
   } else if (/^\d+$/.test(query)) {
     numericId = parseInt(query, 10);
   }
 
+  if (numericId && qCache.has(String(numericId))) {
+    return qCache.get(String(numericId))!;
+  }
+
   const manifest = await getQuestionManifest().catch(() => null);
+  // If prefix is known (e.g. p-), ONLY search that subject
   const subjectsToSearch = targetSubject
-    ? [targetSubject, ...(manifest?.subjects.map((s) => s.slug).filter((s) => s !== targetSubject) || [])]
-    : manifest?.subjects.map((s) => s.slug) || ["physics"];
+    ? [targetSubject]
+    : [preferredSubject, ...(manifest?.subjects.map((s) => s.slug).filter((s) => s !== preferredSubject) || [])];
+
+  const BATCH_SIZE = 20;
 
   for (const subject of subjectsToSearch) {
     const subjectInfo = manifest?.subjects.find((s) => s.slug === subject);
     const maxShards = subjectInfo?.shards?.all ?? 30;
 
-    // Check up to 50 shards or all available shards
-    const limit = Math.min(maxShards, 100);
-    for (let shardNum = 1; shardNum <= limit; shardNum++) {
-      try {
-        const shard = await getQuestionShard(subject, shardNum, "all");
-        const found = shard.find((q) => {
-          if (q.id.toLowerCase() === targetId) return true;
-          if (numericId !== null && (q.external_id === numericId || q.id.toLowerCase().endsWith(`-${numericId}`))) return true;
-          return false;
-        });
+    for (let start = 1; start <= maxShards; start += BATCH_SIZE) {
+      const batchNums = Array.from(
+        { length: Math.min(BATCH_SIZE, maxShards - start + 1) },
+        (_, i) => start + i
+      );
 
-        if (found) {
-          return {
-            question: { ...found, _shard: shardNum },
-            subject,
-            shardNumber: shardNum,
-          };
-        }
-      } catch {
-        // Continue to next shard
-        continue;
-      }
+      await Promise.all(
+        batchNums.map(async (sNum) => {
+          try {
+            const shard = await getQuestionShard(subject, sNum, "all");
+            for (const q of shard) {
+              const item = { question: { ...q, _shard: sNum }, subject, shardNumber: sNum };
+              qCache.set(q.id.toLowerCase(), item);
+              if (q.external_id) qCache.set(String(q.external_id), item);
+            }
+          } catch {
+            // Shard load failed or skipped
+          }
+        })
+      );
+
+      const found = qCache.get(targetId) || (numericId ? qCache.get(String(numericId)) : null);
+      if (found) return found;
     }
   }
 

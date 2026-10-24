@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   ExternalLink,
+  Flag,
   Globe,
   LayoutDashboard,
   ListChecks,
@@ -32,6 +33,12 @@ const navigationItems = [
     icon: ListChecks,
     badgeKey: "questions",
   },
+  {
+    href: "/admin/reports",
+    label: "Reports",
+    labelBn: "ভুল রিপোর্টসমূহ",
+    icon: Flag,
+  },
 ];
 
 export function AdminSidebar({
@@ -42,6 +49,7 @@ export function AdminSidebar({
   const isDashboardActive =
     currentPath === "/admin/dashboard" || currentPath === "/admin";
   const isQuestionsActive = currentPath.startsWith("/admin/questions");
+  const isReportsActive = currentPath.startsWith("/admin/reports");
 
   return (
     <>
@@ -218,6 +226,27 @@ export function AdminSidebar({
               <ListChecks className="size-4.5" aria-hidden="true" />
             </span>
             <span className="text-[10px] tracking-tight">প্রশ্নব্যাংক</span>
+          </Link>
+
+          {/* Reports */}
+          <Link
+            href="/admin/reports"
+            className={cn(
+              "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors relative",
+              isReportsActive
+                ? "font-semibold text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <span
+              className={cn(
+                "flex size-7 items-center justify-center rounded-lg transition-colors",
+                isReportsActive && "bg-primary/10 text-primary"
+              )}
+            >
+              <Flag className="size-4.5" aria-hidden="true" />
+            </span>
+            <span className="text-[10px] tracking-tight">রিপোর্ট</span>
           </Link>
 
           {/* Website */}

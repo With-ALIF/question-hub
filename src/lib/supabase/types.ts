@@ -267,6 +267,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      qb_report: {
+        Row: {
+          id: string;
+          question_id: string;
+          user_id: string | null;
+          report_type: string;
+          message: string;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          question_id: string;
+          user_id?: string | null;
+          report_type: string;
+          message: string;
+          status?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          question_id?: string;
+          user_id?: string | null;
+          report_type?: string;
+          message?: string;
+          status?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

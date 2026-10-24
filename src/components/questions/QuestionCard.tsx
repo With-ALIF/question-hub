@@ -10,6 +10,7 @@ import type { QuestionOption } from "@/lib/supabase/types";
 import { formatChapterLabel } from "@/data/chapters";
 import { renderMathInContent } from "@/lib/math";
 import { isQuestionSaved, toggleSaveQuestion, SAVED_QUESTIONS_EVENT } from "@/lib/saved-questions";
+import { ReportButton } from "@/components/report/ReportButton";
 import { cn } from "@/lib/utils";
 
 export type QuestionListItem = {
@@ -137,23 +138,26 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
             {!question.is_mcq && <Badge variant="secondary">Written</Badge>}
           </div>
 
-          <Button
-            type="button"
-            variant={isSaved ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => {
-              const nextSaved = toggleSaveQuestion(question);
-              setIsSaved(nextSaved);
-            }}
-            className={cn(
-              "h-7 px-2.5 text-xs gap-1.5 transition-colors cursor-pointer",
-              isSaved && "text-primary font-medium bg-primary/10 hover:bg-primary/20",
-            )}
-            title={isSaved ? "সেভ তালিকা থেকে মুছুন" : "প্রশ্নটি সেভ করুন"}
-          >
-            <Bookmark className={cn("size-3.5 transition-transform", isSaved && "fill-primary text-primary scale-110")} />
-            <span>{isSaved ? "সেভ করা" : "সেভ"}</span>
-          </Button>
+          <div className="flex items-center gap-1 shrink-0">
+            <ReportButton questionId={question.id} compact />
+            <Button
+              type="button"
+              variant={isSaved ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => {
+                const nextSaved = toggleSaveQuestion(question);
+                setIsSaved(nextSaved);
+              }}
+              className={cn(
+                "h-7 px-2 text-xs gap-1 transition-colors cursor-pointer",
+                isSaved && "text-primary font-medium bg-primary/10 hover:bg-primary/20",
+              )}
+              title={isSaved ? "সেভ তালিকা থেকে মুছুন" : "প্রশ্নটি সেভ করুন"}
+            >
+              <Bookmark className={cn("size-3.5 transition-transform", isSaved && "fill-primary text-primary scale-110")} />
+              <span>{isSaved ? "সেভ করা" : "সেভ"}</span>
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-5 p-5 sm:p-6">
