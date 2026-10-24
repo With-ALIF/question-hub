@@ -343,6 +343,88 @@ export async function getQuestionPage({
   try {
     const manifest = await getQuestionManifest();
     const subjects = manifest.subjects;
+
+    if (subject === "all") {
+      const pageSize = manifest.pageSize > 0 ? manifest.pageSize : QUESTION_PAGE_SIZE;
+      const shardSize = manifest.shardSize > 0 ? manifest.shardSize : 100;
+      const total =
+        selectedType === "mcq"
+          ? manifest.mcqTotal
+          : selectedType === "written"
+            ? manifest.writtenTotal
+            : manifest.totalQuestions;
+
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      const safePage = Math.min(Math.max(1, Math.floor(page || 1)), totalPages);
+      const globalStart = (safePage - 1) * pageSize;
+      const globalEnd = Math.min(globalStart + pageSize, total);
+
+      let currentOffset = 0;
+      const questions: StorageQuestion[] = [];
+
+      for (const sub of subjects) {
+        const subTotal =
+          selectedType === "mcq" ? sub.mcq : selectedType === "written" ? sub.written : sub.total;
+        const subStart = currentOffset;
+        const subEnd = currentOffset + subTotal;
+        currentOffset = subEnd;
+
+        const overlapStart = Math.max(globalStart, subStart);
+        const overlapEnd = Math.min(globalEnd, subEnd);
+
+        if (overlapStart < overlapEnd) {
+          const localStart = overlapStart - subStart;
+          const localCount = overlapEnd - overlapStart;
+
+          const startShard = Math.floor(localStart / shardSize) + 1;
+          const endShard = Math.floor((localStart + localCount - 1) / shardSize) + 1;
+
+          for (let sNum = startShard; sNum <= endShard; sNum++) {
+            try {
+              const shard = await getQuestionShard(sub.slug, sNum, selectedType);
+              const shardLocalStart = Math.max(0, localStart - (sNum - 1) * shardSize);
+              const shardLocalEnd = Math.min(shard.length, localStart + localCount - (sNum - 1) * shardSize);
+              const sliced = shard.slice(shardLocalStart, shardLocalEnd).map((q) => ({
+                ...q,
+                subject: sub.slug,
+                _shard: sNum,
+              }));
+              questions.push(...sliced);
+            } catch {
+            }
+          }
+        }
+      }
+
+      const allSubjectObj: QuestionSubject = {
+        slug: "all",
+        name: "সকল বিষয়",
+        total: manifest.totalQuestions,
+        mcq: manifest.mcqTotal,
+        written: manifest.writtenTotal,
+        shards: {
+          all: Math.ceil(manifest.totalQuestions / shardSize),
+          mcq: Math.ceil(manifest.mcqTotal / shardSize),
+          written: Math.ceil(manifest.writtenTotal / shardSize),
+        },
+      };
+
+      return {
+        manifest,
+        subjects,
+        subject: allSubjectObj,
+        type: selectedType,
+        questions,
+        page: safePage,
+        pageSize,
+        totalPages,
+        total,
+        error: null,
+        filters: null,
+        activeFilters,
+      };
+    }
+
     const selectedSubject =
       subjects.find((item) => item.slug === subject) ?? subjects[0] ?? null;
 

@@ -230,14 +230,18 @@
 
 .rich-text sup,
 sup {
-  vertical-align: super;
+  vertical-align: baseline;
+  position: relative;
+  top: -0.45em;
   font-size: 0.75em;
   line-height: 0;
 }
 
 .rich-text sub,
 sub {
-  vertical-align: sub;
+  vertical-align: baseline;
+  position: relative;
+  bottom: -0.25em;
   font-size: 0.75em;
   line-height: 0;
 }

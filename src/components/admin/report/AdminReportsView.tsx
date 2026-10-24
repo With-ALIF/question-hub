@@ -74,6 +74,9 @@ export function AdminReportsView({ initialReports }: AdminReportsViewProps) {
         <AdminReportEditModal
           questionId={editingId}
           onClose={() => setEditingId(null)}
+          onUpdated={() => {
+            router.refresh();
+          }}
         />
       )}
     </div>

@@ -27,7 +27,7 @@ export function AdminReportEditModal({ questionId, onClose, onUpdated }: Props) 
     }
     setLoading(true);
     setError(null);
-    getReportedQuestion(questionId)
+    getReportedQuestion(questionId, true)
       .then((q) => {
         setLoading(false);
         if (q) setQuestion(q);

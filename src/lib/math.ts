@@ -105,6 +105,8 @@ export function cleanMathString(expr: string): string {
   s = s.replace(/₇/g, "_7");
   s = s.replace(/₈/g, "_8");
   s = s.replace(/₉/g, "_9");
+  s = s.replace(/<sup[^>]*>(.*?)<\/sup>/gi, (_m: string, p1: string) => (p1.trim().length === 1 ? `^${p1.trim()}` : `^(${p1.trim()})`));
+  s = s.replace(/<sub[^>]*>(.*?)<\/sub>/gi, (_m: string, p1: string) => (p1.trim().length === 1 ? `_${p1.trim()}` : `_(${p1.trim()})`));
   s = s.replace(/\b([0-9]*)I([1-9])\b/g, (_m: string, p1?: string, p2?: string) => (p1 || "") + "I_" + (p2 || ""));
   s = s.replace(/\b([A-Z])([2-9])(?=\s*[-+*=/]|\s*=\?|$)/g, (_m: string, p1?: string, p2?: string) => (p1 || "") + "^" + (p2 || ""));
   s = s.replace(/(?:([a-zA-Z]\s*=\s*))?\(\s*(\[[^\]]+\](?:\s*,\s*\[[^\]]+\])+)\s*\)/g, (_m: string, v?: string, rows?: string) => (v || "") + "[" + (rows || "") + "]");
@@ -236,18 +238,18 @@ export function renderMathInContent(raw: string | null | undefined): string {
     '<img src="$1" alt="Explanation image" loading="lazy" />',
   );
 
-  // 3. Convert HTML <sup> and <sub> tags before stripping
-  content = content
-    .replace(/<sup>(.*?)<\/sup>/gi, "^{$1}")
-    .replace(/<sub>(.*?)<\/sub>/gi, "_{$1}");
-
-  // 4. Normalize shorthands like I3 -> I_3, 2I3 -> 2I_3, A3 -> A^3
+  // 3. Normalize shorthands like I3 -> I_3, 2I3 -> 2I_3, A3 -> A^3
   content = content.replace(/\b([0-9]*)I([1-9])\b/g, (_m: string, p1?: string, p2?: string) => (p1 || "") + "I_" + (p2 || ""));
   content = content.replace(/\b([A-Z])([2-9])(?=\s*[-+*=/]|\s*=\?|$)/g, (_m: string, p1?: string, p2?: string) => (p1 || "") + "^" + (p2 || ""));
 
-  const textWithoutTags = content.replace(/<[^>]*>/g, "").trim();
-  if (isPureMath(textWithoutTags) && !content.includes("class=\"katex\"")) {
-    return renderAsciiMath(textWithoutTags, false);
+  const mathConverted = content
+    .replace(/<sup[^>]*>(.*?)<\/sup>/gi, (_m: string, p1: string) => (p1.trim().length === 1 ? `^${p1.trim()}` : `^(${p1.trim()})`))
+    .replace(/<sub[^>]*>(.*?)<\/sub>/gi, (_m: string, p1: string) => (p1.trim().length === 1 ? `_${p1.trim()}` : `_(${p1.trim()})`))
+    .replace(/<[^>]*>/g, "")
+    .trim();
+
+  if (isPureMath(mathConverted) && !content.includes("class=\"katex\"")) {
+    return renderAsciiMath(mathConverted, false);
   }
 
   const placeholders: string[] = [];
@@ -260,7 +262,11 @@ export function renderMathInContent(raw: string | null | undefined): string {
   content = content.replace(
     /<(span|p|div)\b[^>]*\bclass=["'][^"']*mathy[^"']*["'][^>]*>([\s\S]*?)<\/\1>/gi,
     (_match, tag, inner) => {
-      let clean = inner.replace(/<[^>]*>/g, "").trim();
+      let clean = inner
+        .replace(/<sup[^>]*>(.*?)<\/sup>/gi, (_m: string, p1: string) => (p1.trim().length === 1 ? `^${p1.trim()}` : `^(${p1.trim()})`))
+        .replace(/<sub[^>]*>(.*?)<\/sub>/gi, (_m: string, p1: string) => (p1.trim().length === 1 ? `_${p1.trim()}` : `_(${p1.trim()})`))
+        .replace(/<[^>]*>/g, "")
+        .trim();
       if (!clean) return "";
       clean = clean.replace(/(?:([a-zA-Z]\s*=\s*))?\(\s*(\[[^\]]+\](?:\s*,\s*\[[^\]]+\])+)\s*\)/g, (_m: string, v?: string, rows?: string) => (v || "") + "[" + (rows || "") + "]");
       const isDisplay = tag.toLowerCase() === "p" || tag.toLowerCase() === "div";
@@ -286,7 +292,17 @@ export function renderMathInContent(raw: string | null | undefined): string {
     stash(renderLatex(math, false)),
   );
 
-  // Matrix tuples: A = ([2, 0, 0], [0, 2, 0], [0, 0, 2])
+  content = content.replace(
+    /(?:([+-]?[0-9]+(?:\.[0-9]+)?)\s*)?(?:\\mathrm\s*\{\s*)?\^\s*(?:\{\s*\\circ\s*\}|\\circ|\{\s*[o°]\s*\}|[o°])\s*(?:\\mathrm\{([A-Za-z]+)\}|\\text\{([A-Za-z]+)\}|([A-Za-z]+))?(?:\s*\})?/g,
+    (_match: string, num?: string, u1?: string, u2?: string, u3?: string) => {
+      const unit = u1 || u2 || u3 || "";
+      const n = num || "";
+      const uText = unit ? `\\text{${unit}}` : "";
+      const tex = n ? `${n}^\\circ${uText}` : `^\\circ${uText}`;
+      return stash(renderLatex(tex, false));
+    }
+  );
+
   content = content.replace(
     /(?:([A-Za-z]\s*=\s*))?\(\s*(\[[^\]]+\](?:\s*,\s*\[[^\]]+\])+)\s*\)/g,
     (_match: string, v?: string, rows?: string) => {

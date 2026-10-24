@@ -49,7 +49,7 @@ export default async function AdminQuestionsPage({
   }
 
   const params = await searchParams;
-  const requestedSubject = firstValue(params.subject)?.trim() || "physics";
+  const requestedSubject = firstValue(params.subject)?.trim() || "all";
   const requestedType = firstValue(params.type)?.trim() || "all";
   const requestedPage = Number(firstValue(params.page) ?? "1");
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? Math.floor(requestedPage) : 1;
@@ -62,7 +62,10 @@ export default async function AdminQuestionsPage({
 
   // If search query is provided, check if it directly matches a question ID (e.g. 399548 or p-399548)
   if (searchQuery) {
-    const idResult = await findQuestionById(searchQuery, requestedSubject);
+    const idResult = await findQuestionById(
+      searchQuery,
+      requestedSubject === "all" ? undefined : requestedSubject
+    );
     if (idResult) {
       const defaultPage = await getQuestionPage({
         subject: idResult.subject,

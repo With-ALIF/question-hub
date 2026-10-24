@@ -127,10 +127,20 @@ export function AdminQuestionsView({
     }
   };
 
-  const currentSubjectObj = subjects.find((s) => s.slug === selectedSubject);
   const totalSystemQuestions = manifest?.totalQuestions ?? 0;
   const totalMcq = manifest?.mcqTotal ?? 0;
   const totalWritten = manifest?.writtenTotal ?? 0;
+
+  const currentSubjectObj =
+    selectedSubject === "all"
+      ? {
+          slug: "all",
+          name: "সকল বিষয়",
+          total: totalSystemQuestions,
+          mcq: totalMcq,
+          written: totalWritten,
+        }
+      : subjects.find((s) => s.slug === selectedSubject);
 
   const fromNumber = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const toNumber = Math.min(page * pageSize, total);
@@ -200,6 +210,31 @@ export function AdminQuestionsView({
           {/* Subject Pills Row */}
           <div className="overflow-x-auto border-t border-border/50 px-4 py-2 sm:px-6 bg-card/30 scrollbar-none">
             <div className="flex items-center gap-1.5 min-w-max">
+              {/* সকল বিষয় Pill */}
+              <button
+                type="button"
+                onClick={() => handleSubjectChange("all")}
+                className={cn(
+                  "flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-medium transition-all cursor-pointer",
+                  selectedSubject === "all"
+                    ? "bg-primary text-primary-foreground shadow-xs font-semibold"
+                    : "bg-card text-muted-foreground hover:bg-secondary hover:text-foreground border border-border/60"
+                )}
+              >
+                <Layers className="size-3.5" />
+                <span>সকল বিষয়</span>
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.2 text-[10px]",
+                    selectedSubject === "all"
+                      ? "bg-primary-foreground/20 text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {totalSystemQuestions.toLocaleString()}
+                </span>
+              </button>
+
               {subjects.map((sub) => {
                 const isSelected = sub.slug === selectedSubject;
                 const banglaName = SUBJECT_NAMES_BN[sub.slug] ?? sub.name;

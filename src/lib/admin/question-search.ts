@@ -2,83 +2,84 @@ import "server-only";
 
 import { getQuestionManifest, getQuestionShard, type StorageQuestion } from "@/lib/questions/storage";
 
-const PREFIX_SUBJECT_MAP: Record<string, string> = {
-  p: "physics",
-  c: "chemistry",
-  b: "biology",
-  m: "mathematics",
-  i: "ict",
-  o: "other",
-};
-
 type SearchResult = { question: StorageQuestion; subject: string; shardNumber: number };
 const qCache = new Map<string, SearchResult>();
 
+export function updateSearchCache(question: StorageQuestion, subject: string, shardNumber: number) {
+  const item = { question, subject, shardNumber };
+  qCache.set(question.id.toLowerCase(), item);
+  if (question.external_id) qCache.set(String(question.external_id), item);
+  const numMatch = question.id.match(/(\d+)/);
+  if (numMatch && numMatch[1]) qCache.set(numMatch[1], item);
+}
+
+export function invalidateSearchCache(questionId?: string) {
+  if (questionId) {
+    qCache.delete(questionId.toLowerCase());
+    const num = questionId.match(/(\d+)/);
+    if (num && num[1]) qCache.delete(num[1]);
+  } else {
+    qCache.clear();
+  }
+}
+
+const ALL_SUBJECTS = ["physics", "chemistry", "mathematics", "biology", "ict", "other"];
+
 export async function findQuestionById(
   rawQuery: string,
-  preferredSubject = "physics"
+  preferredSubject?: string,
+  skipCache = false
 ): Promise<SearchResult | null> {
   const query = rawQuery.trim().toLowerCase();
   if (!query) return null;
 
-  // Check in-memory cache first (O(1))
-  const direct = qCache.get(query);
-  if (direct) return direct;
+  const numMatch = query.match(/(\d+)/);
+  const numericId = numMatch ? numMatch[1] : null;
 
-  const prefixMatch = query.match(/^([a-z])-(\d+)$/);
-  let targetSubject: string | null = null;
-  let targetId = query;
-  let numericId: number | null = null;
-
-  if (prefixMatch && prefixMatch[1] && prefixMatch[2]) {
-    const p = prefixMatch[1];
-    targetSubject = PREFIX_SUBJECT_MAP[p] || null;
-    targetId = `${p}-${prefixMatch[2]}`;
-    numericId = parseInt(prefixMatch[2], 10);
-  } else if (/^\d+$/.test(query)) {
-    numericId = parseInt(query, 10);
-  }
-
-  if (numericId && qCache.has(String(numericId))) {
-    return qCache.get(String(numericId))!;
+  if (!skipCache) {
+    const cached = qCache.get(query);
+    if (cached) return cached;
+    if (numericId && qCache.has(numericId)) return qCache.get(numericId)!;
   }
 
   const manifest = await getQuestionManifest().catch(() => null);
-  // If prefix is known (e.g. p-), ONLY search that subject
-  const subjectsToSearch = targetSubject
-    ? [targetSubject]
-    : [preferredSubject, ...(manifest?.subjects.map((s) => s.slug).filter((s) => s !== preferredSubject) || [])];
+  const subjects = preferredSubject && ALL_SUBJECTS.includes(preferredSubject)
+    ? [preferredSubject, ...ALL_SUBJECTS.filter((s) => s !== preferredSubject)]
+    : ALL_SUBJECTS;
 
-  const BATCH_SIZE = 20;
+  const BATCH_RANGES = [
+    { start: 1, count: 10 },
+    { start: 11, count: 15 },
+    { start: 26, count: 25 },
+    { start: 51, count: 50 },
+    { start: 101, count: 100 },
+    { start: 201, count: 150 },
+  ];
 
-  for (const subject of subjectsToSearch) {
-    const subjectInfo = manifest?.subjects.find((s) => s.slug === subject);
-    const maxShards = subjectInfo?.shards?.all ?? 30;
+  for (const range of BATCH_RANGES) {
+    await Promise.all(
+      subjects.flatMap((sub) => {
+        const subInfo = manifest?.subjects.find((s) => s.slug === sub);
+        const maxShards = subInfo?.shards?.all ?? 30;
+        if (range.start > maxShards) return [];
 
-    for (let start = 1; start <= maxShards; start += BATCH_SIZE) {
-      const batchNums = Array.from(
-        { length: Math.min(BATCH_SIZE, maxShards - start + 1) },
-        (_, i) => start + i
-      );
-
-      await Promise.all(
-        batchNums.map(async (sNum) => {
+        const limit = Math.min(range.count, maxShards - range.start + 1);
+        return Array.from({ length: limit }, (_, i) => range.start + i).map(async (sNum) => {
           try {
-            const shard = await getQuestionShard(subject, sNum, "all");
+            const shard = await getQuestionShard(sub, sNum, "all");
             for (const q of shard) {
-              const item = { question: { ...q, _shard: sNum }, subject, shardNumber: sNum };
+              const item = { question: { ...q, _shard: sNum }, subject: sub, shardNumber: sNum };
               qCache.set(q.id.toLowerCase(), item);
               if (q.external_id) qCache.set(String(q.external_id), item);
             }
           } catch {
-            // Shard load failed or skipped
           }
-        })
-      );
+        });
+      })
+    );
 
-      const found = qCache.get(targetId) || (numericId ? qCache.get(String(numericId)) : null);
-      if (found) return found;
-    }
+    const found = qCache.get(query) || (numericId ? qCache.get(numericId) : null);
+    if (found) return found;
   }
 
   return null;

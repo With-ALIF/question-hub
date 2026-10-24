@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentRole } from "@/lib/auth/roles";
 import { invalidateShardCache, type StorageQuestion } from "@/lib/questions/storage";
+import { updateSearchCache } from "@/lib/admin/question-search";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { QuestionOption } from "@/lib/supabase/types";
 
@@ -14,10 +15,12 @@ export type UpdateQuestionInput = {
   subject: string;
   shardNumber?: number | undefined;
   question_text: string;
+  question_image_url?: string | null | undefined;
   options: QuestionOption[];
   correct_option: number | null;
   answer: string | null;
   explanation: string | null;
+  explanation_image_url?: string | null | undefined;
   is_mcq: boolean;
   institution?: string | null | undefined;
   year?: string | null | undefined;
@@ -95,20 +98,28 @@ export async function updateQuestionInBucket(
 
       const shardFiles = (files ?? [])
         .map((f) => f.name)
-        .filter((name) => name.startsWith("shard-") && name.endsWith(".json"));
+        .filter((name) => name.startsWith("shard-") && name.endsWith(".json"))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-      for (const fileName of shardFiles) {
-        const filePath = `${PREFIX}/${input.subject}/${fileName}`;
-        const candidate = await downloadShardJson(supabase, filePath);
-        if (candidate && candidate.some((q) => q.id === input.id)) {
-          shard = candidate;
-          mainShardPath = filePath;
-          const match = fileName.match(/shard-(\d+)\.json/);
-          if (match && match[1]) {
-            targetShardNumber = parseInt(match[1], 10);
-          }
-          break;
-        }
+      const BATCH = 15;
+      for (let i = 0; i < shardFiles.length; i += BATCH) {
+        const batch = shardFiles.slice(i, i + BATCH);
+        let found = false;
+        await Promise.all(
+          batch.map(async (fileName) => {
+            if (found) return;
+            const filePath = `${PREFIX}/${input.subject}/${fileName}`;
+            const candidate = await downloadShardJson(supabase, filePath);
+            if (candidate && candidate.some((q) => q.id === input.id)) {
+              shard = candidate;
+              mainShardPath = filePath;
+              const match = fileName.match(/shard-(\d+)\.json/);
+              if (match && match[1]) targetShardNumber = parseInt(match[1], 10);
+              found = true;
+            }
+          })
+        );
+        if (found) break;
       }
     }
 
@@ -130,13 +141,36 @@ export async function updateQuestionInBucket(
       return { success: false, error: "প্রশ্নটি পাওয়া যায়নি।" };
     }
 
+    const qImgs = (existing.question_html || "").match(/<img[^>]+>/gi);
+    const expImgs = (existing.explanation_html || "").match(/<img[^>]+>/gi);
+
+    let finalQuestionHtml: string | null = null;
+    if (input.question_image_url !== undefined) {
+      finalQuestionHtml = input.question_image_url
+        ? `<p><img src="${input.question_image_url.trim()}" alt="Question Image" loading="lazy" /></p>`
+        : null;
+    } else {
+      finalQuestionHtml = qImgs && qImgs.length > 0 ? qImgs.join("\n") : null;
+    }
+
+    let finalExplanationHtml: string | null = null;
+    if (input.explanation_image_url !== undefined) {
+      finalExplanationHtml = input.explanation_image_url
+        ? `<p><img src="${input.explanation_image_url.trim()}" alt="Explanation Image" loading="lazy" /></p>`
+        : null;
+    } else {
+      finalExplanationHtml = expImgs && expImgs.length > 0 ? expImgs.join("\n") : null;
+    }
+
     const updatedQuestion: StorageQuestion = {
       ...existing,
       question_text: input.question_text.trim(),
+      question_html: finalQuestionHtml,
       options: input.options,
       correct_option: input.correct_option,
       answer: input.answer ? input.answer.trim() : null,
       explanation: input.explanation ? input.explanation.trim() : null,
+      explanation_html: finalExplanationHtml,
       is_mcq: input.is_mcq,
       ...(input.institution !== undefined && { institution: input.institution }),
       ...(input.year !== undefined && { year: input.year }),
@@ -160,24 +194,39 @@ export async function updateQuestionInBucket(
       .list(`${PREFIX}/${input.subject}/${typeFolder}`, { limit: 100 });
 
     if (typeFiles && typeFiles.length > 0) {
-      for (const file of typeFiles) {
-        if (!file.name.startsWith("shard-") || !file.name.endsWith(".json")) continue;
-        const typePath = `${PREFIX}/${input.subject}/${typeFolder}/${file.name}`;
-        const typeShard = await downloadShardJson(supabase, typePath);
-        if (typeShard) {
-          const typeIdx = typeShard.findIndex((q) => q.id === input.id);
-          if (typeIdx !== -1) {
-            typeShard[typeIdx] = updatedQuestion;
-            await uploadShardJson(supabase, typePath, typeShard);
-            break;
-          }
-        }
+      const validFiles = typeFiles
+        .map((f) => f.name)
+        .filter((name) => name.startsWith("shard-") && name.endsWith(".json"))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+      const BATCH = 15;
+      for (let i = 0; i < validFiles.length; i += BATCH) {
+        const batch = validFiles.slice(i, i + BATCH);
+        let foundAndSaved = false;
+        await Promise.all(
+          batch.map(async (fileName) => {
+            if (foundAndSaved) return;
+            const typePath = `${PREFIX}/${input.subject}/${typeFolder}/${fileName}`;
+            const typeShard = await downloadShardJson(supabase, typePath);
+            if (typeShard) {
+              const typeIdx = typeShard.findIndex((q) => q.id === input.id);
+              if (typeIdx !== -1) {
+                typeShard[typeIdx] = updatedQuestion;
+                await uploadShardJson(supabase, typePath, typeShard);
+                foundAndSaved = true;
+              }
+            }
+          })
+        );
+        if (foundAndSaved) break;
       }
     }
 
     // 6. Invalidate in-memory and Next.js caches
     invalidateShardCache(input.subject, targetShardNumber);
+    updateSearchCache(updatedQuestion, input.subject, targetShardNumber ?? 1);
     revalidatePath("/admin/questions");
+    revalidatePath("/admin/reports");
     revalidatePath("/questions");
 
     return {

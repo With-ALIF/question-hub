@@ -31,13 +31,14 @@ export async function getPendingReports(): Promise<QuestionReport[]> {
 }
 
 export async function getReportedQuestion(
-  questionId: string
+  questionId: string,
+  skipCache = false
 ): Promise<StorageQuestion | null> {
   try {
     const role = await getCurrentRole();
     if (!role) return null;
-    const res = await findQuestionById(questionId);
-    return res?.question ?? null;
+    const res = await findQuestionById(questionId, undefined, skipCache);
+    return res ? { ...res.question, subject: res.subject, _shard: res.shardNumber } : null;
   } catch {
     return null;
   }
