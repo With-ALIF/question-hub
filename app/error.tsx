@@ -3,10 +3,13 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { reportLovableError } from "@/lib/lovable-error-reporting";
-import { useI18n } from "@/lib/i18n/client";
+import { useOptionalI18n } from "@/lib/i18n/client";
+import { DEFAULT_LANGUAGE } from "@/lib/i18n/config";
+import { createTranslator } from "@/lib/i18n/translator";
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  const { tr } = useI18n();
+  const i18n = useOptionalI18n();
+  const { tr } = i18n ?? createTranslator(DEFAULT_LANGUAGE);
 
   useEffect(() => {
     reportLovableError(error, { boundary: "next_app_error" });

@@ -66,3 +66,11 @@ export function useI18n() {
   }
   return context;
 }
+
+/**
+ * For error boundaries, which may render outside the root layout's provider.
+ * Prefer useI18n everywhere else.
+ */
+export function useOptionalI18n() {
+  return useContext(LanguageContext);
+}
