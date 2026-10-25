@@ -3,24 +3,33 @@ import type { Metadata } from "next";
 import { HomePage, type RecentQuestion } from "@/components/site/HomePage";
 import { getSubjects } from "@/lib/questions/catalog";
 import { getQuestionManifest } from "@/lib/questions/storage";
+import { getI18n } from "@/lib/i18n/server";
+import { getHomeSlideUrls } from "@/lib/home-slides";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "QuestionBank — Practice Questions for Every Subject",
-  description:
+export async function generateMetadata(): Promise<Metadata> {
+  const { tr } = await getI18n();
+  const title = tr(
+    "QuestionBank — Practice Questions for Every Subject",
+    "QuestionBank — সব বিষয়ের প্রশ্ন অনুশীলন",
+  );
+  const description = tr(
     "Search subject-wise questions across Physics, Chemistry, Biology, Mathematics, ICT and more. Browse subjects and pick a plan.",
-  openGraph: {
-    title: "QuestionBank — Practice Questions for Every Subject",
-    description:
-      "Search subject-wise questions across Physics, Chemistry, Biology, Mathematics, ICT and more.",
-  },
-};
+    "পদার্থবিজ্ঞান, রসায়ন, জীববিজ্ঞান, উচ্চতর গণিত, আইসিটি ও অন্যান্য বিষয়ের প্রশ্ন খুঁজুন। বিষয় ঘুরে দেখুন এবং প্ল্যান বেছে নিন।",
+  );
+  return {
+    title,
+    description,
+    openGraph: { title, description },
+  };
+}
 
 export default async function Page() {
-  const [subjects, manifest] = await Promise.all([
+  const [subjects, manifest, slides] = await Promise.all([
     getSubjects(),
     getQuestionManifest().catch(() => null),
+    getHomeSlideUrls(),
   ]);
 
   const recentQuestions: RecentQuestion[] = (manifest?.recentQuestions ?? []).map(
@@ -39,6 +48,7 @@ export default async function Page() {
       totalQuestions={manifest?.totalQuestions}
       mcqTotal={manifest?.mcqTotal}
       recentQuestions={recentQuestions}
+      slides={slides}
     />
   );
 }

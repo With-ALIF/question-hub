@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getI18n } from "@/lib/i18n/server";
 import { sendReportNotificationEmail } from "./email";
 import type { ReportType } from "./types";
 
@@ -36,21 +37,31 @@ export async function checkReportStatus(questionId: string): Promise<boolean> {
 export async function submitQuestionReport(
   input: SubmitReportInput
 ): Promise<SubmitReportResult> {
+  const { tr } = await getI18n();
   try {
     const questionId = input.questionId?.trim();
     const message = input.message?.trim();
     const reportType = input.reportType;
 
-    if (!questionId) return { success: false, error: "প্রশ্ন আইডি পাওয়া যায়নি।" };
-    if (!reportType) return { success: false, error: "সমস্যার ধরন নির্বাচন করুন।" };
-    if (!message) return { success: false, error: "বিস্তারিত মেসেজ লিখুন।" };
+    if (!questionId) {
+      return { success: false, error: tr("Question ID not found.", "প্রশ্ন আইডি পাওয়া যায়নি।") };
+    }
+    if (!reportType) {
+      return { success: false, error: tr("Select the type of issue.", "সমস্যার ধরন নির্বাচন করুন।") };
+    }
+    if (!message) {
+      return { success: false, error: tr("Please write a detailed message.", "বিস্তারিত মেসেজ লিখুন।") };
+    }
 
     const isReported = await checkReportStatus(questionId);
     if (isReported) {
       return {
         success: false,
         alreadyReported: true,
-        error: "এই প্রশ্নে ইতিমধ্যে রিপোর্ট করা হয়েছে, এডমিন ভেরিফিকেশন পর্যন্ত অপেক্ষা করুন।",
+        error: tr(
+          "This question has already been reported. Please wait for admin verification.",
+          "এই প্রশ্নে ইতিমধ্যে রিপোর্ট করা হয়েছে, এডমিন ভেরিফিকেশন পর্যন্ত অপেক্ষা করুন।",
+        ),
       };
     }
 
@@ -78,7 +89,10 @@ export async function submitQuestionReport(
   } catch (err) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "রিপোর্ট সাবমিট করা যায়নি।",
+      error:
+        err instanceof Error
+          ? err.message
+          : tr("Could not submit the report.", "রিপোর্ট সাবমিট করা যায়নি।"),
     };
   }
 }

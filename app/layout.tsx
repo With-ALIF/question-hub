@@ -3,37 +3,54 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 
-export const metadata: Metadata = {
-  title: "QuestionBank — Practice Questions for Every Subject",
-  description:
+import { LanguageProvider } from "@/lib/i18n/client";
+import { getI18n, getLanguage } from "@/lib/i18n/server";
+import { localeForLanguage } from "@/lib/i18n/config";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { tr } = await getI18n();
+  const title = tr(
+    "QuestionBank — Practice Questions for Every Subject",
+    "QuestionBank — সব বিষয়ের প্রশ্ন অনুশীলন",
+  );
+  const description = tr(
     "Chapter-wise question bank for Physics, Chemistry, Biology, Mathematics and ICT.",
-  authors: [{ name: "QuestionBank" }],
-  icons: {
-    icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico", sizes: "any" },
-    ],
-    shortcut: "/favicon.ico",
-  },
-  openGraph: {
-    title: "QuestionBank — Practice Questions for Every Subject",
-    description:
-      "Chapter-wise question bank for Physics, Chemistry, Biology, Mathematics and ICT.",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-  },
-};
+    "পদার্থবিজ্ঞান, রসায়ন, জীববিজ্ঞান, উচ্চতর গণিত ও আইসিটির অধ্যায়ভিত্তিক প্রশ্ন ব্যাংক।",
+  );
+
+  return {
+    title,
+    description,
+    authors: [{ name: "QuestionBank" }],
+    icons: {
+      icon: [
+        { url: "/icon.svg", type: "image/svg+xml" },
+        { url: "/favicon.ico", sizes: "any" },
+      ],
+      shortcut: "/favicon.ico",
+    },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      locale: localeForLanguage(await getLanguage()),
+    },
+    twitter: {
+      card: "summary_large_image",
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const lang = await getLanguage();
+
   return (
-    <html lang="en">
+    <html lang={lang}>
       <head>
         <link
           rel="preload"
@@ -43,7 +60,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           crossOrigin="anonymous"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <LanguageProvider initialLanguage={lang}>{children}</LanguageProvider>
+      </body>
     </html>
   );
 }

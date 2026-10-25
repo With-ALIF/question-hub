@@ -25,11 +25,11 @@ import {
   generateExamPaperHtml,
   printExamPaper,
   downloadExamPaperPdf,
-  toBanglaNumber,
 } from "@/lib/exam-paper/print-engine";
 import { getSavedQuestions, saveQuestion } from "@/lib/saved-questions";
 import type { QuestionListItem } from "@/components/questions/QuestionCard";
 import type { ExamPaperConfig } from "@/lib/exam-paper/types";
+import { useI18n } from "@/lib/i18n/client";
 
 type Props = {
   isOpen: boolean;
@@ -44,32 +44,36 @@ export function ExamPaperPdfModal({
   questions,
   onOpenSaved,
 }: Props) {
-  // Exam Info
-  const [title, setTitle] = useState("নির্বাচিত প্রশ্নের পরীক্ষাপত্র");
+  const { tr, num, lang } = useI18n();
+
+  const [title, setTitle] = useState(() =>
+    tr("Selected questions exam paper", "নির্বাচিত প্রশ্নের পরীক্ষাপত্র"),
+  );
   const [tutor, setTutor] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [marks, setMarks] = useState(String(questions.length || 50));
-  const [time, setTime] = useState(questions.length ? `${Math.ceil(questions.length * 1.2)} মিনিট` : "৫০ মিনিট");
+  const [time, setTime] = useState(() =>
+    questions.length
+      ? `${num(Math.ceil(questions.length * 1.2))} ${tr("min", "মিনিট")}`
+      : `${num(50)} ${tr("min", "মিনিট")}`,
+  );
 
-  // Question & Answer
   const [hasFourSets, setHasFourSets] = useState(false);
   const [withAnswers, setWithAnswers] = useState(true);
 
-  // Layout & Sizing
   const [questionSize, setQuestionSize] = useState(11);
   const [headerSize, setHeaderSize] = useState(24);
 
-  // Watermark
   const [watermarkText, setWatermarkText] = useState("");
   const [watermarkOpacity, setWatermarkOpacity] = useState(90);
   const [watermarkImg, setWatermarkImg] = useState<string | null>(null);
-  const [watermarkImgName, setWatermarkImgName] = useState("কোনো ছবি নেই");
+  const [watermarkImgName, setWatermarkImgName] = useState(() =>
+    tr("No image", "কোনো ছবি নেই"),
+  );
 
-  // Footer
   const [footerLeft, setFooterLeft] = useState("QuestionBank");
-  const [footerRight, setFooterRight] = useState("পরীক্ষাপত্র");
+  const [footerRight, setFooterRight] = useState(() => tr("Exam paper", "পরীক্ষাপত্র"));
 
-  // Status
   const [savedCount, setSavedCount] = useState(0);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -80,10 +84,12 @@ export function ExamPaperPdfModal({
   useEffect(() => {
     if (questions.length) {
       setMarks(String(questions.length));
-      setTime(`${Math.max(10, Math.ceil(questions.length * 1.2))} মিনিট`);
+      setTime(
+        `${num(Math.max(10, Math.ceil(questions.length * 1.2)))} ${tr("min", "মিনিট")}`,
+      );
     }
     setSavedCount(getSavedQuestions().length);
-  }, [questions.length, isOpen]);
+  }, [questions.length, isOpen, tr, num]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -98,7 +104,7 @@ export function ExamPaperPdfModal({
 
   const handleClearImage = () => {
     setWatermarkImg(null);
-    setWatermarkImgName("কোনো ছবি নেই");
+    setWatermarkImgName(tr("No image", "কোনো ছবি নেই"));
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -109,16 +115,21 @@ export function ExamPaperPdfModal({
       added++;
     }
     setSavedCount(getSavedQuestions().length);
-    setSaveSuccessMsg(`${added}টি প্রশ্ন সেভ করা তালিকায় যোগ হয়েছে!`);
+    setSaveSuccessMsg(
+      tr(
+        `${num(added)} questions added to your saved list!`,
+        `${num(added)}টি প্রশ্ন সেভ করা তালিকায় যোগ হয়েছে!`,
+      ),
+    );
     setTimeout(() => setSaveSuccessMsg(null), 3000);
   };
 
   const getConfig = (): ExamPaperConfig => ({
-    title: title.trim() || "নির্বাচিত প্রশ্নের পরীক্ষাপত্র",
+    title: title.trim() || tr("Selected questions exam paper", "নির্বাচিত প্রশ্নের পরীক্ষাপত্র"),
     tutorName: tutor.trim() || undefined,
     subtitle: subtitle.trim() || undefined,
     marks: marks.trim() || String(questions.length),
-    time: time.trim() || "৫০ মিনিট",
+    time: time.trim() || `${num(50)} ${tr("min", "মিনিট")}`,
     hasFourSets,
     withAnswers,
     questionSize,
@@ -157,7 +168,6 @@ export function ExamPaperPdfModal({
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl border-border bg-card shadow-2xl">
-          {/* Header */}
           <div className="sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border bg-card/95 backdrop-blur-sm p-4 sm:p-5">
             <div className="flex items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -165,11 +175,14 @@ export function ExamPaperPdfModal({
               </span>
               <div>
                 <h3 className="flex items-center gap-2 text-base sm:text-lg font-bold text-foreground">
-                  <span>পরীক্ষাপত্র তৈরি</span>
+                  <span>{tr("Build exam paper", "পরীক্ষাপত্র তৈরি")}</span>
                   <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">PDF</span>
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  নির্বাচিত <strong className="text-foreground">{toBanglaNumber(questions.length)}টি</strong> প্রশ্ন দিয়ে একটি সম্পূর্ণ পরীক্ষাপত্র তৈরি হবে।
+                  {tr("A complete exam paper will be created with the", "নির্বাচিত")}{" "}
+                  <strong className="text-foreground">{num(questions.length)}</strong>
+                  {lang === "bn" ? "" : " "}
+                  {tr("selected questions.", "টি প্রশ্ন দিয়ে একটি সম্পূর্ণ পরীক্ষাপত্র তৈরি হবে।")}
                 </p>
               </div>
             </div>
@@ -183,7 +196,7 @@ export function ExamPaperPdfModal({
                 className="h-8 gap-1 text-xs cursor-pointer"
               >
                 <Bookmark className="size-3.5 text-primary" />
-                <span>প্রশ্ন সেভ করুন</span>
+                <span>{tr("Save questions", "প্রশ্ন সেভ করুন")}</span>
               </Button>
               {onOpenSaved && (
                 <Button
@@ -194,7 +207,7 @@ export function ExamPaperPdfModal({
                   className="h-8 gap-1 text-xs cursor-pointer"
                 >
                   <FolderOpen className="size-3.5 text-muted-foreground" />
-                  <span>সেভ করা ({toBanglaNumber(savedCount)})</span>
+                  <span>{tr(`Saved (${num(savedCount)})`, `সেভ করা (${num(savedCount)})`)}</span>
                 </Button>
               )}
             </div>
@@ -206,25 +219,27 @@ export function ExamPaperPdfModal({
             </div>
           )}
 
-          {/* Form Body */}
           <div className="p-4 sm:p-5 space-y-6">
-            {/* 1. Exam Info */}
             <section className="rounded-xl border border-border/70 p-4 space-y-4 bg-muted/10">
               <div className="flex items-center gap-2 text-sm font-bold text-foreground">
                 <Type className="size-4 text-primary" />
                 <div>
-                  <h4 className="leading-none">পরীক্ষার তথ্য</h4>
-                  <p className="text-[11px] font-normal text-muted-foreground mt-0.5">পাতার হেডারে যেসব লেখা বসবে</p>
+                  <h4 className="leading-none">{tr("Exam information", "পরীক্ষার তথ্য")}</h4>
+                  <p className="text-[11px] font-normal text-muted-foreground mt-0.5">
+                    {tr("Text shown in the paper header", "পাতার হেডারে যেসব লেখা বসবে")}
+                  </p>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="pdfTitle" className="text-xs font-semibold">পরীক্ষার নাম</Label>
+                <Label htmlFor="pdfTitle" className="text-xs font-semibold">
+                  {tr("Exam name", "পরীক্ষার নাম")}
+                </Label>
                 <Input
                   id="pdfTitle"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="নির্বাচিত প্রশ্নের পরীক্ষাপত্র"
+                  placeholder={tr("Selected questions exam paper", "নির্বাচিত প্রশ্নের পরীক্ষাপত্র")}
                   className="h-9 text-xs"
                 />
               </div>
@@ -232,25 +247,27 @@ export function ExamPaperPdfModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="pdfTutor" className="text-xs font-semibold">
-                    শিক্ষকের নাম <span className="text-muted-foreground font-normal">(ঐচ্ছিক)</span>
+                    {tr("Teacher's name", "শিক্ষকের নাম")}{" "}
+                    <span className="text-muted-foreground font-normal">({tr("optional", "ঐচ্ছিক")})</span>
                   </Label>
                   <Input
                     id="pdfTutor"
                     value={tutor}
                     onChange={(e) => setTutor(e.target.value)}
-                    placeholder="যেমন: ড. সাইফুল ইসলাম"
+                    placeholder={tr("e.g. Dr. Saiful Islam", "যেমন: ড. সাইফুল ইসলাম")}
                     className="h-9 text-xs"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="pdfSubj" className="text-xs font-semibold">
-                    টাইটেল / সাবজেক্ট <span className="text-muted-foreground font-normal">(ঐচ্ছিক)</span>
+                    {tr("Title / Subject", "টাইটেল / সাবজেক্ট")}{" "}
+                    <span className="text-muted-foreground font-normal">({tr("optional", "ঐচ্ছিক")})</span>
                   </Label>
                   <Input
                     id="pdfSubj"
                     value={subtitle}
                     onChange={(e) => setSubtitle(e.target.value)}
-                    placeholder="যেমন: রসায়ন সাজেশন ২০২৬"
+                    placeholder={tr("e.g. Chemistry Suggestions 2026", "যেমন: রসায়ন সাজেশন ২০২৬")}
                     className="h-9 text-xs"
                   />
                 </div>
@@ -258,43 +275,58 @@ export function ExamPaperPdfModal({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="pdfMarks" className="text-xs font-semibold">পূর্ণমান</Label>
+                  <Label htmlFor="pdfMarks" className="text-xs font-semibold">
+                    {tr("Total marks", "পূর্ণমান")}
+                  </Label>
                   <Input
                     id="pdfMarks"
                     value={marks}
                     onChange={(e) => setMarks(e.target.value)}
-                    placeholder="৮০"
+                    placeholder={tr("80", "৮০")}
                     className="h-9 text-xs"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="pdfTime" className="text-xs font-semibold">সময়</Label>
+                  <Label htmlFor="pdfTime" className="text-xs font-semibold">
+                    {tr("Time", "সময়")}
+                  </Label>
                   <Input
                     id="pdfTime"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
-                    placeholder="৬০ মিনিট"
+                    placeholder={tr("60 minutes", "৬০ মিনিট")}
                     className="h-9 text-xs"
                   />
                 </div>
               </div>
-              <p className="text-[11px] text-muted-foreground">হেডারে দেখাবে: সময়: {time || "—"} | পূর্ণমান: {toBanglaNumber(marks || "০")}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {tr("Header preview:", "হেডারে দেখাবে:")} {tr("Time:", "সময়:")} {time || "—"} |{" "}
+                {tr("Marks:", "পূর্ণমান:")} {num(marks || "0")}
+              </p>
             </section>
 
-            {/* 2. Questions & Answer Settings */}
             <section className="rounded-xl border border-border/70 p-4 space-y-4 bg-muted/10">
               <div className="flex items-center gap-2 text-sm font-bold text-foreground">
                 <CheckSquare className="size-4 text-primary" />
                 <div>
-                  <h4 className="leading-none">প্রশ্ন ও উত্তর</h4>
-                  <p className="text-[11px] font-normal text-muted-foreground mt-0.5">সেট, ক্রম ও উত্তরের ধরন</p>
+                  <h4 className="leading-none">{tr("Questions & answers", "প্রশ্ন ও উত্তর")}</h4>
+                  <p className="text-[11px] font-normal text-muted-foreground mt-0.5">
+                    {tr("Sets, order & answer style", "সেট, ক্রম ও উত্তরের ধরন")}
+                  </p>
                 </div>
               </div>
 
               <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
                 <div>
-                  <p className="text-xs font-semibold text-foreground">৪টি সেট (A, B, C, D)</p>
-                  <p className="text-[11px] text-muted-foreground">প্রতি সেটে আলাদা ক্রম · উত্তর তালিকা এক পাতায় · সমাধান শুধু সেট A</p>
+                  <p className="text-xs font-semibold text-foreground">
+                    {tr("4 sets (A, B, C, D)", "৪টি সেট (A, B, C, D)")}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {tr(
+                      "Different order per set · Answer key on one page · Solutions only in set A",
+                      "প্রতি সেটে আলাদা ক্রম · উত্তর তালিকা এক পাতায় · সমাধান শুধু সেট A",
+                    )}
+                  </p>
                 </div>
                 <input
                   type="checkbox"
@@ -306,33 +338,38 @@ export function ExamPaperPdfModal({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="pdfAns" className="text-xs font-semibold">PDF টাইপ</Label>
+                <Label htmlFor="pdfAns" className="text-xs font-semibold">
+                  {tr("PDF type", "PDF টাইপ")}
+                </Label>
                 <select
                   id="pdfAns"
                   value={withAnswers ? "yes" : "no"}
                   onChange={(e) => setWithAnswers(e.target.value === "yes")}
                   className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
-                  <option value="yes">উত্তরসহ — উত্তর তালিকা ও সমাধানসহ</option>
-                  <option value="no">উত্তর ছাড়া — শুধু প্রশ্ন</option>
+                  <option value="yes">
+                    {tr("With answers — answer key & solutions", "উত্তরসহ — উত্তর তালিকা ও সমাধানসহ")}
+                  </option>
+                  <option value="no">{tr("Without answers — questions only", "উত্তর ছাড়া — শুধু প্রশ্ন")}</option>
                 </select>
               </div>
             </section>
 
-            {/* 3. Layout & Sizing */}
             <section className="rounded-xl border border-border/70 p-4 space-y-4 bg-muted/10">
               <div className="flex items-center gap-2 text-sm font-bold text-foreground">
                 <Sliders className="size-4 text-primary" />
                 <div>
-                  <h4 className="leading-none">লেআউট ও সাইজ</h4>
-                  <p className="text-[11px] font-normal text-muted-foreground mt-0.5">PDF-এ লেখার আকার নিয়ন্ত্রণ করুন</p>
+                  <h4 className="leading-none">{tr("Layout & sizing", "লেআউট ও সাইজ")}</h4>
+                  <p className="text-[11px] font-normal text-muted-foreground mt-0.5">
+                    {tr("Control text size in the PDF", "PDF-এ লেখার আকার নিয়ন্ত্রণ করুন")}
+                  </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs font-semibold">
-                    <span>প্রশ্ন সাইজ</span>
+                    <span>{tr("Question size", "প্রশ্ন সাইজ")}</span>
                     <span className="font-mono text-primary">{questionSize}px</span>
                   </div>
                   <input
@@ -345,14 +382,14 @@ export function ExamPaperPdfModal({
                     className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
                   />
                   <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>ছোট (8px)</span>
-                    <span>বড় (24px)</span>
+                    <span>{tr("Small (8px)", "ছোট (8px)")}</span>
+                    <span>{tr("Large (24px)", "বড় (24px)")}</span>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs font-semibold">
-                    <span>হেডার সাইজ</span>
+                    <span>{tr("Header size", "হেডার সাইজ")}</span>
                     <span className="font-mono text-primary">{headerSize}px</span>
                   </div>
                   <input
@@ -365,39 +402,44 @@ export function ExamPaperPdfModal({
                     className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
                   />
                   <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>ছোট (14px)</span>
-                    <span>বড় (40px)</span>
+                    <span>{tr("Small (14px)", "ছোট (14px)")}</span>
+                    <span>{tr("Large (40px)", "বড় (40px)")}</span>
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* 4. Watermark */}
             <section className="rounded-xl border border-border/70 p-4 space-y-4 bg-muted/10">
               <div className="flex items-center gap-2 text-sm font-bold text-foreground">
                 <Sparkles className="size-4 text-primary" />
                 <div>
-                  <h4 className="leading-none">ওয়াটারমার্ক</h4>
-                  <p className="text-[11px] font-normal text-muted-foreground mt-0.5">সব পাতায় হালকা করে বসবে</p>
+                  <h4 className="leading-none">{tr("Watermark", "ওয়াটারমার্ক")}</h4>
+                  <p className="text-[11px] font-normal text-muted-foreground mt-0.5">
+                    {tr("Appears lightly on every page", "সব পাতায় হালকা করে বসবে")}
+                  </p>
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="pdfWm" className="text-xs font-semibold">
-                  টেক্সট <span className="text-muted-foreground font-normal">(ঐচ্ছিক)</span>
+                  {tr("Text", "টেক্সট")}{" "}
+                  <span className="text-muted-foreground font-normal">({tr("optional", "ঐচ্ছিক")})</span>
                 </Label>
                 <Input
                   id="pdfWm"
                   value={watermarkText}
                   onChange={(e) => setWatermarkText(e.target.value)}
-                  placeholder="যেমন: QuestionHub বা কোচিং-এর নাম"
+                  placeholder={tr(
+                    "e.g. QuestionHub or coaching name",
+                    "যেমন: QuestionHub বা কোচিং-এর নাম",
+                  )}
                   className="h-9 text-xs"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-semibold">
-                  <span>ট্রান্সপারেন্সি (স্বচ্ছতা)</span>
+                  <span>{tr("Transparency", "ট্রান্সপারেন্সি (স্বচ্ছতা)")}</span>
                   <span className="font-mono text-primary">{watermarkOpacity}%</span>
                 </div>
                 <input
@@ -410,14 +452,17 @@ export function ExamPaperPdfModal({
                   className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
                 />
                 <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>গাঢ় (৫০%)</span>
-                  <span>হালকা (৯৮%)</span>
+                  <span>{tr("Dark (50%)", "গাঢ় (৫০%)")}</span>
+                  <span>{tr("Light (98%)", "হালকা (৯৮%)")}</span>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label className="text-xs font-semibold">
-                  ছবি <span className="text-muted-foreground font-normal">(ঐচ্ছিক লোগো)</span>
+                  {tr("Image", "ছবি")}{" "}
+                  <span className="text-muted-foreground font-normal">
+                    ({tr("optional logo", "ঐচ্ছিক লোগো")})
+                  </span>
                 </Label>
                 <div className="flex flex-wrap items-center gap-2">
                   <input
@@ -436,7 +481,7 @@ export function ExamPaperPdfModal({
                     className="h-8 gap-1.5 text-xs cursor-pointer"
                   >
                     <Upload className="size-3.5 text-primary" />
-                    <span>ছবি বাছুন</span>
+                    <span>{tr("Choose image", "ছবি বাছুন")}</span>
                   </Button>
                   <span className="text-xs text-muted-foreground truncate max-w-xs">{watermarkImgName}</span>
                   {watermarkImg && (
@@ -448,32 +493,43 @@ export function ExamPaperPdfModal({
                       className="h-8 text-xs text-destructive hover:bg-destructive/10 cursor-pointer"
                     >
                       <Trash2 className="size-3.5 mr-1" />
-                      <span>মুছুন</span>
+                      <span>{tr("Remove", "মুছুন")}</span>
                     </Button>
                   )}
                 </div>
                 {watermarkImg && (
                   <div className="mt-2 flex items-center gap-3 rounded-lg border border-border bg-card p-2">
                     <img src={watermarkImg} alt="Preview" className="size-12 object-contain rounded border border-border" />
-                    <span className="text-xs text-muted-foreground">এই ছবিটি পাতার মাঝখানে ওয়াটারমার্ক হিসেবে বসবে</span>
+                    <span className="text-xs text-muted-foreground">
+                      {tr(
+                        "This image will be placed as a watermark in the center of the page",
+                        "এই ছবিটি পাতার মাঝখানে ওয়াটারমার্ক হিসেবে বসবে",
+                      )}
+                    </span>
                   </div>
                 )}
               </div>
             </section>
 
-            {/* 5. Footer */}
             <section className="rounded-xl border border-border/70 p-4 space-y-4 bg-muted/10">
               <div className="flex items-center gap-2 text-sm font-bold text-foreground">
                 <AlignLeft className="size-4 text-primary" />
                 <div>
-                  <h4 className="leading-none">ফুটার</h4>
-                  <p className="text-[11px] font-normal text-muted-foreground mt-0.5">প্রতিটি পাতার নিচে বাম ও ডান দিকে</p>
+                  <h4 className="leading-none">{tr("Footer", "ফুটার")}</h4>
+                  <p className="text-[11px] font-normal text-muted-foreground mt-0.5">
+                    {tr(
+                      "Left and right side of each page footer",
+                      "প্রতিটি পাতার নিচে বাম ও ডান দিকে",
+                    )}
+                  </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="pdfFootL" className="text-xs font-semibold">বাম দিকের লেখা</Label>
+                  <Label htmlFor="pdfFootL" className="text-xs font-semibold">
+                    {tr("Left text", "বাম দিকের লেখা")}
+                  </Label>
                   <Input
                     id="pdfFootL"
                     value={footerLeft}
@@ -483,12 +539,14 @@ export function ExamPaperPdfModal({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="pdfFootR" className="text-xs font-semibold">ডান দিকের লেখা</Label>
+                  <Label htmlFor="pdfFootR" className="text-xs font-semibold">
+                    {tr("Right text", "ডান দিকের লেখা")}
+                  </Label>
                   <Input
                     id="pdfFootR"
                     value={footerRight}
                     onChange={(e) => setFooterRight(e.target.value)}
-                    placeholder="পরীক্ষাপত্র"
+                    placeholder={tr("Exam paper", "পরীক্ষাপত্র")}
                     className="h-9 text-xs"
                   />
                 </div>
@@ -496,7 +554,6 @@ export function ExamPaperPdfModal({
             </section>
           </div>
 
-          {/* Footer Actions */}
           <div className="sticky bottom-0 z-10 flex items-center justify-end gap-2.5 border-t border-border bg-card/95 backdrop-blur-sm p-4">
             <Button
               type="button"
@@ -506,7 +563,7 @@ export function ExamPaperPdfModal({
               className="h-9 gap-1.5 text-xs cursor-pointer font-medium"
             >
               <Eye className="size-3.5 text-primary" />
-              <span>প্রিভিউ</span>
+              <span>{tr("Preview", "প্রিভিউ")}</span>
             </Button>
             <Button
               type="button"
@@ -515,7 +572,7 @@ export function ExamPaperPdfModal({
               onClick={onClose}
               className="h-9 text-xs cursor-pointer"
             >
-              <span>বাতিল</span>
+              <span>{tr("Cancel", "বাতিল")}</span>
             </Button>
             <Button
               type="button"
@@ -527,12 +584,12 @@ export function ExamPaperPdfModal({
               {isDownloading ? (
                 <>
                   <Loader2 className="size-3.5 animate-spin" />
-                  <span>PDF তৈরি হচ্ছে...</span>
+                  <span>{tr("Creating PDF...", "PDF তৈরি হচ্ছে...")}</span>
                 </>
               ) : (
                 <>
                   <Download className="size-3.5" />
-                  <span>PDF ডাউনলোড</span>
+                  <span>{tr("Download PDF", "PDF ডাউনলোড")}</span>
                 </>
               )}
             </Button>
@@ -540,14 +597,15 @@ export function ExamPaperPdfModal({
         </DialogContent>
       </Dialog>
 
-      {/* Live Preview Dialog */}
       {showPreviewModal && (
         <Dialog open={true} onOpenChange={(open) => !open && setShowPreviewModal(false)}>
           <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 rounded-2xl overflow-hidden bg-card border-border">
             <div className="flex items-center justify-between border-b border-border p-3.5 bg-muted/20">
               <div className="flex items-center gap-2">
                 <Eye className="size-4 text-primary" />
-                <span className="text-sm font-bold text-foreground">পরীক্ষাপত্র লাইভ প্রিভিউ</span>
+                <span className="text-sm font-bold text-foreground">
+                  {tr("Exam paper live preview", "পরীক্ষাপত্র লাইভ প্রিভিউ")}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Button
@@ -561,12 +619,12 @@ export function ExamPaperPdfModal({
                   {isDownloading ? (
                     <>
                       <Loader2 className="size-3.5 animate-spin" />
-                      <span>ডাউনলোড হচ্ছে...</span>
+                      <span>{tr("Downloading...", "ডাউনলোড হচ্ছে...")}</span>
                     </>
                   ) : (
                     <>
                       <Download className="size-3.5" />
-                      <span>PDF ডাউনলোড</span>
+                      <span>{tr("Download PDF", "PDF ডাউনলোড")}</span>
                     </>
                   )}
                 </Button>
@@ -583,7 +641,7 @@ export function ExamPaperPdfModal({
             <div className="flex-1 w-full overflow-hidden p-2 bg-neutral-100 dark:bg-neutral-900">
               <iframe
                 srcDoc={previewHtml}
-                title="Exam Paper Preview"
+                title={tr("Exam Paper Preview", "পরীক্ষাপত্র প্রিভিউ")}
                 className="w-full h-[76vh] border-0 rounded-lg bg-white shadow-inner"
               />
             </div>

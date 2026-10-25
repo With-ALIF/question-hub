@@ -7,11 +7,34 @@ import { BookOpen, ListChecks, Sparkles, type LucideIcon } from "lucide-react";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { SubjectCard } from "@/components/site/SubjectCard";
-import { PlanCard } from "@/components/site/PlanCard";
+import { PricingTabs } from "@/components/site/PricingTabs";
+import { CountUp } from "@/components/site/CountUp";
+import { HeroCarousel } from "@/components/site/HeroCarousel";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { plans } from "@/data/plans";
+import { useI18n } from "@/lib/i18n/client";
 import type { Subject } from "@/data/subjects";
+import { cn } from "@/lib/utils";
+
+const statAccents = [
+  {
+    chip: "bg-teal-500/10 text-teal-600 ring-teal-500/20 dark:text-teal-400",
+    glow: "bg-teal-500/15",
+    line: "from-teal-400/80 via-teal-500/30 to-transparent",
+    hover: "hover:border-teal-500/30",
+  },
+  {
+    chip: "bg-sky-500/10 text-sky-600 ring-sky-500/20 dark:text-sky-400",
+    glow: "bg-sky-500/15",
+    line: "from-sky-400/80 via-sky-500/30 to-transparent",
+    hover: "hover:border-sky-500/30",
+  },
+  {
+    chip: "bg-violet-500/10 text-violet-600 ring-violet-500/20 dark:text-violet-400",
+    glow: "bg-violet-500/15",
+    line: "from-violet-400/80 via-violet-500/30 to-transparent",
+    hover: "hover:border-violet-500/30",
+  },
+] as const;
 
 export type RecentQuestion = {
   id: string;
@@ -26,6 +49,7 @@ type HomePageProps = {
   totalQuestions?: number | undefined;
   mcqTotal?: number | undefined;
   recentQuestions?: RecentQuestion[] | undefined;
+  slides: string[];
 };
 
 export function HomePage({
@@ -33,8 +57,10 @@ export function HomePage({
   totalQuestions,
   mcqTotal,
   recentQuestions = [],
+  slides,
 }: HomePageProps) {
   const [query, setQuery] = useState("");
+  const { tr, num } = useI18n();
 
   const filteredSubjects = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -47,45 +73,112 @@ export function HomePage({
     );
   }, [query, subjects]);
 
-  const stats: { icon: LucideIcon; value: string; label: string }[] = [];
+  const stats: { icon: LucideIcon; value: number; label: string }[] = [];
   if (typeof totalQuestions === "number") {
-    stats.push({ icon: BookOpen, value: totalQuestions.toLocaleString(), label: "Questions" });
+    stats.push({
+      icon: BookOpen,
+      value: totalQuestions,
+      label: tr("Questions", "প্রশ্ন"),
+    });
   }
   if (typeof mcqTotal === "number") {
-    stats.push({ icon: ListChecks, value: mcqTotal.toLocaleString(), label: "MCQ questions" });
+    stats.push({
+      icon: ListChecks,
+      value: mcqTotal,
+      label: tr("MCQ questions", "MCQ প্রশ্ন"),
+    });
   }
-  stats.push({ icon: Sparkles, value: String(subjects.length), label: "Subjects" });
+  stats.push({
+    icon: Sparkles,
+    value: subjects.length,
+    label: tr("Subjects", "বিষয়"),
+  });
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
 
       <main className="flex-1">
-        <section className="relative overflow-hidden">
+        <section className="relative">
           <div className="hero-grid absolute inset-0" aria-hidden="true" />
-          <div className="relative mx-auto max-w-6xl px-4 pb-16 pt-16 text-center sm:px-6 sm:pt-24">
-            <Badge variant="secondary" className="mb-5 gap-1.5 rounded-full px-3 py-1 text-xs font-medium">
-              <Sparkles className="size-3.5 text-accent-foreground" aria-hidden="true" />
-              {typeof totalQuestions === "number"
-                ? `${totalQuestions.toLocaleString()} curated questions`
-                : `${subjects.length} subjects`}
-            </Badge>
-            <h1 className="mx-auto max-w-3xl font-display text-4xl font-bold leading-tight tracking-tight text-foreground sm:text-5xl">
-              Master every exam with a <span className="text-primary">subject-wise question bank</span>
-            </h1>
-            <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
-              Practice questions across core subjects and other topics — with clear solutions,
-              subject filters and a plan that fits you.
-            </p>
-            <div className="mt-10 mx-auto grid max-w-lg grid-cols-3 gap-4 text-center">
-              {stats.map(({ icon: Icon, value, label }) => (
-                <div key={label} className="rounded-2xl border border-border bg-card/70 p-4">
-                  <Icon className="mx-auto size-5 text-primary" aria-hidden="true" />
-                  <p className="mt-2 font-display text-lg font-bold text-foreground">{value}</p>
-                  <p className="text-xs text-muted-foreground">{label}</p>
+          <h1 className="sr-only">
+            {tr(
+              "QuestionBank — a subject-wise question bank for every exam",
+              "QuestionBank — প্রতিটি পরীক্ষার জন্য বিষয়ভিত্তিক প্রশ্ন ব্যাংক",
+            )}
+          </h1>
+          <div className="relative mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10">
+            <HeroCarousel slides={slides} />
+          </div>
+        </section>
+
+        <section
+          aria-label={tr("QuestionBank at a glance", "এক নজরে QuestionBank")}
+          className="relative mx-auto mt-8 max-w-4xl px-4 sm:mt-10 sm:px-6"
+        >
+          <div
+            className={cn(
+              "grid gap-2.5 sm:gap-4",
+              stats.length <= 1
+                ? "grid-cols-1"
+                : stats.length === 2
+                  ? "grid-cols-2"
+                  : "grid-cols-3",
+            )}
+          >
+            {stats.map(({ icon: Icon, value, label }, index) => {
+              const accent = statAccents[index % statAccents.length]!;
+
+              return (
+                <div
+                  key={label}
+                  className={cn(
+                    "group relative overflow-hidden rounded-2xl border border-border/70 bg-linear-to-b from-card via-card to-secondary/30 p-3 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:rounded-3xl sm:p-5",
+                    accent.hover,
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "pointer-events-none absolute -right-6 -top-8 size-24 rounded-full blur-2xl",
+                      accent.glow,
+                    )}
+                    aria-hidden="true"
+                  />
+                  <Icon
+                    className="pointer-events-none absolute -bottom-6 -right-3 hidden size-24 text-foreground/[0.04] sm:block"
+                    strokeWidth={1.25}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className={cn(
+                      "absolute inset-x-0 top-0 h-0.5 bg-linear-to-r",
+                      accent.line,
+                    )}
+                    aria-hidden="true"
+                  />
+
+                  <div className="relative flex flex-col items-center gap-2 text-center sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:text-left">
+                    <div className="min-w-0">
+                      <p className="font-display text-xl font-bold leading-none tracking-tight text-foreground tabular-nums sm:text-3xl lg:text-4xl">
+                        <CountUp value={value} />
+                      </p>
+                      <p className="mt-1.5 text-[10px] font-semibold uppercase leading-tight tracking-[0.12em] text-muted-foreground sm:mt-2 sm:text-[11px]">
+                        {label}
+                      </p>
+                    </div>
+
+                    <span
+                      className={cn(
+                        "order-first flex size-8 shrink-0 items-center justify-center rounded-lg ring-1 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105 sm:order-last sm:size-11 sm:rounded-2xl",
+                        accent.chip,
+                      )}
+                    >
+                      <Icon className="size-4 sm:size-5" aria-hidden="true" />
+                    </span>
+                  </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </section>
 
@@ -93,16 +186,19 @@ export function HomePage({
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 id="subjects-heading" className="font-display text-2xl font-bold text-foreground sm:text-3xl">
-                Explore subjects
+                {tr("Explore subjects", "বিষয় ঘুরে দেখুন")}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {query
-                  ? `Showing results for “${query}”`
-                  : `${subjects.length} subjects with live question counts.`}
+                  ? tr(`Showing results for “${query}”`, `“${query}” এর ফলাফল দেখানো হচ্ছে`)
+                  : tr(
+                      `${num(subjects.length)} subjects with live question counts.`,
+                      `${num(subjects.length)}টি বিষয়, লাইভ প্রশ্ন সংখ্যা সহ।`,
+                    )}
               </p>
             </div>
             <Button variant="outline" asChild>
-              <Link href="/subjects">View all subjects</Link>
+              <Link href="/subjects">{tr("View all subjects", "সব বিষয় দেখুন")}</Link>
             </Button>
           </div>
 
@@ -114,8 +210,14 @@ export function HomePage({
           {filteredSubjects.length === 0 && (
             <p className="mt-10 text-center text-sm text-muted-foreground">
               {subjects.length === 0
-                ? "Subject data is unavailable right now. Please try again shortly."
-                : `No subjects match “${query}”. Try “Physics” or “Calculus”.`}
+                ? tr(
+                    "Subject data is unavailable right now. Please try again shortly.",
+                    "এই মুহূর্তে বিষয়ের তথ্য পাওয়া যাচ্ছে না। একটু পরে আবার চেষ্টা করুন।",
+                  )
+                : tr(
+                    `No subjects match “${query}”. Try “Physics” or “Calculus”.`,
+                    `“${query}” এর সাথে কোনো বিষয় মেলেনি। “Physics” বা “Calculus” চেষ্টা করুন।`,
+                  )}
             </p>
           )}
         </section>
@@ -123,20 +225,23 @@ export function HomePage({
         <section aria-labelledby="plans-heading" className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
           <div className="text-center">
             <h2 id="plans-heading" className="font-display text-2xl font-bold text-foreground sm:text-3xl">
-              Simple, student-friendly plans
+              {tr("Plans for students & teachers", "শিক্ষার্থী ও শিক্ষকদের জন্য প্ল্যান")}
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">Start free, upgrade when you&apos;re ready.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {tr(
+                "Start free, then pick the plan that fits how you learn or teach.",
+                "বিনামূল্যে শুরু করুন, তারপর আপনার পড়া বা পড়ানোর ধরন অনুযায়ী প্ল্যান বেছে নিন।",
+              )}
+            </p>
           </div>
 
-          <div className="mt-10 grid gap-6 pt-2 md:grid-cols-3">
-            {plans.map((plan) => (
-              <PlanCard key={plan.id} plan={plan} />
-            ))}
-          </div>
+          <PricingTabs />
 
           <div className="mt-8 text-center">
             <Button variant="link" asChild>
-              <Link href="/plans">Compare all plan details →</Link>
+              <Link href="/plans">
+                {tr("Compare all plan details →", "সব প্ল্যানের বিস্তারিত তুলনা করুন →")}
+              </Link>
             </Button>
           </div>
         </section>

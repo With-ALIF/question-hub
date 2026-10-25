@@ -7,14 +7,17 @@ import { ArrowLeft, BookOpenCheck } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
 import { signUpAction } from "@/lib/auth/actions";
 import { INITIAL_AUTH_STATE } from "@/lib/auth/state";
+import { useI18n } from "@/lib/i18n/client";
 
 const inputClass =
   "flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring";
 
 export function RegisterForm() {
   const router = useRouter();
+  const { tr } = useI18n();
   const [state, formAction, isPending] = useActionState(
     signUpAction,
     INITIAL_AUTH_STATE,
@@ -35,21 +38,28 @@ export function RegisterForm() {
                 }
               }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-secondary/60 hover:text-foreground cursor-pointer shadow-2xs"
-              title="আগের পেজে ফিরে যান"
+              title={tr("Go back to the previous page", "আগের পেজে ফিরে যান")}
             >
               <ArrowLeft className="size-3.5" aria-hidden="true" />
-              <span>ফিরে যান</span>
+              <span>{tr("Go back", "ফিরে যান")}</span>
             </button>
 
-            <Link
-              href="/"
-              className="text-xs text-muted-foreground transition-colors hover:text-primary"
-            >
-              হোম পেজ
-            </Link>
+            <div className="flex items-center gap-2.5">
+              <Link
+                href="/"
+                className="text-xs text-muted-foreground transition-colors hover:text-primary"
+              >
+                {tr("Home page", "হোম পেজ")}
+              </Link>
+              <LanguageSwitcher />
+            </div>
           </div>
 
-          <Link href="/" className="mb-8 flex items-center justify-center gap-2" aria-label="Question Bank home">
+          <Link
+            href="/"
+            className="mb-8 flex items-center justify-center gap-2"
+            aria-label={tr("QuestionBank home", "QuestionBank হোম")}
+          >
             <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <BookOpenCheck className="size-5" aria-hidden="true" />
             </span>
@@ -60,30 +70,58 @@ export function RegisterForm() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="font-display text-2xl">Create your account</CardTitle>
-              <CardDescription>Free to start — practice the first 100 questions today.</CardDescription>
+              <CardTitle className="font-display text-2xl">
+                {tr("Create your account", "আপনার অ্যাকাউন্ট তৈরি করুন")}
+              </CardTitle>
+              <CardDescription>
+                {tr(
+                  "Free to start — practice the first 100 questions today.",
+                  "বিনামূল্যে শুরু করুন — আজই প্রথম ১০০টি প্রশ্ন অনুশীলন করুন।",
+                )}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form className="space-y-4" action={formAction}>
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full name</Label>
-                  <input id="name" name="name" type="text" required placeholder="Rafi Ahmed" className={inputClass} />
+                  <Label htmlFor="name">{tr("Full name", "পূর্ণ নাম")}</Label>
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    required
+                    placeholder={tr("Rafi Ahmed", "রাফি আহমেদ")}
+                    className={inputClass}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{tr("Email", "ইমেইল")}</Label>
                   <input id="email" name="email" type="email" required placeholder="you@example.com" className={inputClass} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <input id="password" name="password" type="password" required placeholder="Minimum 8 characters" className={inputClass} />
+                  <Label htmlFor="password">{tr("Password", "পাসওয়ার্ড")}</Label>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    required
+                    placeholder={tr("Minimum 8 characters", "কমপক্ষে ৮ অক্ষর")}
+                    className={inputClass}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm password</Label>
-                  <input id="confirm-password" name="confirmPassword" type="password" required placeholder="Repeat your password" className={inputClass} />
+                  <Label htmlFor="confirm-password">{tr("Confirm password", "পাসওয়ার্ড নিশ্চিত করুন")}</Label>
+                  <input
+                    id="confirm-password"
+                    name="confirmPassword"
+                    type="password"
+                    required
+                    placeholder={tr("Repeat your password", "আবার পাসওয়ার্ড লিখুন")}
+                    className={inputClass}
+                  />
                 </div>
 
                 <Button type="submit" className="w-full" disabled={isPending} aria-busy={isPending}>
-                  Register
+                  {isPending ? tr("Creating account...", "অ্যাকাউন্ট তৈরি হচ্ছে...") : tr("Register", "রেজিস্টার করুন")}
                 </Button>
               </form>
 
@@ -101,9 +139,9 @@ export function RegisterForm() {
               )}
 
               <p className="mt-6 text-center text-sm text-muted-foreground">
-                Already have an account?{" "}
+                {tr("Already have an account?", "আগে থেকেই অ্যাকাউন্ট আছে?")}{" "}
                 <Link href="/login" className="font-semibold text-primary hover:underline">
-                  Log in
+                  {tr("Log in", "লগইন করুন")}
                 </Link>
               </p>
             </CardContent>

@@ -12,6 +12,7 @@ import { renderMathInContent } from "@/lib/math";
 import { isQuestionSaved, toggleSaveQuestion, SAVED_QUESTIONS_EVENT } from "@/lib/saved-questions";
 import { isQuestionInExam, toggleExamQuestion, EXAM_PAPER_EVENT } from "@/lib/exam-paper/store";
 import { ReportButton } from "@/components/report/ReportButton";
+import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
 export type QuestionListItem = {
@@ -94,6 +95,7 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
   const [revealed, setRevealed] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isInExam, setIsInExam] = useState(false);
+  const { tr } = useI18n();
 
   useEffect(() => {
     setIsSaved(isQuestionSaved(question.id));
@@ -143,7 +145,9 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono font-semibold text-foreground">#{index}</span>
             {question.external_id !== null && (
-              <span className="font-mono">ID {question.external_id}</span>
+              <span className="font-mono">
+                {tr("ID", "আইডি")} {question.external_id}
+              </span>
             )}
             {question.source_db && <Badge variant="secondary">{question.source_db}</Badge>}
             {question.institution && <Badge variant="outline">{question.institution}</Badge>}
@@ -154,7 +158,9 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
               </Badge>
             )}
             {question.keyword && <Badge variant="secondary" className="font-normal">{question.keyword}</Badge>}
-            {!question.is_mcq && <Badge variant="secondary">Written</Badge>}
+            {!question.is_mcq && (
+              <Badge variant="secondary">{tr("Written", "লিখিত")}</Badge>
+            )}
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
@@ -171,10 +177,10 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
                 "h-7 px-2 text-xs gap-1 transition-colors cursor-pointer",
                 isSaved && "text-primary font-medium bg-primary/10 hover:bg-primary/20",
               )}
-              title={isSaved ? "সেভ তালিকা থেকে মুছুন" : "প্রশ্নটি সেভ করুন"}
+              title={isSaved ? tr("Remove from saved list", "সেভ তালিকা থেকে মুছুন") : tr("Save question", "প্রশ্নটি সেভ করুন")}
             >
               <Bookmark className={cn("size-3.5 transition-transform", isSaved && "fill-primary text-primary scale-110")} />
-              <span>{isSaved ? "সেভ করা" : "সেভ"}</span>
+              <span>{isSaved ? tr("Saved", "সেভ করা") : tr("Save", "সেভ")}</span>
             </Button>
 
             <Button
@@ -189,10 +195,10 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
                 "h-7 px-2 text-xs gap-1 transition-colors cursor-pointer",
                 isInExam && "text-primary font-medium bg-primary/10 hover:bg-primary/20",
               )}
-              title={isInExam ? "পরীক্ষাপত্র থেকে মুছুন" : "পরীক্ষাপত্রে যোগ করুন"}
+              title={isInExam ? tr("Remove from exam paper", "পরীক্ষাপত্র থেকে মুছুন") : tr("Add to exam paper", "পরীক্ষাপত্রে যোগ করুন")}
             >
               <FileText className={cn("size-3.5 transition-transform", isInExam && "text-primary scale-110 font-bold")} />
-              <span>{isInExam ? "যোগ করা" : "পরীক্ষাপত্রে"}</span>
+              <span>{isInExam ? tr("Added", "যোগ করা") : tr("Exam paper", "পরীক্ষাপত্রে")}</span>
             </Button>
           </div>
         </div>
@@ -251,7 +257,10 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
             </div>
           ) : (
             <p className="rounded-lg border border-dashed border-border bg-secondary/20 px-4 py-3 text-sm text-muted-foreground">
-              This is a written question. Use “Show answer” to reveal the answer and explanation.
+              {tr(
+                "This is a written question. Use “Show answer” to reveal the answer and explanation.",
+                "এটি একটি লিখিত প্রশ্ন। উত্তর ও ব্যাখ্যা দেখতে “উত্তর দেখুন” চাপুন।",
+              )}
             </p>
           )}
 
@@ -262,18 +271,22 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
               size="sm"
               onClick={() => setRevealed((value) => !value)}
             >
-              {revealed ? "Hide answer" : selected !== null ? "Check answer" : "Show answer"}
+              {revealed
+                ? tr("Hide answer", "উত্তর লুকান")
+                : selected !== null
+                  ? tr("Check answer", "উত্তর মিলান")
+                  : tr("Show answer", "উত্তর দেখুন")}
             </Button>
 
             {revealed && selected !== null && (
               <Badge variant={isCorrect ? "default" : "destructive"}>
-                {isCorrect ? "Correct" : "Not quite"}
+                {isCorrect ? tr("Correct", "সঠিক") : tr("Not quite", "সঠিক নয়")}
               </Badge>
             )}
 
             {revealed && (
               <Button type="button" variant="ghost" size="sm" onClick={reset}>
-                Try again
+                {tr("Try again", "আবার চেষ্টা করুন")}
               </Button>
             )}
           </div>
@@ -282,7 +295,7 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
             <div className="space-y-3 rounded-lg border border-border bg-secondary/20 p-4 text-sm">
               {question.answer && (
                 <p>
-                  <span className="font-semibold text-foreground">Answer: </span>
+                  <span className="font-semibold text-foreground">{tr("Answer:", "উত্তর:")} </span>
                   <span
                     className="text-muted-foreground"
                     dangerouslySetInnerHTML={{ __html: renderMathInContent(question.answer) }}
@@ -291,7 +304,7 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
               )}
               {(question.explanation || question.explanation_html) && (
                 <div className="space-y-1.5">
-                  <p className="font-semibold text-foreground">Explanation:</p>
+                  <p className="font-semibold text-foreground">{tr("Explanation:", "ব্যাখ্যা:")}</p>
                   <RichText
                     html={question.explanation_html}
                     text={question.explanation}
@@ -300,7 +313,9 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
                 </div>
               )}
               {!question.answer && !question.explanation && !question.explanation_html && (
-                <p className="text-muted-foreground">No answer or explanation is available.</p>
+                <p className="text-muted-foreground">
+                  {tr("No answer or explanation is available.", "কোনো উত্তর বা ব্যাখ্যা পাওয়া যায়নি।")}
+                </p>
               )}
             </div>
           )}

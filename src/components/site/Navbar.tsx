@@ -18,33 +18,51 @@ import {
 } from "lucide-react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
+import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { signOutAction } from "@/lib/auth/actions";
+import { useI18n } from "@/lib/i18n/client";
 
 type NavItem = {
   href: string;
-  label: string;
+  label: [en: string, bn: string];
   icon?: LucideIcon;
 };
 
 const baseNavLinks: NavItem[] = [
-  { href: "/", label: "Home" },
-  { href: "/subjects", label: "Subjects" },
-  { href: "/questions", label: "Questions" },
-  { href: "/exam-paper", label: "Exam Paper" },
-  { href: "/plans", label: "Plans" },
+  { href: "/", label: ["Home", "হোম"] },
+  { href: "/subjects", label: ["Subjects", "বিষয়সমূহ"] },
+  { href: "/questions", label: ["Questions", "প্রশ্ন"] },
+  { href: "/exam-paper", label: ["Exam Paper", "পরীক্ষাপত্র"] },
+  { href: "/plans", label: ["Plans", "প্ল্যান"] },
 ];
 
 const loggedInNavLinks: NavItem[] = [
-  { href: "/dashboard", label: "ড্যাশবোর্ড", icon: LayoutDashboard },
-  { href: "/subjects", label: "বিষয়সমূহ", icon: Layers },
-  { href: "/questions", label: "অনুশীলন", icon: BookOpenCheck },
-  { href: "/exam-paper", label: "পরীক্ষাপত্র", icon: FileText },
-  { href: "/saved", label: "সেভ করা প্রশ্ন", icon: BookmarkCheck },
-  { href: "/model-test", label: "মডেল টেস্ট", icon: Timer },
+  { href: "/dashboard", label: ["Dashboard", "ড্যাশবোর্ড"], icon: LayoutDashboard },
+  { href: "/subjects", label: ["Subjects", "বিষয়সমূহ"], icon: Layers },
+  { href: "/questions", label: ["Practice", "অনুশীলন"], icon: BookOpenCheck },
+  { href: "/exam-paper", label: ["Exam Paper", "পরীক্ষাপত্র"], icon: FileText },
+  { href: "/saved", label: ["Saved Questions", "সেভ করা প্রশ্ন"], icon: BookmarkCheck },
+  { href: "/model-test", label: ["Model Test", "মডেল টেস্ট"], icon: Timer },
+];
+
+const loggedOutMobileLinks: NavItem[] = [
+  { href: "/", label: ["Home", "হোম"], icon: Home },
+  { href: "/subjects", label: ["Subjects", "বিষয়"], icon: Layers },
+  { href: "/questions", label: ["Questions", "প্রশ্ন"], icon: BookOpenCheck },
+  { href: "/plans", label: ["Plans", "প্ল্যান"], icon: Sparkles },
+  { href: "/login", label: ["Log in", "লগইন"], icon: LogIn },
+];
+
+const loggedInMobileLinks: NavItem[] = [
+  { href: "/dashboard", label: ["Dashboard", "ড্যাশবোর্ড"], icon: LayoutDashboard },
+  { href: "/subjects", label: ["Subjects", "বিষয়"], icon: Layers },
+  { href: "/questions", label: ["Practice", "অনুশীলন"], icon: BookOpenCheck },
+  { href: "/saved", label: ["Saved", "সেভড"], icon: BookmarkCheck },
+  { href: "/model-test", label: ["Model Test", "মডেল টেস্ট"], icon: Timer },
 ];
 
 function isActivePath(pathname: string, href: string) {
@@ -55,6 +73,7 @@ function isActivePath(pathname: string, href: string) {
 export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
   const [user, setUser] = useState<SupabaseUser | null>(initialUser ?? null);
   const pathname = usePathname();
+  const { tr } = useI18n();
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -92,6 +111,7 @@ export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
   }, []);
 
   const navLinks = user ? loggedInNavLinks : baseNavLinks;
+  const mobileNavItems = user ? loggedInMobileLinks : loggedOutMobileLinks;
 
   const handleSignOut = () => {
     try {
@@ -102,30 +122,18 @@ export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
     }
   };
 
-  const mobileNavItems = user
-    ? [
-        { href: "/dashboard", label: "ড্যাশবোর্ড", icon: LayoutDashboard },
-        { href: "/subjects", label: "বিষয়সমূহ", icon: Layers },
-        { href: "/questions", label: "অনুশীলন", icon: BookOpenCheck },
-        { href: "/saved", label: "সেভড", icon: BookmarkCheck },
-        { href: "/model-test", label: "মডেল টেস্ট", icon: Timer },
-      ]
-    : [
-        { href: "/", label: "হোম", icon: Home },
-        { href: "/subjects", label: "বিষয়", icon: Layers },
-        { href: "/questions", label: "প্রশ্ন", icon: BookOpenCheck },
-        { href: "/plans", label: "প্ল্যান", icon: Sparkles },
-        { href: "/login", label: "লগইন", icon: LogIn },
-      ];
-
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur font-sans">
         <nav
-          aria-label="Main navigation"
+          aria-label={tr("Main navigation", "প্রধান নেভিগেশন")}
           className="mx-auto flex h-14 sm:h-16 max-w-6xl items-center justify-between px-4 sm:px-6"
         >
-          <Link href="/" className="flex items-center gap-2" aria-label="Question Bank home">
+          <Link
+            href="/"
+            className="flex items-center gap-2"
+            aria-label={tr("QuestionBank home", "QuestionBank হোম")}
+          >
             <span className="flex size-8 sm:size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
               <BookOpenCheck className="size-4 sm:size-5" aria-hidden="true" />
             </span>
@@ -134,7 +142,7 @@ export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
             </span>
           </Link>
 
-          <div className="hidden items-center gap-1 md:flex">
+          <div className="hidden items-center gap-0.5 md:flex xl:gap-1">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const active = isActivePath(pathname, link.href);
@@ -144,46 +152,52 @@ export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary hover:text-foreground",
+                    "flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2 text-[13px] font-medium transition-colors hover:bg-secondary hover:text-foreground xl:px-3 xl:text-sm",
                     active ? "bg-secondary text-primary font-semibold" : "text-muted-foreground",
                   )}
                 >
                   {Icon && <Icon className="size-4" aria-hidden="true" />}
-                  <span>{link.label}</span>
+                  <span>{tr(...link.label)}</span>
                 </Link>
               );
             })}
           </div>
 
-          <div className="hidden items-center gap-2 md:flex">
+          <div className="hidden items-center gap-1 md:flex xl:gap-2">
+            <LanguageSwitcher />
             {user ? (
               <form action={signOutAction} onSubmit={handleSignOut}>
                 <Button
                   type="submit"
                   variant="ghost"
                   size="sm"
-                  className="gap-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  className="gap-1.5 whitespace-nowrap px-2.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive xl:px-4"
                 >
                   <LogOut className="size-4" aria-hidden="true" />
-                  লগআউট
+                  {tr("Log out", "লগআউট")}
                 </Button>
               </form>
             ) : (
               <>
                 <Button variant="ghost" asChild>
-                  <Link href="/login">Log in</Link>
+                  <Link href="/login" className="whitespace-nowrap px-2.5 xl:px-4">
+                    {tr("Log in", "লগইন")}
+                  </Link>
                 </Button>
                 <Button asChild>
-                  <Link href="/register">Register</Link>
+                  <Link href="/register" className="whitespace-nowrap px-3 xl:px-4">
+                    {tr("Register", "রেজিস্টার")}
+                  </Link>
                 </Button>
               </>
             )}
           </div>
 
-          <div className="flex items-center gap-2 md:hidden">
+          <div className="flex items-center gap-1.5 md:hidden">
+            <LanguageSwitcher />
             {!user && (
               <Button size="sm" asChild className="h-8 px-3 text-xs">
-                <Link href="/login">Log in</Link>
+                <Link href="/login">{tr("Log in", "লগইন")}</Link>
               </Button>
             )}
           </div>
@@ -191,7 +205,7 @@ export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
       </header>
 
       <nav
-        aria-label="Mobile bottom navigation"
+        aria-label={tr("Mobile bottom navigation", "মোবাইল নিচের নেভিগেশন")}
         className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md shadow-lg md:hidden font-sans"
       >
         <div className="flex h-16 items-center justify-around px-1">
@@ -216,9 +230,11 @@ export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
                     active && "bg-primary/10 text-primary",
                   )}
                 >
-                  <Icon className={cn("size-4.5", active ? "stroke-[2.2]" : "stroke-[1.8]")} aria-hidden="true" />
+                  {Icon && (
+                    <Icon className={cn("size-4.5", active ? "stroke-[2.2]" : "stroke-[1.8]")} aria-hidden="true" />
+                  )}
                 </span>
-                <span className="text-[10px] tracking-tight">{item.label}</span>
+                <span className="text-[10px] tracking-tight">{tr(...item.label)}</span>
               </Link>
             );
           })}
@@ -232,7 +248,7 @@ export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
                 <span className="flex size-7 items-center justify-center rounded-lg">
                   <LogOut className="size-4.5 stroke-[1.8]" aria-hidden="true" />
                 </span>
-                <span className="text-[10px] tracking-tight">লগআউট</span>
+                <span className="text-[10px] tracking-tight">{tr("Log out", "লগআউট")}</span>
               </button>
             </form>
           )}

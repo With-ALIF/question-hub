@@ -5,6 +5,7 @@ import {
   ExternalLink,
   Flag,
   Globe,
+  Images,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -39,6 +40,12 @@ const navigationItems = [
     labelBn: "ভুল রিপোর্টসমূহ",
     icon: Flag,
   },
+  {
+    href: "/admin/home-slider",
+    label: "Home Slider",
+    labelBn: "হোম স্লাইডার",
+    icon: Images,
+  },
 ];
 
 export function AdminSidebar({
@@ -50,6 +57,7 @@ export function AdminSidebar({
     currentPath === "/admin/dashboard" || currentPath === "/admin";
   const isQuestionsActive = currentPath.startsWith("/admin/questions");
   const isReportsActive = currentPath.startsWith("/admin/reports");
+  const isHomeSliderActive = currentPath.startsWith("/admin/home-slider");
 
   return (
     <>
@@ -225,7 +233,7 @@ export function AdminSidebar({
             >
               <ListChecks className="size-4.5" aria-hidden="true" />
             </span>
-            <span className="text-[10px] tracking-tight">প্রশ্নব্যাংক</span>
+            <span className="text-[10px] tracking-tight">প্রশ্ন</span>
           </Link>
 
           {/* Reports */}
@@ -249,6 +257,27 @@ export function AdminSidebar({
             <span className="text-[10px] tracking-tight">রিপোর্ট</span>
           </Link>
 
+          {/* Slider */}
+          <Link
+            href="/admin/home-slider"
+            className={cn(
+              "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors",
+              isHomeSliderActive
+                ? "font-semibold text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <span
+              className={cn(
+                "flex size-7 items-center justify-center rounded-lg transition-colors",
+                isHomeSliderActive && "bg-primary/10 text-primary"
+              )}
+            >
+              <Images className="size-4.5" aria-hidden="true" />
+            </span>
+            <span className="text-[10px] tracking-tight">স্লাইডার</span>
+          </Link>
+
           {/* Website */}
           <Link
             href="/"
@@ -259,7 +288,7 @@ export function AdminSidebar({
             <span className="flex size-7 items-center justify-center rounded-lg">
               <Globe className="size-4.5" aria-hidden="true" />
             </span>
-            <span className="text-[10px] tracking-tight">ওয়েবসাইট</span>
+            <span className="text-[10px] tracking-tight">সাইট</span>
           </Link>
 
           {/* Logout */}

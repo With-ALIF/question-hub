@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Cloud, Lock, LogIn, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, LogIn, X } from "lucide-react";
 
 import { QuestionCard } from "@/components/questions/QuestionCard";
 import { Footer } from "@/components/site/Footer";
@@ -12,10 +12,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
   QUESTION_FILTER_KEYS,
-  QUESTION_FILTER_LABELS,
   hasActiveFilters,
   sanitizeFilters,
-  type QuestionFilterFacet,
   type QuestionFilterKey,
   type QuestionFilters,
 } from "@/lib/questions/filters";
@@ -23,13 +21,12 @@ import {
   getQuestionPage,
   isQuestionType,
   QUESTION_PAGE_SIZE,
-  QUESTION_TYPES,
-  QUESTION_TYPE_LABELS,
   type QuestionType,
 } from "@/lib/questions/storage";
 import { formatChapterLabel } from "@/data/chapters";
 import { formatPaperLabel } from "@/data/papers";
 import { QuestionFiltersForm } from "@/components/questions/QuestionFiltersForm";
+import { getI18n } from "@/lib/i18n/server";
 
 type QuestionsSearchParams = Promise<{
   subject?: string | string[];
@@ -46,10 +43,15 @@ type QuestionsSearchParams = Promise<{
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export const metadata: Metadata = {
-  title: "Questions — QuestionBank",
-  description: "Browse subject-wise questions streamed from Supabase Storage.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { tr } = await getI18n();
+  const title = tr("Questions — QuestionBank", "প্রশ্ন — QuestionBank");
+  const description = tr(
+    "Browse subject-wise questions streamed from Supabase Storage.",
+    "বিষয়ভিত্তিক প্রশ্ন দেখুন ও অনুশীলন করুন।",
+  );
+  return { title, description, openGraph: { title, description } };
+}
 
 function firstValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -87,14 +89,13 @@ function buildPageHref(
   return `/questions?${params.toString()}`;
 }
 
-
-
 export default async function QuestionsPage({
   searchParams,
 }: {
   searchParams: QuestionsSearchParams;
 }) {
   const user = await getCurrentUser();
+  const { tr, num, subjectName, filterLabel, typeLabel } = await getI18n();
   const params = await searchParams;
   const requestedSubject = firstValue(params.subject)?.trim() ?? "";
   const requestedType = firstValue(params.type)?.trim() ?? "";
@@ -112,6 +113,7 @@ export default async function QuestionsPage({
   });
 
   const subject = result.subject;
+  const displaySubjectName = subject ? subjectName(subject.slug, subject.name) : "";
   const currentSubjectSlug = subject?.slug ?? (requestedSubject || "physics");
   const facetFilters = result.filters;
   const activeFilters = result.activeFilters;
@@ -123,7 +125,7 @@ export default async function QuestionsPage({
 
   const summaryFilters = QUESTION_FILTER_KEYS.filter((key) => activeFilters[key]).map(
     (key) =>
-      `${QUESTION_FILTER_LABELS[key]}: ${
+      `${filterLabel(key)}: ${
         key === "chapter"
           ? formatChapterLabel(activeFilters[key])
           : key === "paper"
@@ -145,22 +147,23 @@ export default async function QuestionsPage({
                     <Lock className="size-8" aria-hidden="true" />
                   </span>
                   <h2 className="font-display text-2xl font-bold tracking-tight text-foreground">
-                    questions দেখতে লগইন করুন
+                    {tr("Log in to view questions", "প্রশ্ন দেখতে লগইন করুন")}
                   </h2>
                   <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                    প্রশ্ন ব্যাংকের বিষয়ভিত্তিক প্রশ্নসমূহ ও প্র্যাকটিস করতে অনুগ্রহ করে আপনার অ্যাকাউন্টে লগইন করুন।
+                    {tr(
+                      "Please log in to your account to browse and practise subject-wise questions from the question bank.",
+                      "প্রশ্ন ব্যাংকের বিষয়ভিত্তিক প্রশ্নসমূহ দেখতে ও প্র্যাকটিস করতে অনুগ্রহ করে আপনার অ্যাকাউন্টে লগইন করুন।",
+                    )}
                   </p>
                   <div className="mt-6 flex w-full flex-col gap-2.5 sm:flex-row sm:justify-center">
                     <Button asChild size="default" className="gap-2">
                       <Link href="/login">
                         <LogIn className="size-4" aria-hidden="true" />
-                        লগইন করুন
+                        {tr("Log in", "লগইন করুন")}
                       </Link>
                     </Button>
                     <Button variant="outline" size="default" asChild>
-                      <Link href="/register">
-                        রেজিস্ট্রেশন করুন
-                      </Link>
+                      <Link href="/register">{tr("Register", "রেজিস্ট্রেশন করুন")}</Link>
                     </Button>
                   </div>
                 </CardContent>
@@ -170,7 +173,7 @@ export default async function QuestionsPage({
             <>
               <div className="space-y-3">
                 <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                  Practice questions
+                  {tr("Practice questions", "প্রশ্ন অনুশীলন")}
                 </h1>
               </div>
 
@@ -185,16 +188,21 @@ export default async function QuestionsPage({
 
               {!facetFilters && filtering && (
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Detailed filters are unavailable for this subject right now.
+                  {tr(
+                    "Detailed filters are unavailable for this subject right now.",
+                    "এই বিষয়ের জন্য বিস্তারিত ফিল্টার এখন উপলব্ধ নেই।",
+                  )}
                 </p>
               )}
 
               {filtering && (
                 <nav
-                  aria-label="Active filters"
+                  aria-label={tr("Active filters", "সক্রিয় ফিল্টার")}
                   className="mt-3 flex flex-wrap items-center gap-1.5"
                 >
-                  <span className="mr-1 text-xs text-muted-foreground">Filtered by:</span>
+                  <span className="mr-1 text-xs text-muted-foreground">
+                    {tr("Filtered by:", "ফিল্টার করা হয়েছে:")}
+                  </span>
                   {QUESTION_FILTER_KEYS.filter((key) => activeFilters[key]).map((key) => (
                     <Link
                       key={key}
@@ -205,9 +213,12 @@ export default async function QuestionsPage({
                         withFilter(activeFilters, key, null),
                       )}
                       className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/60 px-2 py-0.5 text-xs text-foreground transition-colors hover:border-destructive hover:bg-destructive/10 hover:text-destructive"
-                      title={`Remove ${QUESTION_FILTER_LABELS[key]} filter`}
+                      title={tr(
+                        `Remove ${filterLabel(key)} filter`,
+                        `${filterLabel(key)} ফিল্টার সরান`,
+                      )}
                     >
-                      <span className="text-muted-foreground">{QUESTION_FILTER_LABELS[key]}:</span>
+                      <span className="text-muted-foreground">{filterLabel(key)}:</span>
                       <span className="font-medium">
                         {key === "chapter"
                           ? formatChapterLabel(activeFilters[key])
@@ -224,26 +235,36 @@ export default async function QuestionsPage({
               <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
                   {result.error
-                    ? "Could not load questions from Storage."
+                    ? tr("Could not load questions from storage.", "স্টোরেজ থেকে প্রশ্ন লোড করা যায়নি।")
                     : result.questions.length === 0
                       ? filtering
-                        ? "No questions match these filters."
-                        : "No questions"
-                      : `Showing ${from + 1}–${from + result.questions.length} of ${result.total.toLocaleString()}`}
+                        ? tr("No questions match these filters.", "এই ফিল্টারে কোনো প্রশ্ন মেলেনি।")
+                        : tr("No questions", "কোনো প্রশ্ন নেই")
+                      : tr(
+                          `Showing ${num(from + 1)}–${num(from + result.questions.length)} of ${num(result.total)}`,
+                          `${num(result.total)}টির মধ্যে ${num(from + 1)}–${num(from + result.questions.length)} দেখানো হচ্ছে`,
+                        )}
                   {!result.error && subject && (
                     <span className="text-muted-foreground/70">
                       {" "}
-                      · {subject.name}
+                      · {displaySubjectName}
                       {summaryFilters.length > 0 && ` · ${summaryFilters.join(" · ")}`}
-                      {" "}· {QUESTION_TYPE_LABELS[type]} · page {result.page} of{" "}
-                      {result.totalPages}
+                      {" "}
+                      · {typeLabel(type)} ·{" "}
+                      {tr(
+                        `page ${num(result.page)} of ${num(result.totalPages)}`,
+                        `পেজ ${num(result.page)} / ${num(result.totalPages)}`,
+                      )}
                     </span>
                   )}
                 </p>
 
                 {result.manifest && (
                   <Badge variant="outline" className="font-normal">
-                    {result.manifest.totalQuestions.toLocaleString()} questions in Storage
+                    {tr(
+                      `${num(result.manifest.totalQuestions)} questions in storage`,
+                      `স্টোরেজে ${num(result.manifest.totalQuestions)}টি প্রশ্ন`,
+                    )}
                   </Badge>
                 )}
               </div>
@@ -251,15 +272,26 @@ export default async function QuestionsPage({
               {result.error ? (
                 <Card className="mt-4 border-dashed">
                   <CardContent className="space-y-2 p-6 text-sm">
-                    <p className="font-semibold text-foreground">Storage question files are not ready.</p>
+                    <p className="font-semibold text-foreground">
+                      {tr(
+                        "Storage question files are not ready.",
+                        "স্টোরেজ প্রশ্ন ফাইলগুলো এখনো প্রস্তুত নয়।",
+                      )}
+                    </p>
                     <p className="text-muted-foreground">
-                      Run{" "}
+                      {tr("Run", "একবার")}{" "}
                       <code className="rounded bg-secondary px-1.5 py-0.5 text-xs">
                         node --env-file=.env.local scripts/build-question-shards.mjs
                       </code>{" "}
-                      once to generate the shard files and manifest in the private{" "}
+                      {tr(
+                        "once to generate the shard files and manifest in the private",
+                        "কমান্ডটি চালিয়ে প্রাইভেট",
+                      )}{" "}
                       <code className="rounded bg-secondary px-1.5 py-0.5 text-xs">qb-raw</code>{" "}
-                      bucket.
+                      {tr(
+                        "bucket.",
+                        "বাকেটে শার্ড ফাইল ও ম্যানিফেস্ট তৈরি করুন।",
+                      )}
                     </p>
                     <p className="break-words font-mono text-xs text-destructive">{result.error}</p>
                   </CardContent>
@@ -268,14 +300,20 @@ export default async function QuestionsPage({
                 <Card className="mt-4 border-dashed">
                   <CardContent className="space-y-3 p-8 text-center text-sm text-muted-foreground">
                     <p>
-                      No {QUESTION_TYPE_LABELS[type].toLowerCase()} questions found for{" "}
-                      {subject?.name ?? "this subject"}
-                      {filtering ? " matching the selected filters." : ". Pick another type or subject above."}
+                      {filtering
+                        ? tr(
+                            `No ${typeLabel(type).toLowerCase()} questions found for ${displaySubjectName} matching the selected filters.`,
+                            `${displaySubjectName} এর জন্য নির্বাচিত ফিল্টারের সাথে মিলে এমন কোনো ${typeLabel(type)} প্রশ্ন পাওয়া যায়নি।`,
+                          )
+                        : tr(
+                            `No ${typeLabel(type).toLowerCase()} questions found for ${displaySubjectName}. Pick another type or subject above.`,
+                            `${displaySubjectName} এর জন্য কোনো ${typeLabel(type)} প্রশ্ন পাওয়া যায়নি। উপরের অন্য ধরন বা বিষয় বেছে নিন।`,
+                          )}
                     </p>
                     {filtering && (
                       <Button variant="outline" size="sm" asChild>
                         <Link href={buildPageHref(currentSubjectSlug, 1, type, {})}>
-                          Clear filters
+                          {tr("Clear filters", "ফিল্টার মুছুন")}
                         </Link>
                       </Button>
                     )}
@@ -291,7 +329,7 @@ export default async function QuestionsPage({
 
               {!result.error && result.total > 0 && (hasPrevious || hasNext) && (
                 <nav
-                  aria-label="Question pagination"
+                  aria-label={tr("Question pagination", "প্রশ্ন পেজিনেশন")}
                   className="mt-8 flex items-center justify-between gap-3"
                 >
                   <Button variant="outline" size="sm" asChild={hasPrevious} disabled={!hasPrevious}>
@@ -306,18 +344,21 @@ export default async function QuestionsPage({
                         rel="prev"
                       >
                         <ChevronLeft className="size-4" aria-hidden="true" />
-                        Previous
+                        {tr("Previous", "আগের")}
                       </Link>
                     ) : (
                       <span>
                         <ChevronLeft className="size-4" aria-hidden="true" />
-                        Previous
+                        {tr("Previous", "আগের")}
                       </span>
                     )}
                   </Button>
 
                   <span className="text-sm text-muted-foreground">
-                    Page {result.page} of {result.totalPages}
+                    {tr(
+                      `Page ${num(result.page)} of ${num(result.totalPages)}`,
+                      `পেজ ${num(result.page)} / ${num(result.totalPages)}`,
+                    )}
                   </span>
 
                   <Button variant="outline" size="sm" asChild={hasNext} disabled={!hasNext}>
@@ -326,12 +367,12 @@ export default async function QuestionsPage({
                         href={buildPageHref(currentSubjectSlug, result.page + 1, type, activeFilters)}
                         rel="next"
                       >
-                        Next
+                        {tr("Next", "পরের")}
                         <ChevronRight className="size-4" aria-hidden="true" />
                       </Link>
                     ) : (
                       <span>
-                        Next
+                        {tr("Next", "পরের")}
                         <ChevronRight className="size-4" aria-hidden="true" />
                       </span>
                     )}

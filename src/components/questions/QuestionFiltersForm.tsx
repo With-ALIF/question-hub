@@ -8,9 +8,7 @@ import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   QUESTION_FILTER_KEYS,
-  QUESTION_FILTER_LABELS,
   QUESTION_TYPES,
-  QUESTION_TYPE_LABELS,
   type QuestionFilterKey,
   type QuestionFilterFacet,
   type QuestionFilterOptions,
@@ -20,6 +18,7 @@ import {
 } from "@/lib/questions/constants";
 import { formatChapterLabel } from "@/data/chapters";
 import { formatPaperLabel } from "@/data/papers";
+import { useI18n } from "@/lib/i18n/client";
 
 export function QuestionFiltersForm({
   subjects,
@@ -39,6 +38,7 @@ export function QuestionFiltersForm({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const { tr, num, filterLabel, typeLabel, subjectName } = useI18n();
 
   const currentSubjectObj = subjects.find((s) => s.slug === selectedSubject);
 
@@ -126,7 +126,7 @@ export function QuestionFiltersForm({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="space-y-1.5">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Subject
+            {tr("Subject", "বিষয়")}
           </span>
           <select
             name="subject"
@@ -136,11 +136,11 @@ export function QuestionFiltersForm({
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed"
           >
             {subjects.length === 0 ? (
-              <option value="physics">Physics</option>
+              <option value="physics">{tr("Physics", "পদার্থবিজ্ঞান")}</option>
             ) : (
               subjects.map((item) => (
                 <option key={item.slug} value={item.slug}>
-                  {item.name} ({item.total.toLocaleString()})
+                  {subjectName(item.slug, item.name)} ({num(item.total)})
                 </option>
               ))
             )}
@@ -149,7 +149,7 @@ export function QuestionFiltersForm({
 
         <label className="space-y-1.5">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Type
+            {tr("Type", "ধরন")}
           </span>
           <select
             name="type"
@@ -169,7 +169,7 @@ export function QuestionFiltersForm({
 
               return (
                 <option key={item} value={item}>
-                  {QUESTION_TYPE_LABELS[item]} ({count.toLocaleString()})
+                  {typeLabel(item)} ({num(count)})
                 </option>
               );
             })}
@@ -185,7 +185,7 @@ export function QuestionFiltersForm({
             return (
               <label key={key} className="space-y-1.5">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {QUESTION_FILTER_LABELS[key]}
+                  {filterLabel(key)}
                 </span>
                 <select
                   name={key}
@@ -194,10 +194,12 @@ export function QuestionFiltersForm({
                   disabled={isPending}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed"
                 >
-                  <option value="">All ({facet.all.toLocaleString()})</option>
+                  <option value="">
+                    {tr(`All (${num(facet.all)})`, `সব (${num(facet.all)})`)}
+                  </option>
                   {facet.options.map((option) => (
                     <option key={option.value} value={option.value}>
-                      {option.label} ({option.count.toLocaleString()})
+                      {option.label} ({num(option.count)})
                     </option>
                   ))}
                   {!hasSelection && (
@@ -207,7 +209,7 @@ export function QuestionFiltersForm({
                         : key === "paper"
                           ? formatPaperLabel(selected)
                           : selected}{" "}
-                      (0)
+                      ({num(0)})
                     </option>
                   )}
                 </select>
@@ -220,10 +222,12 @@ export function QuestionFiltersForm({
         <div className="flex items-center gap-2">
           <Button type="submit" disabled={isPending}>
             {isPending && <Loader2 className="mr-1.5 size-4 animate-spin" aria-hidden="true" />}
-            Show questions
+            {tr("Show questions", "প্রশ্ন দেখুন")}
           </Button>
           {isPending && (
-            <span className="text-xs text-muted-foreground animate-pulse">Syncing...</span>
+            <span className="text-xs text-muted-foreground animate-pulse">
+              {tr("Syncing...", "সিঙ্ক হচ্ছে...")}
+            </span>
           )}
         </div>
 
@@ -231,7 +235,7 @@ export function QuestionFiltersForm({
           <Button variant="ghost" size="sm" asChild>
             <Link href={`/questions?subject=${selectedSubject}${type !== "all" ? `&type=${type}` : ""}`}>
               <X className="mr-1 size-3.5" aria-hidden="true" />
-              Clear filters
+              {tr("Clear filters", "ফিল্টার মুছুন")}
             </Link>
           </Button>
         )}

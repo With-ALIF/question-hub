@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   Atom,
@@ -10,6 +12,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/lib/i18n/client";
 import type { Subject } from "@/data/subjects";
 
 const iconMap: Record<Subject["icon"], LucideIcon> = {
@@ -23,6 +26,9 @@ const iconMap: Record<Subject["icon"], LucideIcon> = {
 
 export function SubjectCard({ subject }: { subject: Subject }) {
   const Icon = iconMap[subject.icon];
+  const { tr, num, subjectName, subjectTagline } = useI18n();
+  const name = subjectName(subject.slug, subject.name);
+  const tagline = subjectTagline(subject.slug, subject.tagline);
 
   return (
     <Card className="group flex flex-col transition-all duration-200 hover:-translate-y-1 hover:shadow-lg">
@@ -38,13 +44,18 @@ export function SubjectCard({ subject }: { subject: Subject }) {
             <Icon className="size-5" aria-hidden="true" />
           </span>
           <div>
-            <h3 className="font-display text-base font-semibold text-foreground">{subject.name}</h3>
-            <p className="text-xs text-muted-foreground">{subject.questionCount.toLocaleString("bn-BD")} টি প্রশ্ন</p>
+            <h3 className="font-display text-base font-semibold text-foreground">{name}</h3>
+            <p className="text-xs text-muted-foreground">
+              {tr(
+                `${num(subject.questionCount)} questions`,
+                `${num(subject.questionCount)}টি প্রশ্ন`,
+              )}
+            </p>
           </div>
         </div>
       </CardHeader>
       <CardContent className="flex-1 pb-4">
-        {subject.tagline && <p className="text-sm text-muted-foreground">{subject.tagline}</p>}
+        {tagline && <p className="text-sm text-muted-foreground">{tagline}</p>}
         {subject.chapters.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {subject.chapters.slice(0, 3).map((chapter) => (
@@ -54,7 +65,10 @@ export function SubjectCard({ subject }: { subject: Subject }) {
             ))}
             {subject.chapters.length > 3 && (
               <Badge variant="secondary" className="font-normal text-xs">
-                +{(subject.chapters.length - 3).toLocaleString("bn-BD")} টি আরও
+                {tr(
+                  `+${num(subject.chapters.length - 3)} more`,
+                  `+${num(subject.chapters.length - 3)}টি আরও`,
+                )}
               </Badge>
             )}
           </div>
@@ -65,7 +79,7 @@ export function SubjectCard({ subject }: { subject: Subject }) {
           href={`/questions?subject=${subject.slug}`}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition-colors hover:text-primary/80"
         >
-          প্রশ্নসমূহ দেখুন
+          {tr("View questions", "প্রশ্নসমূহ দেখুন")}
           <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">→</span>
         </Link>
       </CardFooter>

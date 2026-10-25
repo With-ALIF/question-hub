@@ -7,7 +7,6 @@ import {
   BookmarkCheck,
   BookOpenCheck,
   Filter,
-  Layers,
   RotateCcw,
   Search,
   Trash2,
@@ -24,17 +23,10 @@ import {
   SAVED_QUESTIONS_EVENT,
   type SavedQuestionItem,
 } from "@/lib/saved-questions";
+import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
-const SUBJECT_CONFIG: { slug: string; name: string }[] = [
-  { slug: "all", name: "সব বিষয়" },
-  { slug: "physics", name: "পদার্থবিজ্ঞান" },
-  { slug: "chemistry", name: "রসায়ন" },
-  { slug: "mathematics", name: "উচ্চতর গণিত" },
-  { slug: "biology", name: "জীববিজ্ঞান" },
-  { slug: "ict", name: "আইসিটি" },
-  { slug: "other", name: "সাধারণ বিষয়" },
-];
+const SUBJECT_SLUGS = ["all", "physics", "chemistry", "mathematics", "biology", "ict", "other"];
 
 function inferSubject(question: SavedQuestionItem): string {
   if (question.subject) return question.subject.toLowerCase();
@@ -54,6 +46,7 @@ export function SavedQuestionsView() {
   const [subjectFilter, setSubjectFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "mcq" | "written">("all");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const { tr, num, subjectName } = useI18n();
 
   useEffect(() => {
     setQuestions(getSavedQuestions());
@@ -83,17 +76,14 @@ export function SavedQuestionsView() {
 
   const filteredQuestions = useMemo(() => {
     return questions.filter((q) => {
-      // Subject filter
       if (subjectFilter !== "all") {
         const sub = inferSubject(q);
         if (sub !== subjectFilter) return false;
       }
 
-      // Type filter
       if (typeFilter === "mcq" && !q.is_mcq) return false;
       if (typeFilter === "written" && q.is_mcq) return false;
 
-      // Search query
       if (search.trim()) {
         const query = search.toLowerCase().trim();
         const text = (q.question_text || "").toLowerCase();
@@ -134,19 +124,21 @@ export function SavedQuestionsView() {
 
   return (
     <div className="space-y-6">
-      {/* Header section */}
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
               <BookmarkCheck className="size-3.5" aria-hidden="true" />
-              <span>রিভিশন সংগ্রহ</span>
+              <span>{tr("Revision collection", "রিভিশন সংগ্রহ")}</span>
             </div>
             <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              সেভ করা প্রশ্নাবলি
+              {tr("Saved questions", "সেভ করা প্রশ্নাবলি")}
             </h1>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              অনুশীলনের সময় আপনার বুকমার্ক করা গুরুত্বপূর্ণ ও কঠিন প্রশ্নগুলো এখানে সংরক্ষিত আছে।
+              {tr(
+                "Important and difficult questions you bookmarked while practising are kept here.",
+                "অনুশীলনের সময় আপনার বুকমার্ক করা গুরুত্বপূর্ণ ও কঠিন প্রশ্নগুলো এখানে সংরক্ষিত আছে।",
+              )}
             </p>
           </div>
 
@@ -154,7 +146,7 @@ export function SavedQuestionsView() {
             <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
               <Link href="/questions">
                 <BookOpenCheck className="size-3.5" />
-                <span>আরও প্রশ্ন অনুশীলন</span>
+                <span>{tr("Practise more questions", "আরও প্রশ্ন অনুশীলন")}</span>
               </Link>
             </Button>
 
@@ -167,31 +159,29 @@ export function SavedQuestionsView() {
                 className="gap-1.5 text-xs cursor-pointer"
               >
                 <Trash2 className="size-3.5" />
-                <span>সব মুছুন</span>
+                <span>{tr("Clear all", "সব মুছুন")}</span>
               </Button>
             )}
           </div>
         </div>
 
-        {/* Quick Stats Badges */}
         <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border/60 pt-4 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">সংক্ষিপ্ত তথ্য:</span>
+          <span className="font-medium text-foreground">{tr("Quick stats:", "সংক্ষিপ্ত তথ্য:")}</span>
           <Badge variant="secondary" className="gap-1.5 font-normal">
-            <span>মোট সংরক্ষিত:</span>
-            <strong className="text-foreground">{questions.length}</strong>
+            <span>{tr("Total saved:", "মোট সংরক্ষিত:")}</span>
+            <strong className="text-foreground">{num(questions.length)}</strong>
           </Badge>
           <Badge variant="outline" className="gap-1.5 font-normal">
             <span>MCQ:</span>
-            <strong className="text-foreground">{mcqCount}</strong>
+            <strong className="text-foreground">{num(mcqCount)}</strong>
           </Badge>
           <Badge variant="outline" className="gap-1.5 font-normal">
-            <span>Written:</span>
-            <strong className="text-foreground">{writtenCount}</strong>
+            <span>{tr("Written:", "লিখিত:")}</span>
+            <strong className="text-foreground">{num(writtenCount)}</strong>
           </Badge>
         </div>
       </div>
 
-      {/* Confirmation Modal for Clearing All */}
       {showClearConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl animate-in fade-in zoom-in-95">
@@ -200,11 +190,14 @@ export function SavedQuestionsView() {
                 <Trash2 className="size-5" />
               </div>
               <h3 className="font-display text-lg font-bold text-foreground">
-                সকল সংরক্ষিত প্রশ্ন মুছে ফেলবেন?
+                {tr("Clear all saved questions?", "সকল সংরক্ষিত প্রশ্ন মুছে ফেলবেন?")}
               </h3>
             </div>
             <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-              এটি করলে আপনার বুকমার্ক করা সমস্ত ({questions.length}টি) প্রশ্ন তালিকা থেকে স্থায়ীভাবে মুছে যাবে।
+              {tr(
+                `This will permanently remove all ${num(questions.length)} bookmarked questions from your list.`,
+                `এটি করলে আপনার বুকমার্ক করা সমস্ত (${num(questions.length)}টি) প্রশ্ন তালিকা থেকে স্থায়ীভাবে মুছে যাবে।`,
+              )}
             </p>
             <div className="mt-6 flex items-center justify-end gap-3">
               <Button
@@ -213,7 +206,7 @@ export function SavedQuestionsView() {
                 size="sm"
                 onClick={() => setShowClearConfirm(false)}
               >
-                বাতিল
+                {tr("Cancel", "বাতিল")}
               </Button>
               <Button
                 type="button"
@@ -221,25 +214,26 @@ export function SavedQuestionsView() {
                 size="sm"
                 onClick={handleClearAll}
               >
-                হ্যাঁ, সব মুছে ফেলুন
+                {tr("Yes, clear all", "হ্যাঁ, সব মুছে ফেলুন")}
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Filtering & Search Bar */}
       {questions.length > 0 && (
         <div className="space-y-4">
           <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between shadow-sm">
-            {/* Search Input */}
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="প্রশ্ন, অধ্যায় বা বিশ্ববিদ্যালয়ের নাম দিয়ে খুঁজুন..."
+                placeholder={tr(
+                  "Search by question, chapter or institution...",
+                  "প্রশ্ন, অধ্যায় বা বিশ্ববিদ্যালয়ের নাম দিয়ে খুঁজুন...",
+                )}
                 className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-8 text-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
               />
               {search && (
@@ -253,7 +247,6 @@ export function SavedQuestionsView() {
               )}
             </div>
 
-            {/* Type Filter Buttons */}
             <div className="flex items-center gap-1 rounded-lg border border-border bg-secondary/30 p-1">
               <button
                 type="button"
@@ -265,7 +258,7 @@ export function SavedQuestionsView() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                সব
+                {tr("All", "সব")}
               </button>
               <button
                 type="button"
@@ -277,7 +270,7 @@ export function SavedQuestionsView() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                MCQ ({mcqCount})
+                MCQ ({num(mcqCount)})
               </button>
               <button
                 type="button"
@@ -289,23 +282,24 @@ export function SavedQuestionsView() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                লিখিত ({writtenCount})
+                {tr("Written", "লিখিত")} ({num(writtenCount)})
               </button>
             </div>
           </div>
 
-          {/* Subject Pills */}
           <div className="flex flex-wrap items-center gap-1.5">
-            {SUBJECT_CONFIG.map((sub) => {
-              const count = subjectCounts[sub.slug] || 0;
-              if (sub.slug !== "all" && count === 0) return null;
-              const isSelected = subjectFilter === sub.slug;
+            {SUBJECT_SLUGS.map((slug) => {
+              const count = subjectCounts[slug] || 0;
+              if (slug !== "all" && count === 0) return null;
+              const isSelected = subjectFilter === slug;
+              const label =
+                slug === "all" ? tr("All subjects", "সব বিষয়") : subjectName(slug, slug);
 
               return (
                 <button
-                  key={sub.slug}
+                  key={slug}
                   type="button"
-                  onClick={() => setSubjectFilter(sub.slug)}
+                  onClick={() => setSubjectFilter(slug)}
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer",
                     isSelected
@@ -313,7 +307,7 @@ export function SavedQuestionsView() {
                       : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
                   )}
                 >
-                  <span>{sub.name}</span>
+                  <span>{label}</span>
                   <span
                     className={cn(
                       "rounded-full px-1.5 py-0.2 text-[10px]",
@@ -322,7 +316,7 @@ export function SavedQuestionsView() {
                         : "bg-secondary text-muted-foreground",
                     )}
                   >
-                    {count}
+                    {num(count)}
                   </span>
                 </button>
               );
@@ -331,7 +325,6 @@ export function SavedQuestionsView() {
         </div>
       )}
 
-      {/* Main Content Area */}
       {questions.length === 0 ? (
         <Card className="border-border/80 bg-card p-10 text-center shadow-sm">
           <CardContent className="flex flex-col items-center justify-center p-0">
@@ -339,15 +332,18 @@ export function SavedQuestionsView() {
               <Bookmark className="size-8" />
             </span>
             <h2 className="mt-4 font-display text-xl font-bold text-foreground">
-              এখনো কোনো প্রশ্ন সেভ করা হয়নি
+              {tr("No saved questions yet", "এখনো কোনো প্রশ্ন সেভ করা হয়নি")}
             </h2>
             <p className="mt-2 max-w-md text-sm text-muted-foreground leading-relaxed">
-              অনুশীলনের সময় প্রশ্নের ওপর থাকা “সেভ” বাটনে ক্লিক করে যে কোনো গুরুত্বপূর্ণ প্রশ্ন এখানে সংরক্ষণ করে রাখতে পারেন।
+              {tr(
+                "While practising, click the “Save” button on any question to keep it here for later.",
+                "অনুশীলনের সময় প্রশ্নের ওপর থাকা “সেভ” বাটনে ক্লিক করে যে কোনো গুরুত্বপূর্ণ প্রশ্ন এখানে সংরক্ষণ করে রাখতে পারেন।",
+              )}
             </p>
             <Button asChild className="mt-6 gap-2">
               <Link href="/questions">
                 <BookOpenCheck className="size-4" />
-                <span>প্রশ্ন অনুশীলন শুরু করুন</span>
+                <span>{tr("Start practising", "প্রশ্ন অনুশীলন শুরু করুন")}</span>
               </Link>
             </Button>
           </CardContent>
@@ -357,10 +353,13 @@ export function SavedQuestionsView() {
           <CardContent className="flex flex-col items-center justify-center p-0">
             <Filter className="size-10 text-muted-foreground/60" />
             <h3 className="mt-3 font-display text-base font-semibold text-foreground">
-              কোনো প্রশ্ন পাওয়া যায়নি
+              {tr("No questions found", "কোনো প্রশ্ন পাওয়া যায়নি")}
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              আপনার বর্তমান সার্চ বা ফিল্টারের সাথে কোনো সংরক্ষিত প্রশ্ন মেলেনি।
+              {tr(
+                "No saved questions match your current search or filter.",
+                "আপনার বর্তমান সার্চ বা ফিল্টারের সাথে কোনো সংরক্ষিত প্রশ্ন মেলেনি।",
+              )}
             </p>
             <Button
               type="button"
@@ -374,7 +373,7 @@ export function SavedQuestionsView() {
               className="mt-4 gap-1.5 text-xs"
             >
               <RotateCcw className="size-3.5" />
-              <span>ফিল্টার রিসেট করুন</span>
+              <span>{tr("Reset filters", "ফিল্টার রিসেট করুন")}</span>
             </Button>
           </CardContent>
         </Card>
@@ -382,7 +381,9 @@ export function SavedQuestionsView() {
         <div className="space-y-4">
           <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
             <span>
-              প্রদর্শিত হচ্ছে: <strong className="text-foreground">{filteredQuestions.length}</strong>টি প্রশ্ন
+              {tr("Showing:", "প্রদর্শিত হচ্ছে:")}{" "}
+              <strong className="text-foreground">{num(filteredQuestions.length)}</strong>{" "}
+              {tr("questions", "টি প্রশ্ন")}
             </span>
             {(search || subjectFilter !== "all" || typeFilter !== "all") && (
               <button
@@ -394,7 +395,7 @@ export function SavedQuestionsView() {
                 }}
                 className="text-primary hover:underline cursor-pointer"
               >
-                ফিল্টার মুছুন
+                {tr("Clear filters", "ফিল্টার মুছুন")}
               </button>
             )}
           </div>

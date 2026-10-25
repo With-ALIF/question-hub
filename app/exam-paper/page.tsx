@@ -9,13 +9,23 @@ import {
   type QuestionType,
 } from "@/lib/questions/storage";
 import { sanitizeFilters } from "@/lib/questions/filters";
+import { getI18n } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "পরীক্ষাপত্র তৈরি (Exam Paper Builder) — QuestionBank",
-  description: "বিষয় ও অধ্যায় ভিত্তিক প্রশ্ন সিলেক্ট করে কাস্টম ৪-সেট প্রশ্নপত্র ও সমাধান PDF তৈরি করুন।",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { tr } = await getI18n();
+  return {
+    title: tr(
+      "Exam Paper Builder — QuestionBank",
+      "পরীক্ষাপত্র তৈরি (Exam Paper Builder) — QuestionBank",
+    ),
+    description: tr(
+      "Select questions by subject and chapter to build custom 4-set exam papers and solution PDFs.",
+      "বিষয় ও অধ্যায় ভিত্তিক প্রশ্ন সিলেক্ট করে কাস্টম ৪-সেট প্রশ্নপত্র ও সমাধান PDF তৈরি করুন।",
+    ),
+  };
+}
 
 type SearchParams = Promise<{
   subject?: string | string[];

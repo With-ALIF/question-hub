@@ -7,6 +7,7 @@ import {
   createSupabaseServerClient,
   isSupabaseConfigured,
 } from "@/lib/supabase/server";
+import { getI18n } from "@/lib/i18n/server";
 import { readAdminRole } from "./roles";
 import type { AuthState } from "./state";
 
@@ -45,15 +46,25 @@ export async function signInAction(
   _previousState: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
+  const { tr } = await getI18n();
   const email = readField(formData, "email");
   const password = String(formData.get("password") ?? "");
 
   if (!email || !password) {
-    return { status: "error", message: "Enter your email and password." };
+    return {
+      status: "error",
+      message: tr("Enter your email and password.", "আপনার ইমেইল ও পাসওয়ার্ড দিন।"),
+    };
   }
 
   if (!isSupabaseConfigured()) {
-    return { status: "error", message: NOT_CONFIGURED_MESSAGE };
+    return {
+      status: "error",
+      message: tr(
+        NOT_CONFIGURED_MESSAGE,
+        "অথেন্টিকেশন এখনো কনফিগার করা হয়নি। .env.local-এ আপনার Supabase URL ও publishable/anon key যোগ করুন।",
+      ),
+    };
   }
 
   try {
@@ -66,7 +77,10 @@ export async function signInAction(
   } catch {
     return {
       status: "error",
-      message: "Unable to sign in right now. Please try again.",
+      message: tr(
+        "Unable to sign in right now. Please try again.",
+        "এই মুহূর্তে লগইন করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      ),
     };
   }
 
@@ -77,25 +91,47 @@ export async function signUpAction(
   _previousState: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
+  const { tr } = await getI18n();
   const fullName = readField(formData, "name");
   const email = readField(formData, "email");
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
   if (!fullName || !email || !password || !confirmPassword) {
-    return { status: "error", message: "Fill in every field to create your account." };
+    return {
+      status: "error",
+      message: tr(
+        "Fill in every field to create your account.",
+        "অ্যাকাউন্ট তৈরি করতে সব ঘর পূরণ করুন।",
+      ),
+    };
   }
 
   if (password.length < 8) {
-    return { status: "error", message: "Your password must be at least 8 characters long." };
+    return {
+      status: "error",
+      message: tr(
+        "Your password must be at least 8 characters long.",
+        "পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।",
+      ),
+    };
   }
 
   if (password !== confirmPassword) {
-    return { status: "error", message: "Passwords do not match." };
+    return {
+      status: "error",
+      message: tr("Passwords do not match.", "পাসওয়ার্ড দুটি মিলছে না।"),
+    };
   }
 
   if (!isSupabaseConfigured()) {
-    return { status: "error", message: NOT_CONFIGURED_MESSAGE };
+    return {
+      status: "error",
+      message: tr(
+        NOT_CONFIGURED_MESSAGE,
+        "অথেন্টিকেশন এখনো কনফিগার করা হয়নি। .env.local-এ আপনার Supabase URL ও publishable/anon key যোগ করুন।",
+      ),
+    };
   }
 
   try {
@@ -122,13 +158,19 @@ export async function signUpAction(
     if (!data.session) {
       return {
         status: "success",
-        message: "Check your email to confirm your account, then log in.",
+        message: tr(
+          "Check your email to confirm your account, then log in.",
+          "অ্যাকাউন্ট নিশ্চিত করতে ইমেইল চেক করুন, তারপর লগইন করুন।",
+        ),
       };
     }
   } catch {
     return {
       status: "error",
-      message: "Unable to create your account right now. Please try again.",
+      message: tr(
+        "Unable to create your account right now. Please try again.",
+        "এই মুহূর্তে অ্যাকাউন্ট তৈরি করা যাচ্ছে না। আবার চেষ্টা করুন।",
+      ),
     };
   }
 

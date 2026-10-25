@@ -26,3 +26,13 @@ export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   broken_image: "ছবি বা ডায়াগ্রাম লোড হচ্ছে না",
   other: "অন্যান্য সমস্যা",
 };
+
+export const REPORT_TYPE_LABELS_EN: Record<ReportType, string> = {
+  wrong_answer: "Wrong answer given",
+  mcq_option_error: "MCQ option is wrong",
+  question_typo: "Typo or factual error in question",
+  explanation_error: "Error in explanation or solution",
+  katex_math_error: "Math equation or KaTeX issue",
+  broken_image: "Image or diagram is not loading",
+  other: "Other issue",
+};

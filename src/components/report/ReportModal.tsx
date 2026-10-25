@@ -6,11 +6,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { checkReportStatus, submitQuestionReport } from "@/lib/reports/actions";
-import { REPORT_TYPE_LABELS, type ReportType } from "@/lib/reports/types";
+import {
+  REPORT_TYPE_LABELS,
+  REPORT_TYPE_LABELS_EN,
+  type ReportType,
+} from "@/lib/reports/types";
+import { useI18n } from "@/lib/i18n/client";
 
 type Props = { questionId: string; isOpen: boolean; onClose: () => void };
 
 export function ReportModal({ questionId, isOpen, onClose }: Props) {
+  const { tr, lang } = useI18n();
+  const labels = lang === "bn" ? REPORT_TYPE_LABELS : REPORT_TYPE_LABELS_EN;
   const [type, setType] = useState<ReportType>("wrong_answer");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,24 +32,43 @@ export function ReportModal({ questionId, isOpen, onClose }: Props) {
       setChecking(false);
       if (isRep) {
         setReported(true);
-        setRes({ ok: false, text: "এই প্রশ্নে ইতিমধ্যে রিপোর্ট করা হয়েছে, এডমিন ভেরিফিকেশন পর্যন্ত অপেক্ষা করুন।" });
+        setRes({
+          ok: false,
+          text: tr(
+            "This question has already been reported. Please wait for admin verification.",
+            "এই প্রশ্নে ইতিমধ্যে রিপোর্ট করা হয়েছে, এডমিন ভেরিফিকেশন পর্যন্ত অপেক্ষা করুন।",
+          ),
+        });
       }
     });
-  }, [isOpen, questionId]);
+  }, [isOpen, questionId, tr]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!msg.trim()) return setRes({ ok: false, text: "বিস্তারিত লিখুন।" });
+    if (!msg.trim()) {
+      setRes({ ok: false, text: tr("Please add some details.", "বিস্তারিত লিখুন।") });
+      return;
+    }
     setLoading(true);
     setRes({});
     const out = await submitQuestionReport({ questionId, reportType: type, message: msg });
     setLoading(false);
     if (out.success) {
-      setRes({ ok: true, text: "রিপোর্ট জমা নেওয়া হয়েছে! ধন্যবাদ।" });
-      setTimeout(() => { setMsg(""); setRes({}); onClose(); }, 1400);
+      setRes({
+        ok: true,
+        text: tr("Report submitted. Thank you!", "রিপোর্ট জমা নেওয়া হয়েছে! ধন্যবাদ।"),
+      });
+      setTimeout(() => {
+        setMsg("");
+        setRes({});
+        onClose();
+      }, 1400);
     } else {
       if (out.alreadyReported) setReported(true);
-      setRes({ ok: false, text: out.error || "সমস্যা হয়েছে।" });
+      setRes({
+        ok: false,
+        text: out.error || tr("Something went wrong.", "সমস্যা হয়েছে।"),
+      });
     }
   };
 
@@ -50,16 +76,19 @@ export function ReportModal({ questionId, isOpen, onClose }: Props) {
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-base font-bold">প্রশ্নে কোনো ভুল পেয়েছেন?</DialogTitle>
+          <DialogTitle className="text-base font-bold">
+            {tr("Found a mistake in this question?", "প্রশ্নে কোনো ভুল পেয়েছেন?")}
+          </DialogTitle>
           <DialogDescription className="text-xs">
-            আইডি: <span className="font-mono text-primary font-semibold">{questionId}</span>
+            {tr("ID:", "আইডি:")}{" "}
+            <span className="font-mono text-primary font-semibold">{questionId}</span>
           </DialogDescription>
         </DialogHeader>
 
         {checking ? (
           <div className="flex items-center justify-center py-6 text-xs text-muted-foreground gap-2">
             <Loader2 className="size-4 animate-spin text-primary" />
-            <span>যাচাই করা হচ্ছে...</span>
+            <span>{tr("Checking...", "যাচাই করা হচ্ছে...")}</span>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-3.5 pt-1">
@@ -71,24 +100,50 @@ export function ReportModal({ questionId, isOpen, onClose }: Props) {
             ) : (
               <>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-foreground">সমস্যার ধরন</label>
-                  <select value={type} onChange={(e) => setType(e.target.value as ReportType)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs outline-none">
-                    {(Object.keys(REPORT_TYPE_LABELS) as ReportType[]).map((k) => (
-                      <option key={k} value={k}>{REPORT_TYPE_LABELS[k]}</option>
+                  <label className="text-xs font-semibold text-foreground">
+                    {tr("Type of issue", "সমস্যার ধরন")}
+                  </label>
+                  <select
+                    value={type}
+                    onChange={(e) => setType(e.target.value as ReportType)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs outline-none"
+                  >
+                    {(Object.keys(labels) as ReportType[]).map((k) => (
+                      <option key={k} value={k}>
+                        {labels[k]}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-foreground">বিস্তারিত বিবরণ</label>
-                  <Textarea rows={3} placeholder="কী ভুল আছে লিখুন..." value={msg} onChange={(e) => setMsg(e.target.value)} className="text-xs resize-none" />
+                  <label className="text-xs font-semibold text-foreground">
+                    {tr("Details", "বিস্তারিত বিবরণ")}
+                  </label>
+                  <Textarea
+                    rows={3}
+                    placeholder={tr("Describe what is wrong...", "কী ভুল আছে লিখুন...")}
+                    value={msg}
+                    onChange={(e) => setMsg(e.target.value)}
+                    className="text-xs resize-none"
+                  />
                 </div>
-                {res.text && <p className={`text-xs ${res.ok ? "text-emerald-600 font-medium" : "text-destructive"}`}>{res.text}</p>}
+                {res.text && (
+                  <p className={`text-xs ${res.ok ? "text-emerald-600 font-medium" : "text-destructive"}`}>
+                    {res.text}
+                  </p>
+                )}
               </>
             )}
 
             <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={loading}>বাতিল</Button>
-              {!reported && <Button type="submit" size="sm" disabled={loading || res.ok}>{loading ? "জমা হচ্ছে..." : "রিপোর্ট পাঠান"}</Button>}
+              <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={loading}>
+                {tr("Cancel", "বাতিল")}
+              </Button>
+              {!reported && (
+                <Button type="submit" size="sm" disabled={loading || res.ok}>
+                  {loading ? tr("Submitting...", "জমা হচ্ছে...") : tr("Send report", "রিপোর্ট পাঠান")}
+                </Button>
+              )}
             </div>
           </form>
         )}

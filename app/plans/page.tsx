@@ -2,19 +2,29 @@ import type { Metadata } from "next";
 
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { PlanCard } from "@/components/site/PlanCard";
-import { plans } from "@/data/plans";
+import { PricingTabs } from "@/components/site/PricingTabs";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Subscription Plans — QuestionBank",
-  description: "Compare free, monthly and yearly plans. Prices, duration and features at a glance.",
-  openGraph: {
-    title: "Subscription Plans — QuestionBank",
-    description: "Compare free, monthly and yearly plans. Prices, duration and features at a glance.",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { tr } = await getI18n();
+  const title = tr(
+    "Student & Teacher Plans — QuestionBank",
+    "শিক্ষার্থী ও শিক্ষক প্ল্যান — QuestionBank",
+  );
+  const description = tr(
+    "Compare free, monthly and yearly plans for students and teachers. Prices, duration and features at a glance.",
+    "শিক্ষার্থী ও শিক্ষকদের জন্য ফ্রি, মাসিক ও বার্ষিক প্ল্যান তুলনা করুন। দাম, মেয়াদ ও ফিচার এক নজরে।",
+  );
+  return {
+    title,
+    description,
+    openGraph: { title, description },
+  };
+}
 
-export default function PlansPage() {
+export default async function PlansPage() {
+  const { tr } = await getI18n();
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
@@ -22,21 +32,23 @@ export default function PlansPage() {
         <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
           <div className="text-center">
             <h1 className="font-display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Pick your plan
+              {tr("Pick your plan", "আপনার প্ল্যান বেছে নিন")}
             </h1>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground sm:text-base">
-              Every plan unlocks the full question bank structure. Upgrade or cancel anytime.
+              {tr(
+                "Choose the Student or Teacher tab. Every plan unlocks the full question bank structure — upgrade or cancel anytime.",
+                "Student বা Teacher ট্যাব বেছে নিন। প্রতিটি প্ল্যানে পুরো প্রশ্ন ব্যাংক স্ট্রাকচার unlocked — যেকোনো সময় আপগ্রেড বা বাতিল করুন।",
+              )}
             </p>
           </div>
 
-          <div className="mt-12 grid gap-6 pt-2 md:grid-cols-3">
-            {plans.map((plan) => (
-              <PlanCard key={plan.id} plan={plan} />
-            ))}
-          </div>
+          <PricingTabs defaultAudience="student" />
 
           <p className="mt-10 text-center text-xs text-muted-foreground">
-            UI prototype — subscription and payment flows are not active yet.
+            {tr(
+              "UI prototype — subscription and payment flows are not active yet.",
+              "UI প্রোটোটাইপ — সাবস্ক্রিপশন ও পেমেন্ট ফ্লো এখনো চালু হয়নি।",
+            )}
           </p>
         </section>
       </main>

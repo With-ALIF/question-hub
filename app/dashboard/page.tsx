@@ -14,27 +14,26 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Navbar } from "@/components/site/Navbar";
 import { signOutAction } from "@/lib/auth/actions";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth/session";
 import { getQuestionManifest } from "@/lib/questions/storage";
+import { localeForLanguage } from "@/lib/i18n/config";
+import { getI18n } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "ড্যাশবোর্ড — QuestionBank",
-  description: "আপনার অ্যাকাউন্টের অ্যাক্সেস, বিষয় এবং প্রশ্ন ব্যাংক ড্যাশবোর্ড।",
-};
-
-const BENGALI_SUBJECT_NAMES: Record<string, string> = {
-  physics: "পদার্থবিজ্ঞান",
-  chemistry: "রসায়ন",
-  mathematics: "উচ্চতর গণিত",
-  biology: "জীববিজ্ঞান",
-  ict: "আইসিটি",
-  other: "সাধারণ বিষয়",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { tr } = await getI18n();
+  return {
+    title: tr("Dashboard — QuestionBank", "ড্যাশবোর্ড — QuestionBank"),
+    description: tr(
+      "Your account access, subjects and question bank dashboard.",
+      "আপনার অ্যাকাউন্টের অ্যাক্সেস, বিষয় এবং প্রশ্ন ব্যাংক ড্যাশবোর্ড।",
+    ),
+  };
+}
 
 export default async function UserDashboard() {
   const user = await getCurrentUser();
@@ -45,6 +44,8 @@ export default async function UserDashboard() {
 
   const profile = await getCurrentProfile();
   const manifest = await getQuestionManifest().catch(() => null);
+  const { tr, num, lang, subjectName } = await getI18n();
+  const locale = localeForLanguage(lang);
 
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
   const rawRole = profile?.role ?? "user";
@@ -53,21 +54,21 @@ export default async function UserDashboard() {
     profile?.full_name?.trim() ||
     (typeof meta["full_name"] === "string" ? meta["full_name"] : "") ||
     user.email?.split("@")[0] ||
-    "শিক্ষার্থী";
+    tr("Student", "শিক্ষার্থী");
 
   const planName =
     (typeof meta["plan_name"] === "string" && meta["plan_name"]) ||
     (typeof meta["plan"] === "string" && meta["plan"]) ||
     (rawRole === "admin" || rawRole === "super_admin"
-      ? "Admin Pro (লাইফটাইম অ্যাক্সেস)"
-      : "Scholar Plan");
+      ? tr("Admin Pro (Lifetime access)", "Admin Pro (লাইফটাইম অ্যাক্সেস)")
+      : tr("Scholar Plan", "Scholar প্ল্যান"));
 
   const expiresAt =
     (typeof meta["access_expires_at"] === "string" && meta["access_expires_at"]) ||
     (typeof meta["subscription_expires_at"] === "string" && meta["subscription_expires_at"]) ||
     null;
 
-  let remainingDaysText = "৩০ দিন বাকি";
+  let remainingDaysText = tr(`${num(30)} days left`, `${num(30)} দিন বাকি`);
   let expiryDateFormatted = "";
 
   if (expiresAt) {
@@ -75,15 +76,18 @@ export default async function UserDashboard() {
     if (!Number.isNaN(expDate.getTime())) {
       const diffMs = expDate.getTime() - Date.now();
       const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      remainingDaysText = diffDays > 0 ? `${diffDays.toLocaleString("bn-BD")} দিন বাকি` : "মেয়াদ উত্তীর্ণ";
-      expiryDateFormatted = expDate.toLocaleDateString("bn-BD", {
+      remainingDaysText =
+        diffDays > 0
+          ? tr(`${num(diffDays)} days left`, `${num(diffDays)} দিন বাকি`)
+          : tr("Expired", "মেয়াদ উত্তীর্ণ");
+      expiryDateFormatted = expDate.toLocaleDateString(locale, {
         day: "numeric",
         month: "short",
         year: "numeric",
       });
     }
   } else if (rawRole === "admin" || rawRole === "super_admin") {
-    remainingDaysText = "আজীবন অ্যাক্সেস";
+    remainingDaysText = tr("Lifetime access", "আজীবন অ্যাক্সেস");
   }
 
   const allowedSubjectSlugs: string[] | null = Array.isArray(meta["accessible_subjects"])
@@ -98,6 +102,7 @@ export default async function UserDashboard() {
     : allSubjects;
 
   const totalAccessibleMcq = accessibleSubjects.reduce((sum, s) => sum + (s.mcq ?? 0), 0);
+  const accessibleNames = accessibleSubjects.map((s) => subjectName(s.slug, s.name));
 
   return (
     <div className="flex min-h-screen flex-col bg-background font-sans">
@@ -108,10 +113,13 @@ export default async function UserDashboard() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-6">
             <div>
               <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                স্বাগতম, {displayName.split(" ")[0]}
+                {tr("Welcome,", "স্বাগতম,")} {displayName.split(" ")[0]}
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                আপনার স্টাডি অ্যাক্সেস ও পরীক্ষার প্রস্তুতি ড্যাশবোর্ড
+                {tr(
+                  "Your study access and exam preparation dashboard",
+                  "আপনার স্টাডি অ্যাক্সেস ও পরীক্ষার প্রস্তুতি ড্যাশবোর্ড",
+                )}
               </p>
             </div>
 
@@ -124,7 +132,7 @@ export default async function UserDashboard() {
                   size="sm"
                   className="h-7 text-xs text-muted-foreground transition-colors hover:text-destructive hover:border-destructive/40"
                 >
-                  লগআউট
+                  {tr("Log out", "লগআউট")}
                 </Button>
               </form>
             </div>
@@ -134,7 +142,9 @@ export default async function UserDashboard() {
             <Card className="border-border/70 shadow-sm transition-all hover:border-primary/40">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">বর্তমান প্ল্যান</span>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {tr("Current plan", "বর্তমান প্ল্যান")}
+                  </span>
                   <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Sparkles className="size-4" aria-hidden="true" />
                   </span>
@@ -145,7 +155,7 @@ export default async function UserDashboard() {
                   </h3>
                   <div className="mt-1 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                     <CheckCircle2 className="size-3.5" aria-hidden="true" />
-                    <span>অ্যাক্সেস সক্রিয়</span>
+                    <span>{tr("Access active", "অ্যাক্সেস সক্রিয়")}</span>
                   </div>
                 </div>
               </CardContent>
@@ -154,7 +164,9 @@ export default async function UserDashboard() {
             <Card className="border-border/70 shadow-sm transition-all hover:border-primary/40">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">মেয়াদ বাকি</span>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {tr("Time remaining", "মেয়াদ বাকি")}
+                  </span>
                   <span className="flex size-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
                     <CalendarClock className="size-4" aria-hidden="true" />
                   </span>
@@ -164,7 +176,9 @@ export default async function UserDashboard() {
                     {remainingDaysText}
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {expiryDateFormatted ? `মেয়াদ: ${expiryDateFormatted}` : "সীমাহীন বা সক্রিয় মেয়াদ"}
+                    {expiryDateFormatted
+                      ? tr(`Expiry: ${expiryDateFormatted}`, `মেয়াদ: ${expiryDateFormatted}`)
+                      : tr("Unlimited or active term", "সীমাহীন বা সক্রিয় মেয়াদ")}
                   </p>
                 </div>
               </CardContent>
@@ -173,20 +187,22 @@ export default async function UserDashboard() {
             <Card className="border-border/70 shadow-sm transition-all hover:border-primary/40">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">মোট অ্যাক্সেসযোগ্য MCQ</span>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {tr("Total accessible MCQs", "মোট অ্যাক্সেসযোগ্য MCQ")}
+                  </span>
                   <span className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
                     <CheckCircle2 className="size-4" aria-hidden="true" />
                   </span>
                 </div>
                 <div className="mt-3">
                   <h3 className="font-display text-2xl font-bold tracking-tight text-foreground">
-                    {totalAccessibleMcq > 0
-                      ? totalAccessibleMcq.toLocaleString("bn-BD")
-                      : "০"}{" "}
-                    <span className="text-sm font-normal text-muted-foreground">টি</span>
+                    {num(totalAccessibleMcq)}{" "}
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {tr("total", "টি")}
+                    </span>
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    আপনার সিলেক্টেড বিষয়ে উপলব্ধ
+                    {tr("Available in your selected subjects", "আপনার সিলেক্টেড বিষয়ে উপলব্ধ")}
                   </p>
                 </div>
               </CardContent>
@@ -195,18 +211,22 @@ export default async function UserDashboard() {
             <Card className="border-border/70 shadow-sm transition-all hover:border-primary/40">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">অ্যাক্সেস পাওয়া বিষয়</span>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {tr("Subjects with access", "অ্যাক্সেস পাওয়া বিষয়")}
+                  </span>
                   <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                     <Layers className="size-4" aria-hidden="true" />
                   </span>
                 </div>
                 <div className="mt-3">
                   <h3 className="font-display text-2xl font-bold tracking-tight text-foreground">
-                    {accessibleSubjects.length.toLocaleString("bn-BD")}{" "}
-                    <span className="text-sm font-normal text-muted-foreground">টি বিষয়</span>
+                    {num(accessibleSubjects.length)}{" "}
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {tr("subjects", "টি বিষয়")}
+                    </span>
                   </h3>
-                  <p className="mt-1 text-xs text-muted-foreground truncate" title={accessibleSubjects.map((s) => BENGALI_SUBJECT_NAMES[s.slug] ?? s.name).join(", ")}>
-                    {accessibleSubjects.map((s) => BENGALI_SUBJECT_NAMES[s.slug] ?? s.name).slice(0, 3).join(", ")}
+                  <p className="mt-1 text-xs text-muted-foreground truncate" title={accessibleNames.join(", ")}>
+                    {accessibleNames.slice(0, 3).join(", ")}
                     {accessibleSubjects.length > 3 ? "..." : ""}
                   </p>
                 </div>
@@ -218,31 +238,33 @@ export default async function UserDashboard() {
             <CardContent className="p-4 sm:p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  অ্যাক্সেস পাওয়া বিষয়সমূহের তালিকা:
+                  {tr("Subjects you can access:", "অ্যাক্সেস পাওয়া বিষয়সমূহের তালিকা:")}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  যেকোনো বিষয়ে ক্লিক করে সরাসরি প্রশ্ন অনুশীলন করো
+                  {tr(
+                    "Click any subject to practise its questions directly",
+                    "যেকোনো বিষয়ে ক্লিক করে সরাসরি প্রশ্ন অনুশীলন করুন",
+                  )}
                 </span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {accessibleSubjects.length === 0 ? (
-                  <span className="text-xs text-muted-foreground">কোনো বিষয়ের অ্যাক্সেস পাওয়া যায়নি</span>
+                  <span className="text-xs text-muted-foreground">
+                    {tr("No subject access found", "কোনো বিষয়ের অ্যাক্সেস পাওয়া যায়নি")}
+                  </span>
                 ) : (
-                  accessibleSubjects.map((sub) => {
-                    const banglaName = BENGALI_SUBJECT_NAMES[sub.slug] ?? sub.name;
-                    return (
-                      <Link
-                        key={sub.slug}
-                        href={`/questions?subject=${sub.slug}`}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
-                      >
-                        <span>{banglaName}</span>
-                        <span className="rounded-full bg-background px-1.5 py-0.2 text-[10px] text-muted-foreground">
-                          {sub.mcq.toLocaleString("bn-BD")}
-                        </span>
-                      </Link>
-                    );
-                  })
+                  accessibleSubjects.map((sub) => (
+                    <Link
+                      key={sub.slug}
+                      href={`/questions?subject=${sub.slug}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
+                    >
+                      <span>{subjectName(sub.slug, sub.name)}</span>
+                      <span className="rounded-full bg-background px-1.5 py-0.2 text-[10px] text-muted-foreground">
+                        {num(sub.mcq)}
+                      </span>
+                    </Link>
+                  ))
                 )}
               </div>
             </CardContent>
@@ -251,10 +273,13 @@ export default async function UserDashboard() {
           <section className="mt-10" aria-labelledby="quick-start-heading">
             <div className="mb-4">
               <h2 id="quick-start-heading" className="font-display text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-                দ্রুত শুরু করো
+                {tr("Quick start", "দ্রুত শুরু করুন")}
               </h2>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                নিচের যেকোনো অপশন নির্বাচন করে এখনই অনুশীলন শুরু করো
+                {tr(
+                  "Pick any option below and start practising right now",
+                  "নিচের যেকোনো অপশন নির্বাচন করে এখনই অনুশীলন শুরু করুন",
+                )}
               </p>
             </div>
 
@@ -269,18 +294,21 @@ export default async function UserDashboard() {
                       <BookOpen className="size-6" aria-hidden="true" />
                     </span>
                     <Badge variant="outline" className="border-primary/30 text-[11px] font-normal text-primary">
-                      অনুশীলন
+                      {tr("Practice", "অনুশীলন")}
                     </Badge>
                   </div>
                   <h3 className="mt-4 font-display text-base font-semibold text-foreground group-hover:text-primary">
-                    প্রশ্ন অনুশীলন
+                    {tr("Practise questions", "প্রশ্ন অনুশীলন")}
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    বিষয় ও অধ্যায় নির্বাচন করে সাজানো প্রশ্ন ও ব্যাখ্যাসহ সমাধান অনুশীলন করো।
+                    {tr(
+                      "Pick subjects and chapters, then practise curated questions with explanations.",
+                      "বিষয় ও অধ্যায় নির্বাচন করে সাজানো প্রশ্ন ও ব্যাখ্যাসহ সমাধান অনুশীলন করুন।",
+                    )}
                   </p>
                 </div>
                 <div className="mt-5 flex items-center text-xs font-semibold text-primary">
-                  <span>অনুশীলন শুরু করো</span>
+                  <span>{tr("Start practising", "অনুশীলন শুরু করুন")}</span>
                   <ArrowRight className="ml-1.5 size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </div>
               </Link>
@@ -295,18 +323,21 @@ export default async function UserDashboard() {
                       <Timer className="size-6" aria-hidden="true" />
                     </span>
                     <Badge variant="outline" className="border-amber-500/30 text-[11px] font-normal text-amber-600 dark:text-amber-400">
-                      টাইমার
+                      {tr("Timer", "টাইমার")}
                     </Badge>
                   </div>
                   <h3 className="mt-4 font-display text-base font-semibold text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400">
-                    মডেল টেস্ট
+                    {tr("Model test", "মডেল টেস্ট")}
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    নির্দিষ্ট সময়ে পরীক্ষা দিয়ে নিজেকে প্রস্তুত করো এবং সঠিক টাইম ম্যানেজমেন্ট শেখো।
+                    {tr(
+                      "Take timed tests to prepare yourself and learn proper time management.",
+                      "নির্দিষ্ট সময়ে পরীক্ষা দিয়ে নিজেকে প্রস্তুত করুন এবং সঠিক টাইম ম্যানেজমেন্ট শিখুন।",
+                    )}
                   </p>
                 </div>
                 <div className="mt-5 flex items-center text-xs font-semibold text-amber-600 dark:text-amber-400">
-                  <span>পরীক্ষা দাও</span>
+                  <span>{tr("Take a test", "পরীক্ষা দিন")}</span>
                   <ArrowRight className="ml-1.5 size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </div>
               </Link>
@@ -321,18 +352,21 @@ export default async function UserDashboard() {
                       <BookmarkCheck className="size-6" aria-hidden="true" />
                     </span>
                     <Badge variant="outline" className="border-blue-500/30 text-[11px] font-normal text-blue-600 dark:text-blue-400">
-                      রিভিশন
+                      {tr("Revision", "রিভিশন")}
                     </Badge>
                   </div>
                   <h3 className="mt-4 font-display text-base font-semibold text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                    সেভ করা প্রশ্ন
+                    {tr("Saved questions", "সেভ করা প্রশ্ন")}
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    রিভিশন দেওয়ার জন্য গুরুত্বপূর্ণ ও কঠিন প্রশ্নগুলো সহজে সংরক্ষণ করে রাখো।
+                    {tr(
+                      "Keep important and difficult questions saved for quick revision.",
+                      "রিভিশন দেওয়ার জন্য গুরুত্বপূর্ণ ও কঠিন প্রশ্নগুলো সহজে সংরক্ষণ করে রাখুন।",
+                    )}
                   </p>
                 </div>
                 <div className="mt-5 flex items-center text-xs font-semibold text-blue-600 dark:text-blue-400">
-                  <span>সংগ্রহ দেখুন</span>
+                  <span>{tr("View collection", "সংগ্রহ দেখুন")}</span>
                   <ArrowRight className="ml-1.5 size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </div>
               </Link>
