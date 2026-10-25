@@ -162,11 +162,16 @@ export async function updateQuestionInBucket(
       finalExplanationHtml = expImgs && expImgs.length > 0 ? expImgs.join("\n") : null;
     }
 
+    const sanitizedOptions = input.options.map(({ h, ...opt }) => ({
+      ...opt,
+      t: (opt.t ?? "").trim(),
+    }));
+
     const updatedQuestion: StorageQuestion = {
       ...existing,
       question_text: input.question_text.trim(),
       question_html: finalQuestionHtml,
-      options: input.options,
+      options: sanitizedOptions,
       correct_option: input.correct_option,
       answer: input.answer ? input.answer.trim() : null,
       explanation: input.explanation ? input.explanation.trim() : null,
@@ -223,10 +228,12 @@ export async function updateQuestionInBucket(
     }
 
     // 6. Invalidate in-memory and Next.js caches
-    invalidateShardCache(input.subject, targetShardNumber);
+    invalidateShardCache(input.subject);
     updateSearchCache(updatedQuestion, input.subject, targetShardNumber ?? 1);
     revalidatePath("/admin/questions");
     revalidatePath("/admin/reports");
+    revalidatePath("/questions", "page");
+    revalidatePath("/questions", "layout");
     revalidatePath("/questions");
 
     return {

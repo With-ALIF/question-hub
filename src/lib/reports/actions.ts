@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendReportNotificationEmail } from "./email";
 import type { ReportType } from "./types";
 
 export type SubmitReportInput = {
@@ -65,6 +66,14 @@ export async function submitQuestionReport(
     });
 
     if (error) return { success: false, error: error.message };
+
+    void sendReportNotificationEmail({
+      questionId,
+      reportType,
+      message,
+      userEmail: user?.email,
+    });
+
     return { success: true };
   } catch (err) {
     return {

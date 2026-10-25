@@ -32,7 +32,7 @@ export const QUESTION_FILTER_LABELS: Record<QuestionFilterKey, string> = {
   db: "Source DB",
   un: "University / Institute",
   year: "Year",
-  paper: "Subject code",
+  paper: "Paper",
   chapter: "Chapter",
   topic: "Topic",
 };

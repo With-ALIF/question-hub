@@ -8,12 +8,14 @@ import { Button } from "@/components/ui/button";
 import { AdminReportCard } from "./AdminReportCard";
 import { AdminReportEditModal } from "./AdminReportEditModal";
 import type { QuestionReport } from "@/lib/reports/types";
+import type { StorageQuestion } from "@/lib/questions/storage";
 
 type AdminReportsViewProps = { initialReports: QuestionReport[]; role: string };
 
 export function AdminReportsView({ initialReports }: AdminReportsViewProps) {
   const router = useRouter();
   const [reports, setReports] = useState<QuestionReport[]>(initialReports);
+  const [updatedQuestions, setUpdatedQuestions] = useState<Record<string, StorageQuestion>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -63,6 +65,7 @@ export function AdminReportsView({ initialReports }: AdminReportsViewProps) {
             <AdminReportCard
               key={report.id}
               report={report}
+              updatedQuestion={updatedQuestions[report.question_id]}
               onResolved={handleResolved}
               onEdit={(qId) => setEditingId(qId)}
             />
@@ -74,7 +77,8 @@ export function AdminReportsView({ initialReports }: AdminReportsViewProps) {
         <AdminReportEditModal
           questionId={editingId}
           onClose={() => setEditingId(null)}
-          onUpdated={() => {
+          onUpdated={(updated) => {
+            setUpdatedQuestions((prev) => ({ ...prev, [updated.id]: updated }));
             router.refresh();
           }}
         />

@@ -54,16 +54,22 @@ function RichText({
   className?: string;
 }) {
   let content = "";
-  if (html && text) {
-    const textTrimmed = text.trim();
+  const textTrimmed = (text || "").trim();
+
+  if (html && textTrimmed) {
     const htmlClean = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-    if (htmlClean.includes(textTrimmed)) {
+    if (htmlClean === textTrimmed) {
       content = html;
     } else {
-      content = `${html}<p>${textTrimmed}</p>`;
+      const imgMatches = html.match(/<img[^>]+>/gi);
+      if (imgMatches && imgMatches.length > 0) {
+        content = `${imgMatches.join("\n")}\n${textTrimmed}`;
+      } else {
+        content = textTrimmed;
+      }
     }
   } else {
-    content = html || text || "";
+    content = textTrimmed || html || "";
   }
 
   const rendered = renderMathInContent(content);
@@ -170,7 +176,7 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
           {hasOptions ? (
             <div className="grid gap-2">
               {options.map((option, optionIndex) => {
-                const rawOption = option.h || option.t || "";
+                const rawOption = option.t || option.h || "";
                 const renderedOption = renderMathInContent(rawOption) || "—";
                 const state = !revealed
                   ? selected === optionIndex

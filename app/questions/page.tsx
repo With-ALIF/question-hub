@@ -42,6 +42,9 @@ type QuestionsSearchParams = Promise<{
   topic?: string | string[];
 }>;
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: "Questions — QuestionBank",
   description: "Browse subject-wise questions streamed from Supabase Storage.",
