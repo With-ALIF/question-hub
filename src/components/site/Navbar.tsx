@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   BookmarkCheck,
   BookOpenCheck,
+  FileText,
   Home,
   Layers,
   LayoutDashboard,
@@ -33,6 +34,7 @@ const baseNavLinks: NavItem[] = [
   { href: "/", label: "Home" },
   { href: "/subjects", label: "Subjects" },
   { href: "/questions", label: "Questions" },
+  { href: "/exam-paper", label: "Exam Paper" },
   { href: "/plans", label: "Plans" },
 ];
 
@@ -40,6 +42,7 @@ const loggedInNavLinks: NavItem[] = [
   { href: "/dashboard", label: "ড্যাশবোর্ড", icon: LayoutDashboard },
   { href: "/subjects", label: "বিষয়সমূহ", icon: Layers },
   { href: "/questions", label: "অনুশীলন", icon: BookOpenCheck },
+  { href: "/exam-paper", label: "পরীক্ষাপত্র", icon: FileText },
   { href: "/saved", label: "সেভ করা প্রশ্ন", icon: BookmarkCheck },
   { href: "/model-test", label: "মডেল টেস্ট", icon: Timer },
 ];

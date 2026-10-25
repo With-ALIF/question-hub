@@ -57,7 +57,7 @@ export async function sendReportNotificationEmail(input: SendReportEmailInput): 
         </div>
 
         <div style="text-align: center; margin-bottom: 8px;">
-          <a href="https://question-hub.vercel.app/admin/reports" style="display: inline-block; padding: 10px 22px; background: #0f172a; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: 600;">এডমিন প্যানেলে দেখুন</a>
+          <a href="https://question-hub-bd.vercel.app/admin/reports" style="display: inline-block; padding: 10px 22px; background: #0f172a; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: 600;">এডমিন প্যানেলে দেখুন</a>
         </div>
       </div>
       <div style="background: #f8fafc; padding: 12px; text-align: center; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8;">

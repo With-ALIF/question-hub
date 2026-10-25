@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Cloud, Lock, LogIn, X } from "lucide-react";
 import { QuestionCard } from "@/components/questions/QuestionCard";
 import { Footer } from "@/components/site/Footer";
 import { Navbar } from "@/components/site/Navbar";
+import { ExamPaperFloatingBar } from "@/components/exam-paper/ExamPaperFloatingBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -341,6 +342,7 @@ export default async function QuestionsPage({
           )}
         </section>
       </main>
+      <ExamPaperFloatingBar />
       <Footer initialUser={user} />
     </div>
   );

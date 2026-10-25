@@ -1,5 +1,6 @@
 export type ReportType =
   | "wrong_answer"
+  | "mcq_option_error"
   | "question_typo"
   | "explanation_error"
   | "katex_math_error"
@@ -18,6 +19,7 @@ export type QuestionReport = {
 
 export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   wrong_answer: "ভুল উত্তর দেওয়া হয়েছে",
+  mcq_option_error: "MCQ অপশন ভুল",
   question_typo: "প্রশ্নে বানান বা তথ্যের ভুল",
   explanation_error: "ব্যাখ্যা বা সমাধানে ভুল",
   katex_math_error: "ম্যাথমেটিক্যাল সমীকরণ বা KaTeX সমস্যা",

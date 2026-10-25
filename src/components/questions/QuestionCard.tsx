@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bookmark } from "lucide-react";
+import { Bookmark, FileText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import type { QuestionOption } from "@/lib/supabase/types";
 import { formatChapterLabel } from "@/data/chapters";
 import { renderMathInContent } from "@/lib/math";
 import { isQuestionSaved, toggleSaveQuestion, SAVED_QUESTIONS_EVENT } from "@/lib/saved-questions";
+import { isQuestionInExam, toggleExamQuestion, EXAM_PAPER_EVENT } from "@/lib/exam-paper/store";
 import { ReportButton } from "@/components/report/ReportButton";
 import { cn } from "@/lib/utils";
 
@@ -92,9 +93,11 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [isInExam, setIsInExam] = useState(false);
 
   useEffect(() => {
     setIsSaved(isQuestionSaved(question.id));
+    setIsInExam(isQuestionInExam(question.id));
 
     const handleUpdate = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -104,9 +107,19 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
       }
     };
 
+    const handleExamUpdate = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail) return;
+      if (detail.cleared || detail.id === question.id || detail.count !== undefined) {
+        setIsInExam(isQuestionInExam(question.id));
+      }
+    };
+
     window.addEventListener(SAVED_QUESTIONS_EVENT, handleUpdate);
+    window.addEventListener(EXAM_PAPER_EVENT, handleExamUpdate);
     return () => {
       window.removeEventListener(SAVED_QUESTIONS_EVENT, handleUpdate);
+      window.removeEventListener(EXAM_PAPER_EVENT, handleExamUpdate);
     };
   }, [question.id]);
 
@@ -162,6 +175,24 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
             >
               <Bookmark className={cn("size-3.5 transition-transform", isSaved && "fill-primary text-primary scale-110")} />
               <span>{isSaved ? "সেভ করা" : "সেভ"}</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant={isInExam ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => {
+                const next = toggleExamQuestion(question);
+                setIsInExam(next);
+              }}
+              className={cn(
+                "h-7 px-2 text-xs gap-1 transition-colors cursor-pointer",
+                isInExam && "text-primary font-medium bg-primary/10 hover:bg-primary/20",
+              )}
+              title={isInExam ? "পরীক্ষাপত্র থেকে মুছুন" : "পরীক্ষাপত্রে যোগ করুন"}
+            >
+              <FileText className={cn("size-3.5 transition-transform", isInExam && "text-primary scale-110 font-bold")} />
+              <span>{isInExam ? "যোগ করা" : "পরীক্ষাপত্রে"}</span>
             </Button>
           </div>
         </div>
