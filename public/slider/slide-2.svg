@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 680" width="1600" height="680" role="img" aria-label="Warm amber study-themed banner with practice cards and geometric shapes">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2a1207"/>
+      <stop offset="0.5" stop-color="#b45309"/>
+      <stop offset="1" stop-color="#d97706"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fcd34d" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#fcd34d" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fdba74" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#fdba74" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffbeb" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#fde68a" stop-opacity="0.1"/>
+    </linearGradient>
+    <linearGradient id="card2" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffbeb" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#fde68a" stop-opacity="0.08"/>
+    </linearGradient>
+    <linearGradient id="rule" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fef3c7" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#fef3c7" stop-opacity="0.1"/>
+    </linearGradient>
+    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+      <path d="M80 0H0V80" fill="none" stroke="#ffffff" stroke-opacity="0.05"/>
+    </pattern>
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="52"/>
+    </filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="30" stdDeviation="28" flood-color="#431407" flood-opacity="0.42"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="680" fill="url(#bg)"/>
+  <rect width="1600" height="680" fill="url(#grid)"/>
+  <circle cx="1210" cy="150" r="430" fill="url(#glow)"/>
+  <circle cx="300" cy="610" r="390" fill="url(#glow2)"/>
+  <circle cx="1380" cy="570" r="260" fill="#f59e0b" opacity="0.3" filter="url(#blur)"/>
+
+  <g fill="none" stroke="#fef3c7">
+    <circle cx="1260" cy="350" r="270" stroke-opacity="0.1" stroke-width="1.5"/>
+    <circle cx="1260" cy="350" r="205" stroke-opacity="0.13" stroke-width="1.5"/>
+    <circle cx="1260" cy="350" r="140" stroke-opacity="0.16" stroke-width="1.5"/>
+    <path d="M120 190 C 320 90 500 300 700 190 S 1040 90 1240 210" stroke-opacity="0.12" stroke-width="1.5"/>
+  </g>
+
+  <g opacity="0.5" stroke="#fde68a" stroke-width="2" stroke-linecap="round">
+    <path d="M280 380 h30 M295 365 v30"/>
+    <path d="M760 120 h22 M771 109 v22"/>
+    <path d="M1430 250 h24 M1442 238 v24"/>
+  </g>
+
+  <g filter="url(#soft)">
+    <rect x="292" y="222" width="360" height="250" rx="28" fill="url(#card2)" stroke="#fef3c7" stroke-opacity="0.28" stroke-width="2" transform="rotate(-7 472 347)"/>
+    <rect x="790" y="196" width="410" height="286" rx="32" fill="url(#card)" stroke="#fef3c7" stroke-opacity="0.36" stroke-width="2" transform="rotate(4 995 339)"/>
+    <rect x="1120" y="300" width="290" height="200" rx="26" fill="url(#card2)" stroke="#fef3c7" stroke-opacity="0.22" stroke-width="2" transform="rotate(-5 1265 400)"/>
+  </g>
+
+  <g stroke="url(#rule)" stroke-width="9" stroke-linecap="round" transform="rotate(4 995 339)">
+    <path d="M850 270 C 920 254 1000 254 1070 268"/>
+    <path d="M850 312 C 930 296 1010 296 1090 310"/>
+    <path d="M850 354 C 920 338 990 338 1050 352"/>
+  </g>
+
+  <g transform="rotate(4 995 339)">
+    <circle cx="872" cy="408" r="24" fill="#fbbf24" opacity="0.9"/>
+    <path d="M861 408 l8 9 16 -18" fill="none" stroke="#431407" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="912" y="398" width="190" height="20" rx="10" fill="#fffbeb" opacity="0.36"/>
+  </g>
+
+  <g transform="rotate(-7 472 347)" stroke="url(#rule)" stroke-width="8" stroke-linecap="round">
+    <path d="M350 300 C 410 286 470 286 530 298"/>
+    <path d="M350 340 C 420 326 490 326 552 338"/>
+    <path d="M350 380 C 410 366 460 366 510 376"/>
+  </g>
+
+  <g transform="rotate(-5 1265 400)" stroke="url(#rule)" stroke-width="7" stroke-linecap="round">
+    <path d="M1178 352 C 1230 340 1290 340 1348 352"/>
+    <path d="M1178 386 C 1238 374 1298 374 1356 386"/>
+    <path d="M1178 420 C 1220 410 1260 410 1300 418"/>
+  </g>
+
+  <g fill="#fde68a">
+    <circle cx="220" cy="500" r="6" opacity="0.6"/>
+    <circle cx="178" cy="440" r="3" opacity="0.4"/>
+    <circle cx="1470" cy="180" r="6" opacity="0.55"/>
+    <circle cx="1510" cy="240" r="3" opacity="0.35"/>
+  </g>
+
+  <path d="M0 590 C 260 520 420 660 700 596 S 1140 520 1600 610 L1600 680 L0 680 Z" fill="#431407" opacity="0.22"/>
+</svg>

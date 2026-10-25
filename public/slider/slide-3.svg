@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 680" width="1600" height="680" role="img" aria-label="Indigo science-themed banner with an atom and mathematical symbols">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1026"/>
+      <stop offset="0.5" stop-color="#312e81"/>
+      <stop offset="1" stop-color="#4c1d95"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#a5b4fc" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#a5b4fc" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#c4b5fd" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#c4b5fd" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eef2ff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#c7d2fe" stop-opacity="0.03"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c7d2fe" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#c7d2fe" stop-opacity="0.08"/>
+    </linearGradient>
+    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+      <path d="M80 0H0V80" fill="none" stroke="#ffffff" stroke-opacity="0.05"/>
+    </pattern>
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="48"/>
+    </filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="28" stdDeviation="28" flood-color="#1e1b4b" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="680" fill="url(#bg)"/>
+  <rect width="1600" height="680" fill="url(#grid)"/>
+  <circle cx="1250" cy="120" r="420" fill="url(#glow)"/>
+  <circle cx="240" cy="600" r="390" fill="url(#glow2)"/>
+  <circle cx="1330" cy="560" r="250" fill="#4338ca" opacity="0.4" filter="url(#blur)"/>
+
+  <g transform="translate(1250 345)">
+    <ellipse rx="270" ry="96" fill="none" stroke="#c7d2fe" stroke-opacity="0.22" stroke-width="1.5"/>
+    <ellipse rx="270" ry="96" fill="none" stroke="#c7d2fe" stroke-opacity="0.2" stroke-width="1.5" transform="rotate(60)"/>
+    <ellipse rx="270" ry="96" fill="none" stroke="#c7d2fe" stroke-opacity="0.2" stroke-width="1.5" transform="rotate(120)"/>
+    <circle r="42" fill="#818cf8" opacity="0.22" filter="url(#blur)"/>
+    <circle r="20" fill="#c7d2fe" opacity="0.85"/>
+    <circle cx="270" cy="0" r="8" fill="#a5b4fc" opacity="0.9"/>
+    <circle cx="-135" cy="-234" r="6" fill="#c4b5fd" opacity="0.8"/>
+    <circle cx="-135" cy="234" r="5" fill="#c4b5fd" opacity="0.7"/>
+  </g>
+
+  <text x="170" y="500" font-family="Georgia, 'Times New Roman', serif" font-size="340" font-weight="700" fill="#eef2ff" opacity="0.06">∑</text>
+  <text x="690" y="240" font-family="Georgia, 'Times New Roman', serif" font-size="120" font-weight="700" fill="#c7d2fe" opacity="0.14">π</text>
+  <text x="470" y="620" font-family="Georgia, 'Times New Roman', serif" font-size="88" font-weight="700" fill="#c7d2fe" opacity="0.12">√</text>
+
+  <g filter="url(#soft)" transform="rotate(-4 540 360)">
+    <rect x="330" y="222" width="430" height="280" rx="30" fill="url(#card)" stroke="#c7d2fe" stroke-opacity="0.28" stroke-width="2"/>
+    <path d="M392 400 L470 336 L540 374 L612 300 L688 340" fill="none" stroke="url(#line)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="392" cy="400" r="9" fill="#c7d2fe" opacity="0.85"/>
+    <circle cx="470" cy="336" r="9" fill="#c7d2fe" opacity="0.85"/>
+    <circle cx="540" cy="374" r="9" fill="#c7d2fe" opacity="0.85"/>
+    <circle cx="612" cy="300" r="9" fill="#c7d2fe" opacity="0.85"/>
+    <circle cx="688" cy="340" r="9" fill="#c7d2fe" opacity="0.85"/>
+    <path d="M392 272 C 440 258 500 258 548 270" stroke="url(#line)" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <g opacity="0.55" stroke="#c7d2fe" stroke-width="2" stroke-linecap="round">
+    <path d="M880 160 h26 M893 147 v26"/>
+    <path d="M790 540 h20 M800 530 v20"/>
+    <path d="M1480 470 h20 M1490 460 v20"/>
+  </g>
+
+  <g fill="#a5b4fc">
+    <circle cx="250" cy="220" r="5" opacity="0.65"/>
+    <circle cx="320" cy="160" r="3" opacity="0.4"/>
+    <circle cx="1470" cy="220" r="5" opacity="0.55"/>
+    <circle cx="1530" cy="290" r="3" opacity="0.35"/>
+  </g>
+
+  <path d="M0 600 C 250 540 430 660 720 606 S 1160 540 1600 620 L1600 680 L0 680 Z" fill="#1e1b4b" opacity="0.28"/>
+</svg>
