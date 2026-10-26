@@ -1,12 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { BookOpen, Library, ListChecks, type LucideIcon } from "lucide-react";
+import { BookOpen, Check, Library, ListChecks, type LucideIcon } from "lucide-react";
 
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
-import { SubjectCard } from "@/components/site/SubjectCard";
 import { PricingTabs } from "@/components/site/PricingTabs";
 import { CountUp } from "@/components/site/CountUp";
 import { HeroCarousel } from "@/components/site/HeroCarousel";
@@ -38,19 +37,60 @@ export function HomePage({
   recentQuestions = [],
   slides,
 }: HomePageProps) {
-  const [query, setQuery] = useState("");
-  const { tr, num } = useI18n();
+  const { tr } = useI18n();
 
-  const filteredSubjects = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return subjects;
-    return subjects.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.tagline.toLowerCase().includes(q) ||
-        s.chapters.some((c) => c.toLowerCase().includes(q)),
-    );
-  }, [query, subjects]);
+  const features = [
+    {
+      href: "/subjects",
+      image: "/images/features/subject-bank.jpg",
+      imageAlt: tr("Library shelves filled with books", "বইয়ে ভরা লাইব্রেরির তাক"),
+      title: tr("Verified question bank", "যাচাইকৃত প্রশ্নব্যাংক"),
+      description: tr(
+        "Every subject and chapter in one organised, trusted library.",
+        "প্রতিটি বিষয় ও অধ্যায়ের যাচাইকৃত প্রশ্ন, এক সুসংগঠিত লাইব্রেরিতে।",
+      ),
+    },
+    {
+      href: "/model-test",
+      image: "/images/features/chapter-practice.jpg",
+      imageAlt: tr("Students studying together", "একসাথে পড়ছে শিক্ষার্থীরা"),
+      title: tr("Model tests & practice", "মডেল টেস্ট ও অনুশীলন"),
+      description: tr(
+        "Practice at your own pace and keep track of your score and progress.",
+        "নিজের গতি অনুযায়ী অনুশীলন করুন, স্কোর ও অগ্রগতি দেখুন।",
+      ),
+    },
+    {
+      href: "/questions",
+      image: "/images/features/mcq-written.jpg",
+      imageAlt: tr("A student writing notes", "নোট লিখছে একজন শিক্ষার্থী"),
+      title: tr("MCQ and written, together", "MCQ ও লিখিত — একসাথে"),
+      description: tr(
+        "Questions, explanations, and correct answers in one place.",
+        "প্রশ্ন, ব্যাখ্যা এবং সঠিক উত্তর — সব এক জায়গায়।",
+      ),
+    },
+    {
+      href: "/exam-paper",
+      image: "/images/features/exam-papers.jpg",
+      imageAlt: tr("A classroom during a lesson", "ক্লাস চলছে"),
+      title: tr("Board & admission prep", "বোর্ড ও ভর্তি প্রস্তুতি"),
+      description: tr(
+        "Past papers and exam-focused practice for every milestone.",
+        "বোর্ড ও ভর্তি পরীক্ষার প্রশ্নপত্র এবং পরীক্ষাভিত্তিক প্রস্তুতি।",
+      ),
+    },
+    {
+      href: "/saved-questions",
+      image: "/images/features/save-revise.jpg",
+      imageAlt: tr("An open book and study notes", "খোলা বই ও পড়ার নোট"),
+      title: tr("Save and revise", "সেভ করে রিভিশন"),
+      description: tr(
+        "Keep important questions close and come back to them anytime.",
+        "গুরুত্বপূর্ণ প্রশ্ন সেভ করুন, পরে দ্রুত রিভিশন দিন।",
+      ),
+    },
+  ];
 
   const stats: { icon: LucideIcon; value: number; label: string }[] = [];
   if (typeof totalQuestions === "number") {
@@ -123,44 +163,83 @@ export function HomePage({
           </div>
         </section>
 
-        <section aria-labelledby="subjects-heading" className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 id="subjects-heading" className="font-display text-2xl font-bold text-foreground sm:text-3xl">
-                {tr("Explore subjects", "বিষয় ঘুরে দেখুন")}
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {query
-                  ? tr(`Showing results for “${query}”`, `“${query}” এর ফলাফল দেখানো হচ্ছে`)
-                  : tr(
-                      `${num(subjects.length)} subjects with live question counts.`,
-                      `${num(subjects.length)}টি বিষয়, লাইভ প্রশ্ন সংখ্যা সহ।`,
-                    )}
-              </p>
-            </div>
-            <Button variant="outline" asChild>
-              <Link href="/subjects">{tr("View all subjects", "সব বিষয় দেখুন")}</Link>
-            </Button>
+        <section aria-labelledby="features-heading" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24">
+          <div className="mx-auto max-w-3xl text-center">
+            <h2
+              id="features-heading"
+              className="font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl lg:text-5xl"
+            >
+              <span className="flex items-center justify-center gap-2 text-primary">
+                <span>{tr("QuestionBank", "QuestionBank-এ")}</span>
+                <span
+                  className="inline-flex size-7 -rotate-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm sm:size-8"
+                  aria-hidden="true"
+                >
+                  <Check className="size-4 sm:size-5" strokeWidth={3} />
+                </span>
+              </span>
+              <span className="mt-1 block text-foreground">
+                {tr("Everything students get", "শিক্ষার্থীরা যা যা পাচ্ছে")}
+              </span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+              {tr(
+                "One place for subjects, chapters, MCQ practice, exam papers, and revision.",
+                "বিষয়, অধ্যায়, MCQ, প্রশ্নপত্র আর রিভিশন — সব এক জায়গায়।",
+              )}
+            </p>
           </div>
 
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredSubjects.map((subject) => (
-              <SubjectCard key={subject.id} subject={subject} />
-            ))}
+          <div className="mt-10 grid grid-cols-1 gap-x-5 gap-y-9 sm:mt-12 sm:grid-cols-2 lg:grid-cols-6">
+            {features.map((feature, index) => {
+              const spanClass = index < 3 ? "lg:col-span-2" : "lg:col-span-3";
+              const mobileSpanClass = index === 4 ? "sm:col-span-2" : "";
+              const imageSizes =
+                index < 3
+                  ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  : index === 4
+                    ? "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 50vw"
+                    : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 50vw";
+
+              return (
+                <Link
+                  key={feature.title}
+                  href={feature.href}
+                  className={cn("group flex flex-col", spanClass, mobileSpanClass)}
+                >
+                  <div className="relative overflow-hidden rounded-2xl bg-secondary">
+                    <Image
+                      src={feature.image}
+                      alt={feature.imageAlt}
+                      width={1200}
+                      height={800}
+                      sizes={imageSizes}
+                      className="h-52 w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] sm:h-60 lg:h-72"
+                    />
+                    <div
+                      className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/20 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <h3 className="mt-4 font-display text-lg font-semibold text-foreground transition-colors group-hover:text-primary sm:text-xl lg:text-2xl">
+                    {feature.title}
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
+                    {feature.description}
+                  </p>
+                </Link>
+              );
+            })}
           </div>
-          {filteredSubjects.length === 0 && (
-            <p className="mt-10 text-center text-sm text-muted-foreground">
-              {subjects.length === 0
-                ? tr(
-                    "Subject data is unavailable right now. Please try again shortly.",
-                    "এই মুহূর্তে বিষয়ের তথ্য পাওয়া যাচ্ছে না। একটু পরে আবার চেষ্টা করুন।",
-                  )
-                : tr(
-                    `No subjects match “${query}”. Try “Physics” or “Calculus”.`,
-                    `“${query}” এর সাথে কোনো বিষয় মেলেনি। “Physics” বা “Calculus” চেষ্টা করুন।`,
-                  )}
-            </p>
-          )}
+
+          <div className="mt-10 text-center">
+            <Button variant="link" asChild>
+              <Link href="/subjects">
+                {tr("Browse all subjects", "সব বিষয় দেখুন")}
+                <span aria-hidden="true">→</span>
+              </Link>
+            </Button>
+          </div>
         </section>
 
         <section aria-labelledby="plans-heading" className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
