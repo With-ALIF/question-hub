@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { BookOpen, ListChecks, Sparkles, type LucideIcon } from "lucide-react";
+import { BookOpen, ListChecks, type LucideIcon } from "lucide-react";
 
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
@@ -73,7 +74,7 @@ export function HomePage({
     );
   }, [query, subjects]);
 
-  const stats: { icon: LucideIcon; value: number; label: string }[] = [];
+  const stats: { icon: LucideIcon; image?: string; value: number; label: string }[] = [];
   if (typeof totalQuestions === "number") {
     stats.push({
       icon: BookOpen,
@@ -89,7 +90,8 @@ export function HomePage({
     });
   }
   stats.push({
-    icon: Sparkles,
+    icon: BookOpen,
+    image: "/icons/subjects.png",
     value: subjects.length,
     label: tr("Subjects", "বিষয়"),
   });
@@ -123,7 +125,7 @@ export function HomePage({
                   : "grid-cols-3",
             )}
           >
-            {stats.map(({ icon: Icon, value, label }, index) => {
+            {stats.map(({ icon: Icon, image, value, label }, index) => {
               const accent = statAccents[index % statAccents.length]!;
 
               return (
@@ -141,11 +143,21 @@ export function HomePage({
                     )}
                     aria-hidden="true"
                   />
-                  <Icon
-                    className="pointer-events-none absolute -bottom-6 -right-3 hidden size-24 text-foreground/[0.04] sm:block"
-                    strokeWidth={1.25}
-                    aria-hidden="true"
-                  />
+                  {image ? (
+                    <Image
+                      src={image}
+                      alt=""
+                      width={128}
+                      height={128}
+                      className="pointer-events-none absolute -bottom-6 -right-3 hidden size-24 object-contain opacity-[0.06] sm:block"
+                    />
+                  ) : (
+                    <Icon
+                      className="pointer-events-none absolute -bottom-6 -right-3 hidden size-24 text-foreground/[0.04] sm:block"
+                      strokeWidth={1.25}
+                      aria-hidden="true"
+                    />
+                  )}
                   <div
                     className={cn(
                       "absolute inset-x-0 top-0 h-0.5 bg-linear-to-r",
@@ -170,7 +182,17 @@ export function HomePage({
                         accent.chip,
                       )}
                     >
-                      <Icon className="size-4 sm:size-5" aria-hidden="true" />
+                      {image ? (
+                        <Image
+                          src={image}
+                          alt=""
+                          width={64}
+                          height={64}
+                          className="size-6 object-contain sm:size-8"
+                        />
+                      ) : (
+                        <Icon className="size-4 sm:size-5" aria-hidden="true" />
+                      )}
                     </span>
                   </div>
                 </div>
