@@ -35,7 +35,22 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function UserDashboard() {
+type DashboardPageProps = {
+  searchParams?: Promise<{
+    code?: string | string[] | undefined;
+    [key: string]: string | string[] | undefined;
+  }>;
+};
+
+export default async function UserDashboard(props: DashboardPageProps) {
+  const searchParams = props.searchParams ? await props.searchParams : {};
+  const codeRaw = searchParams?.["code"];
+  const code = typeof codeRaw === "string" ? codeRaw : undefined;
+
+  if (code) {
+    redirect(`/auth/callback?code=${encodeURIComponent(code)}&next=/dashboard`);
+  }
+
   const user = await getCurrentUser();
 
   if (!user) {

@@ -51,11 +51,16 @@ export function GoogleSignInButton({
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      const supabase = createSupabaseBrowserClient();
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-        nextUrl
-      )}`;
+      const isLocal =
+        typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1");
 
+      const redirectTo = isLocal
+        ? `${window.location.origin}/auth/callback`
+        : "https://question-hub-bd.vercel.app/auth/callback";
+
+      const supabase = createSupabaseBrowserClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
