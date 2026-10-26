@@ -100,16 +100,13 @@ export function HomePage({
 
       <main className="flex-1">
         <section className="relative">
-          <div className="hero-grid absolute inset-0" aria-hidden="true" />
           <h1 className="sr-only">
             {tr(
               "QuestionBank — a subject-wise question bank for every exam",
               "QuestionBank — প্রতিটি পরীক্ষার জন্য বিষয়ভিত্তিক প্রশ্ন ব্যাংক",
             )}
           </h1>
-          <div className="relative mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10">
-            <HeroCarousel slides={slides} />
-          </div>
+          <HeroCarousel slides={slides} />
         </section>
 
         <section

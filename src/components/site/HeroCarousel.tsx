@@ -87,11 +87,11 @@ export function HeroCarousel({ slides, className }: HeroCarouselProps) {
       aria-label={tr("Homepage highlights", "হোমপেজের হাইলাইট")}
       aria-live="off"
       className={cn(
-        "group relative isolate overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950 shadow-[0_30px_90px_-45px_rgba(15,23,42,0.65)] sm:rounded-[2rem]",
+        "group relative isolate w-full overflow-hidden bg-slate-950",
         className,
       )}
     >
-      <div className="relative aspect-[16/10] w-full overflow-hidden sm:aspect-[21/9]">
+      <div className="relative h-[clamp(230px,40vw,580px)] w-full overflow-hidden">
         <div
           className={cn(
             "flex h-full w-full ease-[cubic-bezier(0.22,1,0.36,1)]",
