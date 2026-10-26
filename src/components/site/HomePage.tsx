@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { BookOpen, ListChecks, type LucideIcon } from "lucide-react";
+import { BookOpen, Library, ListChecks, type LucideIcon } from "lucide-react";
 
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
@@ -16,26 +15,12 @@ import { useI18n } from "@/lib/i18n/client";
 import type { Subject } from "@/data/subjects";
 import { cn } from "@/lib/utils";
 
-const statAccents = [
-  {
-    chip: "bg-teal-500/10 text-teal-600 ring-teal-500/20 dark:text-teal-400",
-    glow: "bg-teal-500/15",
-    line: "from-teal-400/80 via-teal-500/30 to-transparent",
-    hover: "hover:border-teal-500/30",
-  },
-  {
-    chip: "bg-sky-500/10 text-sky-600 ring-sky-500/20 dark:text-sky-400",
-    glow: "bg-sky-500/15",
-    line: "from-sky-400/80 via-sky-500/30 to-transparent",
-    hover: "hover:border-sky-500/30",
-  },
-  {
-    chip: "bg-violet-500/10 text-violet-600 ring-violet-500/20 dark:text-violet-400",
-    glow: "bg-violet-500/15",
-    line: "from-violet-400/80 via-violet-500/30 to-transparent",
-    hover: "hover:border-violet-500/30",
-  },
-] as const;
+const statAccent = {
+  chip: "bg-primary/10 text-primary ring-primary/20",
+  glow: "bg-primary/10",
+  line: "from-primary/70 via-primary/30 to-transparent",
+  hover: "hover:border-primary/30",
+} as const;
 
 export type RecentQuestion = {
   id: string;
@@ -74,7 +59,7 @@ export function HomePage({
     );
   }, [query, subjects]);
 
-  const stats: { icon: LucideIcon; image?: string; value: number; label: string }[] = [];
+  const stats: { icon: LucideIcon; value: number; label: string }[] = [];
   if (typeof totalQuestions === "number") {
     stats.push({
       icon: BookOpen,
@@ -90,8 +75,7 @@ export function HomePage({
     });
   }
   stats.push({
-    icon: BookOpen,
-    image: "/icons/subjects.png",
+    icon: Library,
     value: subjects.length,
     label: tr("Subjects", "বিষয়"),
   });
@@ -125,43 +109,31 @@ export function HomePage({
                   : "grid-cols-3",
             )}
           >
-            {stats.map(({ icon: Icon, image, value, label }, index) => {
-              const accent = statAccents[index % statAccents.length]!;
-
+            {stats.map(({ icon: Icon, value, label }) => {
               return (
                 <div
                   key={label}
                   className={cn(
                     "group relative overflow-hidden rounded-2xl border border-border/70 bg-linear-to-b from-card via-card to-secondary/30 p-3 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:rounded-3xl sm:p-5",
-                    accent.hover,
+                    statAccent.hover,
                   )}
                 >
                   <div
                     className={cn(
                       "pointer-events-none absolute -right-6 -top-8 size-24 rounded-full blur-2xl",
-                      accent.glow,
+                      statAccent.glow,
                     )}
                     aria-hidden="true"
                   />
-                  {image ? (
-                    <Image
-                      src={image}
-                      alt=""
-                      width={128}
-                      height={128}
-                      className="pointer-events-none absolute -bottom-6 -right-3 hidden size-24 object-contain opacity-[0.06] sm:block"
-                    />
-                  ) : (
-                    <Icon
-                      className="pointer-events-none absolute -bottom-6 -right-3 hidden size-24 text-foreground/[0.04] sm:block"
-                      strokeWidth={1.25}
-                      aria-hidden="true"
-                    />
-                  )}
+                  <Icon
+                    className="pointer-events-none absolute -bottom-6 -right-3 hidden size-24 text-primary/[0.06] sm:block"
+                    strokeWidth={1.25}
+                    aria-hidden="true"
+                  />
                   <div
                     className={cn(
                       "absolute inset-x-0 top-0 h-0.5 bg-linear-to-r",
-                      accent.line,
+                      statAccent.line,
                     )}
                     aria-hidden="true"
                   />
@@ -179,20 +151,10 @@ export function HomePage({
                     <span
                       className={cn(
                         "order-first flex size-8 shrink-0 items-center justify-center rounded-lg ring-1 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105 sm:order-last sm:size-11 sm:rounded-2xl",
-                        accent.chip,
+                        statAccent.chip,
                       )}
                     >
-                      {image ? (
-                        <Image
-                          src={image}
-                          alt=""
-                          width={64}
-                          height={64}
-                          className="size-6 object-contain sm:size-8"
-                        />
-                      ) : (
-                        <Icon className="size-4 sm:size-5" aria-hidden="true" />
-                      )}
+                      <Icon className="size-4 sm:size-5" aria-hidden="true" />
                     </span>
                   </div>
                 </div>
