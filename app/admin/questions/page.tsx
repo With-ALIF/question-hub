@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AdminQuestionsView } from "@/components/admin/AdminQuestionsView";
 import { getCurrentRole } from "@/lib/auth/roles";
-import { findQuestionById } from "@/lib/admin/question-search";
+import { searchQuestions } from "@/lib/admin/question-search";
 import { sanitizeFilters } from "@/lib/questions/filters";
 import {
   getQuestionManifest,
@@ -60,36 +60,30 @@ export default async function AdminQuestionsPage({
   // Load manifest for global stats
   const manifest = await getQuestionManifest().catch(() => null);
 
-  // If search query is provided, check if it directly matches a question ID (e.g. 399548 or p-399548)
+  // If search query is provided, search across questions by text or ID
   if (searchQuery) {
-    const idResult = await findQuestionById(
+    const searchResult = await searchQuestions(
       searchQuery,
-      requestedSubject === "all" ? undefined : requestedSubject
+      requestedSubject === "all" ? undefined : requestedSubject,
+      50
     );
-    if (idResult) {
-      const defaultPage = await getQuestionPage({
-        subject: idResult.subject,
-        page: 1,
-        type,
-      });
 
-      return (
-        <AdminQuestionsView
-          manifest={manifest}
-          subjects={defaultPage.subjects}
-          selectedSubject={idResult.subject}
-          selectedType={type}
-          questions={[idResult.question]}
-          page={1}
-          pageSize={1}
-          totalPages={1}
-          total={1}
-          facetFilters={defaultPage.filters}
-          activeFilters={defaultPage.activeFilters}
-          role={role}
-        />
-      );
-    }
+    return (
+      <AdminQuestionsView
+        manifest={manifest}
+        subjects={manifest?.subjects ?? []}
+        selectedSubject={requestedSubject}
+        selectedType={type}
+        questions={searchResult.questions}
+        page={1}
+        pageSize={Math.max(1, searchResult.questions.length)}
+        totalPages={1}
+        total={searchResult.totalFound}
+        facetFilters={null}
+        activeFilters={requestedFilters}
+        role={role}
+      />
+    );
   }
 
   // Load questions for the selected subject and filters

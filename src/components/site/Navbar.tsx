@@ -53,14 +53,15 @@ const loggedOutMobileLinks: NavItem[] = [
   { href: "/", label: ["Home", "হোম"], icon: Home },
   { href: "/subjects", label: ["Subjects", "বিষয়"], icon: Layers },
   { href: "/questions", label: ["Questions", "প্রশ্ন"], icon: BookOpenCheck },
+  { href: "/exam-paper", label: ["Exam", "পরীক্ষা"], icon: FileText },
   { href: "/plans", label: ["Plans", "প্ল্যান"], icon: Sparkles },
-  { href: "/login", label: ["Log in", "লগইন"], icon: LogIn },
 ];
 
 const loggedInMobileLinks: NavItem[] = [
   { href: "/dashboard", label: ["Dashboard", "ড্যাশবোর্ড"], icon: LayoutDashboard },
   { href: "/subjects", label: ["Subjects", "বিষয়"], icon: Layers },
   { href: "/questions", label: ["Practice", "অনুশীলন"], icon: BookOpenCheck },
+  { href: "/exam-paper", label: ["Exam", "পরীক্ষা"], icon: FileText },
   { href: "/saved", label: ["Saved", "সেভড"], icon: BookmarkCheck },
   { href: "/model-test", label: ["Model Test", "মডেল টেস্ট"], icon: Timer },
 ];
@@ -195,10 +196,23 @@ export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
 
           <div className="flex items-center gap-1.5 md:hidden">
             <LanguageSwitcher />
-            {!user && (
+            {!user ? (
               <Button size="sm" asChild className="h-8 px-3 text-xs">
                 <Link href="/login">{tr("Log in", "লগইন")}</Link>
               </Button>
+            ) : (
+              <form action={signOutAction} onSubmit={handleSignOut}>
+                <Button
+                  type="submit"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  title={tr("Log out", "লগআউট")}
+                >
+                  <LogOut className="size-3.5" aria-hidden="true" />
+                  <span className="text-[11px]">{tr("Log out", "লগআউট")}</span>
+                </Button>
+              </form>
             )}
           </div>
         </nav>

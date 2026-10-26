@@ -2,24 +2,37 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, BookOpenCheck, Eye, EyeOff } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
+import { GoogleSignInButton } from "./GoogleSignInButton";
 import { signInAction } from "@/lib/auth/actions";
 import { INITIAL_AUTH_STATE } from "@/lib/auth/state";
 import { useI18n } from "@/lib/i18n/client";
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { tr } = useI18n();
   const [showPassword, setShowPassword] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
   const [state, formAction, isPending] = useActionState(
     signInAction,
     INITIAL_AUTH_STATE,
   );
+
+  const urlError = searchParams.get("error");
+  const callbackError =
+    urlError === "auth_callback_failed"
+      ? tr(
+          "Could not sign in with Google. Please try again.",
+          "Google দিয়ে লগইন সম্পন্ন করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।"
+        )
+      : null;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -69,7 +82,8 @@ export function LoginForm() {
                 )}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {/* Email + Password Form */}
               <form className="space-y-4" action={formAction}>
                 <div className="space-y-2">
                   <Label htmlFor="email">{tr("Email", "ইমেইল")}</Label>
@@ -110,20 +124,31 @@ export function LoginForm() {
                 </Button>
               </form>
 
-              {state.message && (
+              {/* Or Divider */}
+              <div className="relative my-3 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border/80" />
+                </div>
+                <div className="relative bg-card px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {tr("Or continue with", "অথবা")}
+                </div>
+              </div>
+
+              {/* Continue with Google */}
+              <GoogleSignInButton
+                onError={(err) => setGoogleError(err)}
+              />
+
+              {(state.message || googleError || callbackError) && (
                 <p
                   role="status"
-                  className={`mt-4 rounded-lg px-3 py-2 text-center text-xs ${
-                    state.status === "error"
-                      ? "bg-destructive/10 text-destructive"
-                      : "bg-secondary text-secondary-foreground"
-                  }`}
+                  className="rounded-lg bg-destructive/10 px-3 py-2 text-center text-xs text-destructive"
                 >
-                  {state.message}
+                  {googleError || callbackError || state.message}
                 </p>
               )}
 
-              <p className="mt-6 text-center text-sm text-muted-foreground">
+              <p className="pt-2 text-center text-sm text-muted-foreground">
                 {tr("New student?", "নতুন শিক্ষার্থী?")}{" "}
                 <Link href="/register" className="font-semibold text-primary hover:underline">
                   {tr("Create an account", "অ্যাকাউন্ট তৈরি করুন")}

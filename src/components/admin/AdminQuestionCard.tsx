@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  AlertTriangle,
   Check,
   CheckCircle2,
   Code2,
@@ -10,6 +11,7 @@ import {
   EyeOff,
   Pencil,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +21,7 @@ import { renderMathInContent } from "@/lib/math";
 import type { StorageQuestion } from "@/lib/questions/storage";
 import { cn } from "@/lib/utils";
 import { AdminQuestionEditModal } from "./AdminQuestionEditModal";
+import { AdminQuestionDeleteModal } from "./AdminQuestionDeleteModal";
 
 const BANGLA_OPTIONS = ["ক", "খ", "গ", "ঘ", "ঙ", "চ"];
 
@@ -63,14 +66,21 @@ function RichAdminContent({
 export function AdminQuestionCard({
   question,
   index,
+  isRepeat,
+  repeatCount,
+  onDeleted,
 }: {
   question: StorageQuestion;
   index: number;
+  isRepeat?: boolean;
+  repeatCount?: number;
+  onDeleted?: (questionId: string, subject: string, isMcq: boolean) => void;
 }) {
   const [currentQuestion, setCurrentQuestion] = useState<StorageQuestion>(question);
   const [showExplanation, setShowExplanation] = useState(false);
   const [showJsonModal, setShowJsonModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
 
   const handleCopyId = () => {
@@ -115,6 +125,17 @@ export function AdminQuestionCard({
               {isMcq ? "MCQ" : "লিখিত / Written"}
             </Badge>
 
+            {/* Repeat Question Badge */}
+            {isRepeat && (
+              <Badge
+                variant="outline"
+                className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40 flex items-center gap-1 font-semibold text-[11px]"
+              >
+                <AlertTriangle className="size-3 text-amber-600 dark:text-amber-400" />
+                <span>Repeat প্রশ্ন ({repeatCount} বার আছে)</span>
+              </Badge>
+            )}
+
             {/* Institution / Board */}
             {currentQuestion.institution && (
               <Badge variant="outline" className="border-border/80 text-foreground">
@@ -154,6 +175,17 @@ export function AdminQuestionCard({
             >
               <Pencil className="size-3.5" aria-hidden="true" />
               <span>Edit</span>
+            </button>
+
+            {/* Delete Button (Trash Icon) */}
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive transition-all hover:bg-destructive hover:text-destructive-foreground cursor-pointer shadow-2xs"
+              title="প্রশ্ন মুছে ফেলুন (Delete Question)"
+            >
+              <Trash2 className="size-3.5" aria-hidden="true" />
+              <span>Delete</span>
             </button>
 
             {/* Copy ID Button */}
@@ -339,6 +371,13 @@ export function AdminQuestionCard({
           </div>
         </div>
       )}
+      {/* Delete Question Modal */}
+      <AdminQuestionDeleteModal
+        question={currentQuestion}
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onDeleted={(qId, sub, isMcq) => onDeleted?.(qId, sub, isMcq)}
+      />
     </Card>
   );
 }

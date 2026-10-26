@@ -303,6 +303,10 @@ export function invalidateShardCache(subject?: string, shardNumber?: number) {
   }
 }
 
+export function invalidateManifestCache() {
+  manifestCache = null;
+}
+
 async function loadQuestionsAt(
   subject: string,
   positions: PagePosition[],

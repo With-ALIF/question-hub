@@ -1,8 +1,9 @@
 "use client";
 
-import { useTransition, useState } from "react";
+import { useTransition, useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  AlertTriangle,
   BookOpen,
   CheckCircle2,
   ChevronLeft,
@@ -10,9 +11,11 @@ import {
   Filter,
   Layers,
   ListChecks,
+  Loader2,
   RotateCcw,
   Search,
   Sparkles,
+  X,
 } from "lucide-react";
 
 import { AdminQuestionCard } from "./AdminQuestionCard";
@@ -74,6 +77,36 @@ export function AdminQuestionsView({
     searchParams.get("q") ?? activeFilters.topic ?? ""
   );
   const [jumpPageInput, setJumpPageInput] = useState(String(page));
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+  const [deletedStats, setDeletedStats] = useState<{
+    total: number;
+    mcq: number;
+    written: number;
+    bySubject: Record<string, { total: number; mcq: number; written: number }>;
+  }>({ total: 0, mcq: 0, written: 0, bySubject: {} });
+
+  const handleQuestionDeleted = (questionId: string, subjectSlug: string, isMcq: boolean) => {
+    setRemovedIds((prev) => new Set(prev).add(questionId));
+    setDeletedStats((prev) => {
+      const prevSub = prev.bySubject[subjectSlug] || { total: 0, mcq: 0, written: 0 };
+      return {
+        total: prev.total + 1,
+        mcq: prev.mcq + (isMcq ? 1 : 0),
+        written: prev.written + (!isMcq ? 1 : 0),
+        bySubject: {
+          ...prev.bySubject,
+          [subjectSlug]: {
+            total: prevSub.total + 1,
+            mcq: prevSub.mcq + (isMcq ? 1 : 0),
+            written: prevSub.written + (!isMcq ? 1 : 0),
+          },
+        },
+      };
+    });
+    startTransition(() => {
+      router.refresh();
+    });
+  };
 
   const updateUrlParams = (newParams: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -127,39 +160,79 @@ export function AdminQuestionsView({
     }
   };
 
-  const totalSystemQuestions = manifest?.totalQuestions ?? 0;
-  const totalMcq = manifest?.mcqTotal ?? 0;
-  const totalWritten = manifest?.writtenTotal ?? 0;
+  const totalSystemQuestions = Math.max(0, (manifest?.totalQuestions ?? 0) - deletedStats.total);
+  const totalMcq = Math.max(0, (manifest?.mcqTotal ?? 0) - deletedStats.mcq);
+  const totalWritten = Math.max(0, (manifest?.writtenTotal ?? 0) - deletedStats.written);
 
-  const currentSubjectObj =
-    selectedSubject === "all"
-      ? {
-          slug: "all",
-          name: "সকল বিষয়",
-          total: totalSystemQuestions,
-          mcq: totalMcq,
-          written: totalWritten,
-        }
-      : subjects.find((s) => s.slug === selectedSubject);
+  const adjustedSubjects = useMemo(() => {
+    return subjects.map((sub) => {
+      const del = deletedStats.bySubject[sub.slug];
+      if (!del) return sub;
+      return {
+        ...sub,
+        total: Math.max(0, sub.total - del.total),
+        mcq: Math.max(0, sub.mcq - del.mcq),
+        written: Math.max(0, sub.written - del.written),
+      };
+    });
+  }, [subjects, deletedStats]);
 
-  const fromNumber = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const toNumber = Math.min(page * pageSize, total);
+  const currentSubjectObj = useMemo(() => {
+    if (selectedSubject === "all") {
+      return {
+        slug: "all",
+        name: "সকল বিষয়",
+        total: totalSystemQuestions,
+        mcq: totalMcq,
+        written: totalWritten,
+      };
+    }
+    const found = adjustedSubjects.find((s) => s.slug === selectedSubject);
+    if (found) return found;
+    return subjects.find((s) => s.slug === selectedSubject);
+  }, [selectedSubject, totalSystemQuestions, totalMcq, totalWritten, adjustedSubjects, subjects]);
 
-  // Client-side text filter if search query is provided
-  const displayQuestions = searchQuery.trim()
-    ? questions.filter((q) => {
-        const query = searchQuery.toLowerCase();
-        return (
-          q.question_text.toLowerCase().includes(query) ||
-          (q.keyword && q.keyword.toLowerCase().includes(query)) ||
-          (q.topic_code && q.topic_code.toLowerCase().includes(query)) ||
-          (q.institution && q.institution.toLowerCase().includes(query)) ||
-          q.id.toLowerCase().includes(query) ||
-          (q.external_id !== null && q.external_id !== undefined && String(q.external_id).includes(query)) ||
-          (q.answer && q.answer.toLowerCase().includes(query))
-        );
-      })
-    : questions;
+  const adjustedTotal = useMemo(() => {
+    if (selectedSubject === "all") {
+      if (selectedType === "mcq") return Math.max(0, total - deletedStats.mcq);
+      if (selectedType === "written") return Math.max(0, total - deletedStats.written);
+      return Math.max(0, total - deletedStats.total);
+    }
+    const subDel = deletedStats.bySubject[selectedSubject];
+    if (!subDel) return total;
+    if (selectedType === "mcq") return Math.max(0, total - subDel.mcq);
+    if (selectedType === "written") return Math.max(0, total - subDel.written);
+    return Math.max(0, total - subDel.total);
+  }, [total, selectedSubject, selectedType, deletedStats]);
+
+  const fromNumber = adjustedTotal === 0 ? 0 : (page - 1) * pageSize + 1;
+  const toNumber = Math.min(page * pageSize, adjustedTotal);
+
+  const activeSearch = searchParams.get("q")?.trim() || "";
+
+  // The server handles search and returns the matched questions directly, excluding locally deleted ones
+  const displayQuestions = useMemo(() => {
+    return questions.filter((q) => !removedIds.has(q.id));
+  }, [questions, removedIds]);
+
+  // Detect repeat / duplicate questions by identical question text
+  const questionRepeatCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const q of displayQuestions) {
+      const key = (q.question_text || "").replace(/\s+/g, " ").trim().toLowerCase();
+      if (key) {
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+    }
+    return counts;
+  }, [displayQuestions]);
+
+  const hasRepeatsInView = useMemo(() => {
+    for (const count of questionRepeatCounts.values()) {
+      if (count > 1) return true;
+    }
+    return false;
+  }, [questionRepeatCounts]);
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-background w-full overflow-x-hidden">
@@ -181,7 +254,7 @@ export function AdminQuestionsView({
                   প্রশ্নব্যাংক পরিচালনা
                 </h1>
                 <Badge variant="outline" className="hidden sm:inline-flex bg-primary/10 text-primary border-primary/20">
-                  {total.toLocaleString()} টি প্রশ্ন
+                  {adjustedTotal.toLocaleString()} টি প্রশ্ন
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -235,7 +308,7 @@ export function AdminQuestionsView({
                 </span>
               </button>
 
-              {subjects.map((sub) => {
+              {adjustedSubjects.map((sub) => {
                 const isSelected = sub.slug === selectedSubject;
                 const banglaName = SUBJECT_NAMES_BN[sub.slug] ?? sub.name;
 
@@ -336,15 +409,23 @@ export function AdminQuestionsView({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="প্রশ্ন আইডি (যেমন 399548), কীওয়ার্ড বা টেক্সট দিয়ে সার্চ করুন..."
-                    className="h-9 w-full rounded-xl border border-input bg-background pl-9 pr-14 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    placeholder="প্রশ্ন আইডি, কীওয়ার্ড বা টেক্সট দিয়ে সার্চ করুন..."
+                    className="h-9 w-full rounded-xl border border-input bg-background pl-9 pr-16 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   {searchQuery && (
                     <button
                       type="submit"
-                      className="absolute right-1.5 top-1.5 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground cursor-pointer"
+                      disabled={isPending}
+                      className="absolute right-1.5 top-1.5 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground cursor-pointer disabled:opacity-60 flex items-center gap-1 transition-all"
                     >
-                      সার্চ
+                      {isPending ? (
+                        <>
+                          <Loader2 className="size-3 animate-spin" />
+                          <span>সার্চ...</span>
+                        </>
+                      ) : (
+                        <span>সার্চ</span>
+                      )}
                     </button>
                   )}
                 </form>
@@ -388,12 +469,71 @@ export function AdminQuestionsView({
             </CardContent>
           </Card>
 
+          {/* Active Search Banner for Duplicate / Repeat Question Checks */}
+          {activeSearch && (
+            <div
+              className={cn(
+                "flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 rounded-2xl border p-4 text-xs shadow-xs",
+                hasRepeatsInView
+                  ? "border-amber-500/50 bg-amber-500/10 text-amber-950 dark:text-amber-100"
+                  : "border-primary/40 bg-primary/5"
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={cn(
+                    "flex size-7 shrink-0 items-center justify-center rounded-xl font-bold text-xs",
+                    hasRepeatsInView
+                      ? "bg-amber-500/30 text-amber-800 dark:text-amber-200"
+                      : "bg-primary/20 text-primary"
+                  )}
+                >
+                  {displayQuestions.length}
+                </span>
+                <div>
+                  <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                    {hasRepeatsInView && <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400" />}
+                    <span>
+                      "<strong>{activeSearch}</strong>" দিয়ে সার্চ করা হয়েছে
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground mt-0.5">
+                    {displayQuestions.length > 1
+                      ? hasRepeatsInView
+                        ? `মোট ${displayQuestions.length}টি প্রশ্ন পাওয়া গেছে — এর মধ্যে একই প্রশ্ন Repeat (ডুপ্লিকেট) হিসেবে রয়েছে (কার্ডগুলোতে হাইলাইট করা হয়েছে)!`
+                        : `মোট ${displayQuestions.length}টি প্রশ্ন পাওয়া গেছে`
+                      : displayQuestions.length === 1
+                        ? `১টি প্রশ্ন পাওয়া গেছে`
+                        : `এই নামে কোনো প্রশ্ন পাওয়া যায়নি`}
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleResetFilters}
+                className="h-8 gap-1.5 text-xs border-border bg-card hover:bg-muted cursor-pointer shrink-0 self-start sm:self-auto"
+              >
+                <X className="size-3.5" />
+                <span>সার্চ রিসেট করুন</span>
+              </Button>
+            </div>
+          )}
+
+          {/* Search in progress indicator */}
+          {isPending && (
+            <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium animate-pulse">
+              <Loader2 className="size-4 animate-spin" />
+              <span>প্রশ্ন ডাটাবেজে সার্চ হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</span>
+            </div>
+          )}
+
           {/* Results Summary and Pagination Top */}
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground px-1">
             <p>
               দেখানো হচ্ছে <strong className="text-foreground">{fromNumber}</strong> থেকে{" "}
               <strong className="text-foreground">{toNumber}</strong> (মোট{" "}
-              <strong className="text-foreground">{total.toLocaleString()}</strong> টি প্রশ্ন)
+              <strong className="text-foreground">{adjustedTotal.toLocaleString()}</strong> টি প্রশ্ন)
             </p>
 
             <div className="flex items-center gap-2">
@@ -428,13 +568,22 @@ export function AdminQuestionsView({
           {/* Question Cards List */}
           <div className="space-y-4">
             {displayQuestions.length > 0 ? (
-              displayQuestions.map((q, idx) => (
-                <AdminQuestionCard
-                  key={q.id}
-                  question={q}
-                  index={fromNumber + idx}
-                />
-              ))
+              displayQuestions.map((q, idx) => {
+                const textKey = (q.question_text || "").replace(/\s+/g, " ").trim().toLowerCase();
+                const repeatCount = questionRepeatCounts.get(textKey) || 1;
+                const isRepeat = repeatCount > 1;
+
+                return (
+                  <AdminQuestionCard
+                    key={q.id}
+                    question={q}
+                    index={fromNumber + idx}
+                    isRepeat={isRepeat}
+                    repeatCount={repeatCount}
+                    onDeleted={(qId, sub, isMcq) => handleQuestionDeleted(qId, sub, isMcq)}
+                  />
+                );
+              })
             ) : (
               <Card className="border-dashed border-border p-12 text-center bg-card">
                 <CardContent className="flex flex-col items-center justify-center p-0">

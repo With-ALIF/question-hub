@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { RegisterForm } from "@/components/auth/RegisterForm";
@@ -14,5 +15,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function RegisterPage() {
-  return <RegisterForm />;
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <RegisterForm />
+    </Suspense>
+  );
 }

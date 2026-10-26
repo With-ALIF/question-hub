@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, BookOpenCheck } from "lucide-react";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
+import { GoogleSignInButton } from "./GoogleSignInButton";
 import { signUpAction } from "@/lib/auth/actions";
 import { INITIAL_AUTH_STATE } from "@/lib/auth/state";
 import { useI18n } from "@/lib/i18n/client";
@@ -18,6 +19,7 @@ const inputClass =
 export function RegisterForm() {
   const router = useRouter();
   const { tr } = useI18n();
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const [state, formAction, isPending] = useActionState(
     signUpAction,
     INITIAL_AUTH_STATE,
@@ -68,19 +70,20 @@ export function RegisterForm() {
             </span>
           </Link>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-display text-2xl">
+          <Card className="border-border/80 bg-card shadow-sm">
+            <CardHeader className="space-y-1.5 pb-4">
+              <CardTitle className="font-display text-2xl font-bold tracking-tight text-foreground">
                 {tr("Create your account", "আপনার অ্যাকাউন্ট তৈরি করুন")}
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-sm text-muted-foreground leading-relaxed">
                 {tr(
                   "Free to start — practice the first 100 questions today.",
                   "বিনামূল্যে শুরু করুন — আজই প্রথম ১০০টি প্রশ্ন অনুশীলন করুন।",
                 )}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {/* Email + Password Form */}
               <form className="space-y-4" action={formAction}>
                 <div className="space-y-2">
                   <Label htmlFor="name">{tr("Full name", "পূর্ণ নাম")}</Label>
@@ -120,25 +123,41 @@ export function RegisterForm() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full" disabled={isPending} aria-busy={isPending}>
+                <Button type="submit" className="w-full font-medium cursor-pointer" disabled={isPending} aria-busy={isPending}>
                   {isPending ? tr("Creating account...", "অ্যাকাউন্ট তৈরি হচ্ছে...") : tr("Register", "রেজিস্টার করুন")}
                 </Button>
               </form>
 
-              {state.message && (
+              {/* Or Divider */}
+              <div className="relative my-3 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border/80" />
+                </div>
+                <div className="relative bg-card px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {tr("Or continue with", "অথবা")}
+                </div>
+              </div>
+
+              {/* Sign up with Google */}
+              <GoogleSignInButton
+                label={tr("Sign up with Google", "Google দিয়ে সাইন আপ করুন")}
+                onError={(err) => setGoogleError(err)}
+              />
+
+              {(state.message || googleError) && (
                 <p
                   role="status"
-                  className={`mt-4 rounded-lg px-3 py-2 text-center text-xs ${
-                    state.status === "error"
+                  className={`rounded-lg px-3 py-2 text-center text-xs ${
+                    state.status === "error" || googleError
                       ? "bg-destructive/10 text-destructive"
                       : "bg-secondary text-secondary-foreground"
                   }`}
                 >
-                  {state.message}
+                  {googleError || state.message}
                 </p>
               )}
 
-              <p className="mt-6 text-center text-sm text-muted-foreground">
+              <p className="pt-2 text-center text-sm text-muted-foreground">
                 {tr("Already have an account?", "আগে থেকেই অ্যাকাউন্ট আছে?")}{" "}
                 <Link href="/login" className="font-semibold text-primary hover:underline">
                   {tr("Log in", "লগইন করুন")}
