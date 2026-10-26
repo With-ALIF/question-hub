@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
@@ -70,16 +69,6 @@ export function HeroCarousel({ slides, className }: HeroCarouselProps) {
     setIndex(slideIndex + 1);
   }
 
-  function goPrevious() {
-    setNoTransition(false);
-    setIndex((current) => Math.max(current - 1, 0));
-  }
-
-  function goNext() {
-    setNoTransition(false);
-    setIndex((current) => Math.min(current + 1, count + 1));
-  }
-
   return (
     <div
       role="region"
@@ -87,7 +76,7 @@ export function HeroCarousel({ slides, className }: HeroCarouselProps) {
       aria-label={tr("Homepage highlights", "হোমপেজের হাইলাইট")}
       aria-live="off"
       className={cn(
-        "group relative isolate w-full overflow-hidden bg-slate-950",
+        "relative isolate w-full overflow-hidden bg-slate-950",
         className,
       )}
     >
@@ -122,45 +111,26 @@ export function HeroCarousel({ slides, className }: HeroCarouselProps) {
         />
 
         {count > 1 && (
-          <>
-            <button
-              type="button"
-              onClick={goPrevious}
-              className="absolute left-3 top-1/2 z-20 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-slate-950/30 text-white/90 opacity-0 backdrop-blur-md transition-all hover:bg-slate-950/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 group-hover:opacity-100 sm:flex"
-              aria-label={tr("Previous slide", "আগের স্লাইড")}
-            >
-              <ChevronLeft className="size-5" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={goNext}
-              className="absolute right-3 top-1/2 z-20 hidden size-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-slate-950/30 text-white/90 opacity-0 backdrop-blur-md transition-all hover:bg-slate-950/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 group-hover:opacity-100 sm:flex"
-              aria-label={tr("Next slide", "পরের স্লাইড")}
-            >
-              <ChevronRight className="size-5" aria-hidden="true" />
-            </button>
-
-            <div className="absolute inset-x-0 bottom-5 z-20 flex items-center justify-center gap-2">
-              {slides.map((slide, slideIndex) => (
-                <button
-                  key={`${slide}-${slideIndex}`}
-                  type="button"
-                  onClick={() => goTo(slideIndex)}
-                  className={cn(
-                    "h-1.5 rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950/50",
-                    slideIndex === realIndex
-                      ? "w-7 bg-white"
-                      : "w-1.5 bg-white/40 hover:bg-white/70",
-                  )}
-                  aria-label={tr(
-                    `Go to slide ${slideIndex + 1}`,
-                    `${num(slideIndex + 1)} নম্বর স্লাইডে যান`,
-                  )}
-                  aria-current={slideIndex === realIndex ? "true" : undefined}
-                />
-              ))}
-            </div>
-          </>
+          <div className="absolute inset-x-0 bottom-5 z-20 flex items-center justify-center gap-2">
+            {slides.map((slide, slideIndex) => (
+              <button
+                key={`${slide}-${slideIndex}`}
+                type="button"
+                onClick={() => goTo(slideIndex)}
+                className={cn(
+                  "h-1.5 rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950/50",
+                  slideIndex === realIndex
+                    ? "w-7 bg-white"
+                    : "w-1.5 bg-white/40 hover:bg-white/70",
+                )}
+                aria-label={tr(
+                  `Go to slide ${slideIndex + 1}`,
+                  `${num(slideIndex + 1)} নম্বর স্লাইডে যান`,
+                )}
+                aria-current={slideIndex === realIndex ? "true" : undefined}
+              />
+            ))}
+          </div>
         )}
       </div>
     </div>
