@@ -15,13 +15,6 @@ import { useI18n } from "@/lib/i18n/client";
 import type { Subject } from "@/data/subjects";
 import { cn } from "@/lib/utils";
 
-const statAccent = {
-  chip: "bg-primary/10 text-primary ring-primary/20",
-  glow: "bg-primary/10",
-  line: "from-primary/70 via-primary/30 to-transparent",
-  hover: "hover:border-primary/30",
-} as const;
-
 export type RecentQuestion = {
   id: string;
   question: string;
@@ -101,7 +94,7 @@ export function HomePage({
         >
           <div
             className={cn(
-              "grid gap-2.5 sm:gap-4",
+              "grid divide-x divide-border/60 border-y border-border/50",
               stats.length <= 1
                 ? "grid-cols-1"
                 : stats.length === 2
@@ -109,57 +102,24 @@ export function HomePage({
                   : "grid-cols-3",
             )}
           >
-            {stats.map(({ icon: Icon, value, label }) => {
-              return (
-                <div
-                  key={label}
-                  className={cn(
-                    "group relative overflow-hidden rounded-2xl border border-border/70 bg-linear-to-b from-card via-card to-secondary/30 p-3 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:rounded-3xl sm:p-5",
-                    statAccent.hover,
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "pointer-events-none absolute -right-6 -top-8 size-24 rounded-full blur-2xl",
-                      statAccent.glow,
-                    )}
-                    aria-hidden="true"
-                  />
-                  <Icon
-                    className="pointer-events-none absolute -bottom-6 -right-3 hidden size-24 text-primary/[0.06] sm:block"
-                    strokeWidth={1.25}
-                    aria-hidden="true"
-                  />
-                  <div
-                    className={cn(
-                      "absolute inset-x-0 top-0 h-0.5 bg-linear-to-r",
-                      statAccent.line,
-                    )}
-                    aria-hidden="true"
-                  />
-
-                  <div className="relative flex flex-col items-center gap-2 text-center sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:text-left">
-                    <div className="min-w-0">
-                      <p className="font-display text-xl font-bold leading-none tracking-tight text-foreground tabular-nums sm:text-3xl lg:text-4xl">
-                        <CountUp value={value} />
-                      </p>
-                      <p className="mt-1.5 text-[10px] font-semibold uppercase leading-tight tracking-[0.12em] text-muted-foreground sm:mt-2 sm:text-[11px]">
-                        {label}
-                      </p>
-                    </div>
-
-                    <span
-                      className={cn(
-                        "order-first flex size-8 shrink-0 items-center justify-center rounded-lg ring-1 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-105 sm:order-last sm:size-11 sm:rounded-2xl",
-                        statAccent.chip,
-                      )}
-                    >
-                      <Icon className="size-4 sm:size-5" aria-hidden="true" />
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+            {stats.map(({ icon: Icon, value, label }) => (
+              <div
+                key={label}
+                className="group flex flex-col items-center px-2 py-5 text-center sm:px-6 sm:py-6"
+              >
+                <span className="flex max-w-full items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-muted-foreground transition-colors group-hover:text-foreground sm:text-[11px] sm:tracking-[0.16em]">
+                  <Icon className="size-3 shrink-0 text-primary sm:size-3.5" aria-hidden="true" />
+                  <span className="truncate">{label}</span>
+                </span>
+                <p className="mt-2 font-display text-xl font-bold leading-none tracking-tight text-foreground tabular-nums sm:mt-3 sm:text-4xl lg:text-[2.75rem]">
+                  <CountUp value={value} />
+                </p>
+                <span
+                  className="mt-2 h-px w-6 rounded-full bg-linear-to-r from-primary/70 to-transparent transition-all duration-300 group-hover:w-10 sm:mt-3 sm:w-10"
+                  aria-hidden="true"
+                />
+              </div>
+            ))}
           </div>
         </section>
 
