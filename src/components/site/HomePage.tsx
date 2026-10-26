@@ -30,6 +30,22 @@ type HomePageProps = {
   slides: string[];
 };
 
+const featureSpanClasses = [
+  "col-span-4 sm:col-span-1 lg:col-span-2",
+  "col-span-2 sm:col-span-1 lg:col-span-2",
+  "col-span-2 sm:col-span-1 lg:col-span-2",
+  "col-span-4 sm:col-span-1 lg:col-span-3",
+  "col-span-6 sm:col-span-2 lg:col-span-3",
+];
+
+const featureImageSizes = [
+  "(max-width: 640px) 66vw, (max-width: 1024px) 50vw, 33vw",
+  "(max-width: 640px) 33vw, (max-width: 1024px) 50vw, 33vw",
+  "(max-width: 640px) 33vw, (max-width: 1024px) 50vw, 33vw",
+  "(max-width: 640px) 66vw, (max-width: 1024px) 50vw, 50vw",
+  "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 50vw",
+];
+
 export function HomePage({
   subjects,
   totalQuestions,
@@ -81,13 +97,16 @@ export function HomePage({
       ),
     },
     {
-      href: "/saved-questions",
-      image: "/images/features/save-revise.jpg",
-      imageAlt: tr("An open book and study notes", "খোলা বই ও পড়ার নোট"),
-      title: tr("Save and revise", "সেভ করে রিভিশন"),
+      href: "/questions",
+      image: "/images/features/new-questions.jpg",
+      imageAlt: tr(
+        "Students studying together with laptops",
+        "ল্যাপটপ নিয়ে একসাথে পড়ছে শিক্ষার্থীরা",
+      ),
+      title: tr("New questions first", "নতুন প্রশ্ন সবার আগে"),
       description: tr(
-        "Keep important questions close and come back to them anytime.",
-        "গুরুত্বপূর্ণ প্রশ্ন সেভ করুন, পরে দ্রুত রিভিশন দিন।",
+        "Fresh questions are added regularly, with explanations.",
+        "নিয়মিত নতুন প্রশ্ন যোগ হয়, ব্যাখ্যাসহ।",
       ),
     },
   ];
@@ -163,7 +182,11 @@ export function HomePage({
           </div>
         </section>
 
-        <section aria-labelledby="features-heading" className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24">
+        <section
+          id="features"
+          aria-labelledby="features-heading"
+          className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24"
+        >
           <div className="mx-auto max-w-3xl text-center">
             <h2
               id="features-heading"
@@ -184,52 +207,41 @@ export function HomePage({
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
               {tr(
-                "One place for subjects, chapters, MCQ practice, exam papers, and revision.",
-                "বিষয়, অধ্যায়, MCQ, প্রশ্নপত্র আর রিভিশন — সব এক জায়গায়।",
+                "One place for subjects, chapters, MCQ practice, and exam papers.",
+                "বিষয়, অধ্যায়, MCQ আর প্রশ্নপত্র — সব এক জায়গায়।",
               )}
             </p>
           </div>
 
-          <div className="mt-10 grid grid-cols-1 gap-x-5 gap-y-9 sm:mt-12 sm:grid-cols-2 lg:grid-cols-6">
-            {features.map((feature, index) => {
-              const spanClass = index < 3 ? "lg:col-span-2" : "lg:col-span-3";
-              const mobileSpanClass = index === 4 ? "sm:col-span-2" : "";
-              const imageSizes =
-                index < 3
-                  ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  : index === 4
-                    ? "(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 50vw"
-                    : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 50vw";
-
-              return (
-                <Link
-                  key={feature.title}
-                  href={feature.href}
-                  className={cn("group flex flex-col", spanClass, mobileSpanClass)}
-                >
-                  <div className="relative overflow-hidden rounded-2xl bg-secondary">
-                    <Image
-                      src={feature.image}
-                      alt={feature.imageAlt}
-                      width={1200}
-                      height={800}
-                      sizes={imageSizes}
-                      className="h-52 w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] sm:h-60 lg:h-72"
-                    />
-                    <div
-                      className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/20 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-                      aria-hidden="true"
-                    />
-                  </div>
-                  <h3 className="mt-4 font-display text-lg font-semibold text-foreground transition-colors group-hover:text-primary sm:text-xl lg:text-2xl">
-                    {feature.title}
-                  </h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
-                    {feature.description}
-                  </p>
-                </Link>
-              );
-            })}
+          <div className="mt-10 grid grid-cols-6 gap-x-3 gap-y-7 sm:mt-12 sm:grid-cols-2 sm:gap-x-5 sm:gap-y-9 lg:grid-cols-6">
+            {features.map((feature, index) => (
+              <Link
+                key={feature.title}
+                href={feature.href}
+                className={cn("group flex flex-col", featureSpanClasses[index])}
+              >
+                <div className="relative overflow-hidden rounded-2xl bg-secondary">
+                  <Image
+                    src={feature.image}
+                    alt={feature.imageAlt}
+                    width={1200}
+                    height={800}
+                    sizes={featureImageSizes[index]}
+                    className="h-44 w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] sm:h-52 lg:h-60"
+                  />
+                  <div
+                    className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/20 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                    aria-hidden="true"
+                  />
+                </div>
+                <h3 className="mt-3 font-display text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-primary sm:mt-4 sm:text-xl">
+                  {feature.title}
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:mt-1.5 sm:text-sm">
+                  {feature.description}
+                </p>
+              </Link>
+            ))}
           </div>
 
           <div className="mt-10 text-center">
