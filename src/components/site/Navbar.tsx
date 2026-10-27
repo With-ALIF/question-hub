@@ -36,7 +36,6 @@ const baseNavLinks: NavItem[] = [
   { href: "/", label: ["Home", "হোম"] },
   { href: "/subjects", label: ["Subjects", "বিষয়সমূহ"] },
   { href: "/questions", label: ["Questions", "প্রশ্ন"] },
-  { href: "/exam-paper", label: ["Exam Paper", "পরীক্ষাপত্র"] },
   { href: "/plans", label: ["Plans", "প্ল্যান"] },
 ];
 
@@ -53,7 +52,6 @@ const loggedOutMobileLinks: NavItem[] = [
   { href: "/", label: ["Home", "হোম"], icon: Home },
   { href: "/subjects", label: ["Subjects", "বিষয়"], icon: Layers },
   { href: "/questions", label: ["Questions", "প্রশ্ন"], icon: BookOpenCheck },
-  { href: "/exam-paper", label: ["Exam", "পরীক্ষা"], icon: FileText },
   { href: "/plans", label: ["Plans", "প্ল্যান"], icon: Sparkles },
 ];
 

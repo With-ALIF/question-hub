@@ -28,8 +28,13 @@ import {
   printExamPaper,
   downloadExamPaperPdf,
   type PdfProgressStatus,
+  type RepaginateContext,
 } from "@/lib/exam-paper/print-engine";
 import { getSavedQuestions, saveQuestion } from "@/lib/saved-questions";
+import {
+  getExamPaperSettings,
+  saveExamPaperSettings,
+} from "@/lib/exam-paper/settings-store";
 import type { QuestionListItem } from "@/components/questions/QuestionCard";
 import type { ExamPaperConfig } from "@/lib/exam-paper/types";
 import { useI18n } from "@/lib/i18n/client";
@@ -81,15 +86,98 @@ export function ExamPaperPdfModal({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Tracks whether the user typed their own marks/time, so auto values from the
+  // question count never overwrite their saved input.
+  const marksTouchedRef = useRef(false);
+  const timeTouchedRef = useRef(false);
+  const restoredRef = useRef(false);
+
+  // Restore the previously entered exam information from localStorage.
+  useEffect(() => {
+    const saved = getExamPaperSettings();
+    if (saved) {
+      // Hydrating form state from storage is exactly what this effect is for.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (typeof saved.title === "string") setTitle(saved.title);
+      if (typeof saved.tutorName === "string") setTutor(saved.tutorName);
+      if (typeof saved.subtitle === "string") setSubtitle(saved.subtitle);
+      if (typeof saved.hasFourSets === "boolean") setHasFourSets(saved.hasFourSets);
+      if (typeof saved.withAnswers === "boolean") setWithAnswers(saved.withAnswers);
+      if (typeof saved.questionSize === "number") setQuestionSize(saved.questionSize);
+      if (typeof saved.headerSize === "number") setHeaderSize(saved.headerSize);
+      if (typeof saved.watermarkText === "string") setWatermarkText(saved.watermarkText);
+      if (typeof saved.watermarkOpacity === "number") setWatermarkOpacity(saved.watermarkOpacity);
+
+      if (typeof saved.marks === "string" && saved.marks) {
+        setMarks(saved.marks);
+        marksTouchedRef.current = true;
+      }
+      if (typeof saved.time === "string" && saved.time) {
+        setTime(saved.time);
+        timeTouchedRef.current = true;
+      }
+
+      if (saved.watermarkImageUrl) {
+        setWatermarkImg(saved.watermarkImageUrl);
+        setWatermarkImgName(saved.watermarkImageName || tr("Saved image", "সেভ করা ছবি"));
+      }
+    }
+
+    restoredRef.current = true;
+  }, [tr]);
+
   useEffect(() => {
     if (questions.length) {
-      setMarks(String(questions.length));
-      setTime(
-        `${num(Math.max(10, Math.ceil(questions.length * 1.2)))} ${tr("min", "মিনিট")}`,
-      );
+      if (!marksTouchedRef.current) setMarks(String(questions.length));
+      if (!timeTouchedRef.current) {
+        setTime(
+          `${num(Math.max(10, Math.ceil(questions.length * 1.2)))} ${tr("min", "মিনিট")}`,
+        );
+      }
     }
     setSavedCount(getSavedQuestions().length);
   }, [questions.length, isOpen, tr, num]);
+
+  // Persist everything the user enters, so the dialog is pre-filled next time.
+  useEffect(() => {
+    if (!restoredRef.current) return;
+
+    const payload = {
+      title,
+      tutorName: tutor,
+      subtitle,
+      hasFourSets,
+      withAnswers,
+      questionSize,
+      headerSize,
+      watermarkText,
+      watermarkOpacity,
+      ...(watermarkImg ? { watermarkImageUrl: watermarkImg } : {}),
+      ...(watermarkImg ? { watermarkImageName: watermarkImgName } : {}),
+      ...(marksTouchedRef.current && marks ? { marks } : {}),
+      ...(timeTouchedRef.current && time ? { time } : {}),
+    };
+
+    const timer = setTimeout(() => {
+      saveExamPaperSettings({ ...payload, savedAt: Date.now() });
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [
+    title,
+    tutor,
+    subtitle,
+    hasFourSets,
+    withAnswers,
+    questionSize,
+    headerSize,
+    watermarkText,
+    watermarkOpacity,
+    watermarkImg,
+    watermarkImgName,
+    marks,
+    time,
+  ]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -139,6 +227,22 @@ export function ExamPaperPdfModal({
     watermarkImageUrl: watermarkImg || undefined,
   });
 
+  /**
+   * Build the paper HTML. When the print engine has measured the real question
+   * heights (images included) it calls this again with that data so pages are
+   * filled accurately instead of overflowing or leaving near-empty pages.
+   */
+  const buildExamPaperHtml = (context?: RepaginateContext) =>
+    generateExamPaperHtml(questions, getConfig(), {
+      ...(context
+        ? {
+            measuredHeights: context.heights,
+            firstPageColCap: context.firstPageColCap,
+            subPageColCap: context.subPageColCap,
+          }
+        : {}),
+    });
+
   const [isDownloading, setIsDownloading] = useState(false);
   const [progressStatus, setProgressStatus] = useState<PdfProgressStatus | null>(null);
   const [generationMode, setGenerationMode] = useState<"download" | "print" | null>(null);
@@ -186,7 +290,7 @@ export function ExamPaperPdfModal({
   }, [progressStatus?.percent, Boolean(progressStatus)]);
 
   const handlePreview = () => {
-    const html = generateExamPaperHtml(questions, getConfig());
+    const html = buildExamPaperHtml();
     setPreviewHtml(html);
     setShowPreviewModal(true);
   };
@@ -201,19 +305,24 @@ export function ExamPaperPdfModal({
         message: tr("Initializing document...", "ডকুমেন্ট কাঠামো প্রস্তুত হচ্ছে..."),
       });
 
-      const html = generateExamPaperHtml(questions, getConfig());
+      const html = buildExamPaperHtml();
       const safeTitle = title.trim() || "exam-paper";
 
-      await downloadExamPaperPdf(html, safeTitle, (status) => {
-        setProgressStatus(status);
-      });
+      await downloadExamPaperPdf(
+        html,
+        safeTitle,
+        (status) => {
+          setProgressStatus(status);
+        },
+        buildExamPaperHtml,
+      );
 
       // Brief delay so user sees the 100% completion checkmark
       await new Promise((res) => setTimeout(res, 600));
     } catch (error) {
       console.error("Direct PDF download failed, falling back to browser print:", error);
-      const html = generateExamPaperHtml(questions, getConfig());
-      await printExamPaper(html);
+      const html = buildExamPaperHtml();
+      await printExamPaper(html, undefined, buildExamPaperHtml);
     } finally {
       setIsDownloading(false);
       setProgressStatus(null);
@@ -231,10 +340,14 @@ export function ExamPaperPdfModal({
         message: tr("Preparing print view...", "প্রিন্ট ভিউ প্রস্তুত হচ্ছে..."),
       });
 
-      const html = generateExamPaperHtml(questions, getConfig());
-      await printExamPaper(html, (status) => {
-        setProgressStatus(status);
-      });
+      const html = buildExamPaperHtml();
+      await printExamPaper(
+        html,
+        (status) => {
+          setProgressStatus(status);
+        },
+        buildExamPaperHtml,
+      );
 
       await new Promise((res) => setTimeout(res, 600));
     } catch (error) {
@@ -363,7 +476,10 @@ export function ExamPaperPdfModal({
                   <Input
                     id="pdfMarks"
                     value={marks}
-                    onChange={(e) => setMarks(e.target.value)}
+                    onChange={(e) => {
+                      marksTouchedRef.current = true;
+                      setMarks(e.target.value);
+                    }}
                     placeholder={tr("80", "৮০")}
                     className="h-9 text-xs"
                   />
@@ -375,7 +491,10 @@ export function ExamPaperPdfModal({
                   <Input
                     id="pdfTime"
                     value={time}
-                    onChange={(e) => setTime(e.target.value)}
+                    onChange={(e) => {
+                      timeTouchedRef.current = true;
+                      setTime(e.target.value);
+                    }}
                     placeholder={tr("60 minutes", "৬০ মিনিট")}
                     className="h-9 text-xs"
                   />

@@ -157,16 +157,33 @@ type PageChunk = {
   right: { question: QuestionListItem; index: number }[];
 };
 
+type HeightGetter = (q: QuestionListItem) => number;
+
+type PaginationOptions = {
+  /** Measured per-question heights (px) keyed by question id. Falls back to estimation. */
+  getHeight?: HeightGetter;
+  /** Usable column height (px) on the first page, below the paper header. */
+  firstPageColCap?: number;
+  /** Usable column height (px) on every following page, below the running header. */
+  subPageColCap?: number;
+  /**
+   * Extra overflow allowed when no perfectly balanced split exists.
+   * `1` means a column must never exceed the cap (used once real heights are known).
+   */
+  tolerance?: number;
+};
+
 function findBestPageSplit(
   items: { question: QuestionListItem; index: number }[],
   maxColH: number,
-  qSize: number
+  getHeight: HeightGetter,
+  tolerance = 1.08
 ): { canFit: boolean; splitIdx: number } {
   const n = items.length;
   if (n === 0) return { canFit: true, splitIdx: 0 };
   if (n === 1) return { canFit: true, splitIdx: 1 };
 
-  const heights = items.map((item) => estimateQuestionHeight(item.question, qSize));
+  const heights = items.map((item) => getHeight(item.question));
   const totalH = heights.reduce((a, b) => a + b, 0);
 
   let bestSplit = -1;
@@ -205,19 +222,24 @@ function findBestPageSplit(
     }
   }
 
-  // Allow up to 8% tolerance if close
-  return { canFit: minMaxH <= maxColH * 1.08, splitIdx: fallbackSplit };
+  // Allow a small tolerance only while working with rough estimates
+  return { canFit: minMaxH <= maxColH * tolerance, splitIdx: fallbackSplit };
 }
 
 function paginateSetQuestions(
   items: QuestionListItem[],
-  qSize: number
+  qSize: number,
+  options: PaginationOptions = {}
 ): PageChunk[] {
   const total = items.length;
   if (total === 0) return [];
 
-  const PAGE_1_COL_CAP = 920;
-  const SUB_PAGE_COL_CAP = 1000;
+  const getHeight: HeightGetter =
+    options.getHeight ?? ((q) => estimateQuestionHeight(q, qSize));
+  const tolerance = options.tolerance ?? 1.08;
+
+  const PAGE_1_COL_CAP = options.firstPageColCap ?? 920;
+  const SUB_PAGE_COL_CAP = options.subPageColCap ?? 1000;
   const MAX_PAGE_ITEMS = 28;
 
   // Step 1: Pack questions into pages dynamically
@@ -240,7 +262,7 @@ function paginateSetQuestions(
         continue;
       }
 
-      const { canFit } = findBestPageSplit(testGroup, maxColH, qSize);
+      const { canFit } = findBestPageSplit(testGroup, maxColH, getHeight, tolerance);
       if (canFit) {
         currentGroup.push(nextItem);
         currentIdx++;
@@ -257,7 +279,9 @@ function paginateSetQuestions(
     pageItemGroups.push(currentGroup);
   }
 
-  // Step 2: Prevent orphan questions (e.g. 1-3 leftover questions taking a whole new page)
+  // Step 2: Prevent orphan questions (e.g. 1-3 leftover questions taking a whole new page).
+  // Merging/splitting must strictly fit, otherwise the last page overflows onto an
+  // extra sheet and leaves a nearly empty page behind.
   if (pageItemGroups.length > 1) {
     const lastGroup = pageItemGroups[pageItemGroups.length - 1]!;
     if (lastGroup.length <= 3) {
@@ -265,13 +289,27 @@ function paginateSetQuestions(
       const isPrevFirst = pageItemGroups.length === 2;
       const prevMaxColH = isPrevFirst ? PAGE_1_COL_CAP : SUB_PAGE_COL_CAP;
 
-      // Always absorb if it can fit or combined is reasonable (<= 28 items)
       const combined = [...prevGroup, ...lastGroup];
-      const { canFit: canAbsorb } = findBestPageSplit(combined, prevMaxColH * 1.15, qSize);
+      const { canFit: canAbsorb } = findBestPageSplit(combined, prevMaxColH, getHeight, 1);
 
-      if (canAbsorb || combined.length <= 28) {
+      if (canAbsorb && combined.length <= MAX_PAGE_ITEMS) {
         pageItemGroups[pageItemGroups.length - 2] = combined;
         pageItemGroups.pop();
+      } else {
+        // Move a few trailing questions from the previous page onto the last page so
+        // both pages look balanced instead of one full page plus a 1-3 item page.
+        const maxMove = Math.min(prevGroup.length - 1, MAX_PAGE_ITEMS - lastGroup.length);
+        for (let move = 1; move <= maxMove; move++) {
+          const nextPrev = prevGroup.slice(0, prevGroup.length - move);
+          const nextLast = [...prevGroup.slice(prevGroup.length - move), ...lastGroup];
+          const prevFits = findBestPageSplit(nextPrev, prevMaxColH, getHeight, 1).canFit;
+          const lastFits = findBestPageSplit(nextLast, prevMaxColH, getHeight, 1).canFit;
+          if (prevFits && lastFits) {
+            pageItemGroups[pageItemGroups.length - 2] = nextPrev;
+            pageItemGroups[pageItemGroups.length - 1] = nextLast;
+            break;
+          }
+        }
       }
     }
   }
@@ -283,7 +321,7 @@ function paginateSetQuestions(
     const isFirst = pIdx === 0;
     const maxColH = isFirst ? PAGE_1_COL_CAP : SUB_PAGE_COL_CAP;
 
-    const { splitIdx } = findBestPageSplit(group, maxColH, qSize);
+    const { splitIdx } = findBestPageSplit(group, maxColH, getHeight, tolerance);
     const leftCol = group.slice(0, splitIdx);
     const rightCol = group.slice(splitIdx);
 
@@ -291,6 +329,14 @@ function paginateSetQuestions(
   }
 
   return pages;
+}
+
+function escapeAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function renderQuestionItem(
@@ -303,7 +349,7 @@ function renderQuestionItem(
   const opts = Array.isArray(q.options) ? q.options : [];
 
   return `
-  <div class="q-item">
+  <div class="q-item" data-qid="${escapeAttribute(q.id || "")}">
     <div class="q-text">
       <span class="q-num">${num}.</span>
       <span>${qHtml}</span>
@@ -332,15 +378,38 @@ function renderQuestionItem(
 `;
 }
 
+export type ExamPaperRenderOptions = {
+  /** Real measured question heights (px) keyed by question id, from a rendered pass. */
+  measuredHeights?: Record<string, number>;
+  /** Usable column height (px) on the first page, below the paper header. */
+  firstPageColCap?: number;
+  /** Usable column height (px) on every following page, below the running header. */
+  subPageColCap?: number;
+};
+
 export function generateExamPaperHtml(
   questions: QuestionListItem[],
-  config: ExamPaperConfig
+  config: ExamPaperConfig,
+  renderOptions: ExamPaperRenderOptions = {}
 ): string {
   const sets = config.hasFourSets ? ["A", "B", "C", "D"] : ["A"];
   const watermarkOpacity = (config.watermarkOpacity ?? 90) / 100;
   const qSize = config.questionSize ?? 11;
   const hSize = config.headerSize ?? 24;
   const hasExplanations = questions.some((q) => Boolean(q.explanation || q.explanation_html));
+  const explanationCount = questions.filter(
+    (q) => Boolean(q.explanation || q.explanation_html),
+  ).length;
+
+  const measured = renderOptions.measuredHeights;
+  const getHeight: HeightGetter | undefined = measured
+    ? (q) => measured[q.id] ?? estimateQuestionHeight(q, qSize)
+    : undefined;
+  const paginationOptions: PaginationOptions = {
+    ...(getHeight ? { getHeight, tolerance: 1 } : {}),
+    ...(renderOptions.firstPageColCap ? { firstPageColCap: renderOptions.firstPageColCap } : {}),
+    ...(renderOptions.subPageColCap ? { subPageColCap: renderOptions.subPageColCap } : {}),
+  };
 
   const setsData = sets.map((setName, setIdx) => {
     const list = setIdx === 0 ? questions : shuffleArray(questions, setIdx * 42 + 13);
@@ -613,59 +682,97 @@ export function generateExamPaperHtml(
       font-weight: 700;
     }
     .explanations {
-      margin-top: 14px;
+      margin-top: 12px;
       position: relative;
       z-index: 1;
       column-count: 2;
-      column-gap: 18px;
-      column-rule: 1px solid #cbd5e1;
+      column-gap: 16px;
     }
     .exp-item {
       display: inline-block;
       width: 100%;
       box-sizing: border-box;
-      font-size: 11px;
-      padding: 8px 10px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-left: 3.5px solid #6366f1;
-      border-radius: 6px;
-      margin-bottom: 10px;
+      font-size: 10.5px;
+      background: #ffffff;
+      border: 1px solid #dbe3f0;
+      border-radius: 8px;
+      margin: 0 0 9px;
+      padding: 0;
+      overflow: hidden;
       break-inside: avoid;
       break-inside: avoid-column;
       page-break-inside: avoid;
     }
     .exp-header {
-      font-size: 11.5px;
-      font-weight: 700;
-      color: #3730a3;
-      margin-bottom: 4px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
+      padding: 4px 8px;
+      background: #eef2ff;
+      border-bottom: 1px solid #dfe4fd;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #3730a3;
     }
     .exp-badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: #6366f1;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 8px;
+      background: #4f46e5;
       color: #ffffff;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 700;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .exp-title {
+      letter-spacing: 0.1px;
     }
     .exp-text {
-      color: #1e1b4b;
-      line-height: 1.6;
+      padding: 7px 9px 8px;
+      color: #1e293b;
+      font-size: 10.5px;
+      line-height: 1.62;
       word-break: break-word;
+      text-align: left;
+    }
+    .exp-text > :first-child {
+      margin-top: 0;
+    }
+    .exp-text > :last-child {
+      margin-bottom: 0;
+    }
+    .exp-text p {
+      margin: 0 0 3px;
+    }
+    .exp-text ul,
+    .exp-text ol {
+      margin: 3px 0 4px;
+      padding-left: 15px;
+    }
+    .exp-text li {
+      margin-bottom: 2px;
     }
     .exp-text img {
+      display: block;
       max-width: 100%;
       height: auto;
-      margin: 6px 0;
-      display: block;
+      margin: 5px auto;
+      border-radius: 4px;
+    }
+    .exp-text .katex-display {
+      margin: 3px 0;
+      max-width: 100%;
+    }
+    .exp-summary {
+      margin-top: 6px;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: #64748b;
     }
     img {
       max-width: 100%;
@@ -684,7 +791,7 @@ export function generateExamPaperHtml(
 
   ${setsData
     .map((s) => {
-      const pages = paginateSetQuestions(s.questions, qSize);
+      const pages = paginateSetQuestions(s.questions, qSize, paginationOptions);
       return `
     <div class="page-set">
       ${pages
@@ -763,6 +870,7 @@ export function generateExamPaperHtml(
       <header class="paper-header">
         <h1 class="paper-title">বিস্তারিত ব্যাখ্যা ও সমাধান</h1>
         <div class="paper-subtitle">${config.title || "পরীক্ষাপত্র"}</div>
+        <div class="exp-summary">মোট ${toBanglaNumber(explanationCount)}টি প্রশ্নের ধাপে ধাপে সমাধান</div>
       </header>
 
       <div class="explanations">
@@ -775,7 +883,7 @@ export function generateExamPaperHtml(
             <div class="exp-item">
               <div class="exp-header">
                 <span class="exp-badge">${toBanglaNumber(idx + 1)}</span>
-                <span>${toBanglaNumber(idx + 1)} নং প্রশ্নের সমাধান:</span>
+                <span class="exp-title">নং প্রশ্নের সমাধান</span>
               </div>
               <div class="exp-text">${expText}</div>
             </div>
@@ -848,9 +956,113 @@ async function waitForAllImages(
   ]);
 }
 
+export type RepaginateContext = {
+  /** Real measured question heights (px), keyed by question id. */
+  heights: Record<string, number>;
+  /** Usable column height (px) on the first page, below the paper header. */
+  firstPageColCap: number;
+  /** Usable column height (px) on every following page, below the running header. */
+  subPageColCap: number;
+};
+
+export type RepaginateFn = (context: RepaginateContext) => string;
+
+// A4 height (297mm) minus the @page top (10mm) and bottom (12mm) margins, at 96dpi.
+const PRINT_PAGE_CONTENT_HEIGHT = 1039;
+// html2pdf fits a 794px wide render into A4 minus 8mm margins on every side,
+// so one PDF page holds roughly this much height in CSS pixels.
+const PDF_PAGE_CONTENT_HEIGHT = 1150;
+
+function measureOuterHeight(el: Element | null, fallback: number): number {
+  if (!el) return fallback;
+  const win = el.ownerDocument.defaultView;
+  const style = win?.getComputedStyle(el);
+  const marginTop = style ? parseFloat(style.marginTop) || 0 : 0;
+  const marginBottom = style ? parseFloat(style.marginBottom) || 0 : 0;
+  const height = el.getBoundingClientRect().height + marginTop + marginBottom;
+  return height > 0 ? Math.ceil(height) : fallback;
+}
+
+function measureQuestionHeights(doc: Document): Record<string, number> {
+  const heights: Record<string, number> = {};
+  const win = doc.defaultView;
+
+  doc.querySelectorAll<HTMLElement>(".q-item[data-qid]").forEach((el) => {
+    const id = el.getAttribute("data-qid");
+    if (!id) return;
+    const style = win?.getComputedStyle(el);
+    const marginBottom = style ? parseFloat(style.marginBottom) || 0 : 0;
+    const height = el.getBoundingClientRect().height + marginBottom;
+    if (height > 0) {
+      // The same question can appear in several sets; keep the tallest rendering.
+      heights[id] = Math.max(heights[id] ?? 0, Math.ceil(height));
+    }
+  });
+
+  return heights;
+}
+
+/**
+ * Re-paginate the rendered document using real measured heights, so pages fill up
+ * according to the actual size of each question (images included) instead of guesses.
+ */
+function applyMeasuredPagination(
+  doc: Document,
+  repaginate: RepaginateFn,
+  contentHeight: number
+): boolean {
+  const heights = measureQuestionHeights(doc);
+  if (Object.keys(heights).length === 0) return false;
+
+  const firstHeader = doc.querySelector(".exam-page.first-page .paper-header");
+  const runningHeader = doc.querySelector(".exam-page.subsequent-page .running-header");
+
+  const firstPageColCap = Math.max(
+    600,
+    Math.floor(contentHeight - measureOuterHeight(firstHeader, 104) - 2)
+  );
+  const subPageColCap = Math.max(
+    600,
+    Math.floor(contentHeight - measureOuterHeight(runningHeader, 34) - 2)
+  );
+
+  const nextHtml = repaginate({ heights, firstPageColCap, subPageColCap });
+  if (!nextHtml || !nextHtml.trim()) return false;
+
+  doc.open();
+  doc.write(nextHtml);
+  doc.close();
+  return true;
+}
+
+/** Wait for fonts, images and layout to settle after (re)writing the document. */
+async function reloadDocumentAssets(
+  doc: Document,
+  imageTimeoutMs: number,
+  settleMs = 120
+): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, settleMs));
+
+  if (doc.fonts) {
+    try {
+      await Promise.allSettled([
+        doc.fonts.load("1em KaTeX_Main"),
+        doc.fonts.load("1em KaTeX_Math"),
+        doc.fonts.load("1em KaTeX_Size1"),
+        doc.fonts.load("1em KaTeX_Size2"),
+        doc.fonts.ready,
+      ]);
+    } catch {}
+  }
+
+  await waitForAllImages(doc, imageTimeoutMs);
+  await new Promise((resolve) => setTimeout(resolve, settleMs));
+}
+
 export async function printExamPaper(
   htmlContent: string,
-  onProgress?: (status: PdfProgressStatus) => void
+  onProgress?: (status: PdfProgressStatus) => void,
+  repaginate?: RepaginateFn
 ): Promise<void> {
   if (typeof window === "undefined") return;
 
@@ -864,7 +1076,8 @@ export async function printExamPaper(
   iframe.style.position = "fixed";
   iframe.style.left = "-9999px";
   iframe.style.top = "0";
-  iframe.style.width = "794px";
+  // Match the printable content box: A4 width (210mm) minus @page side margins (2 x 10mm)
+  iframe.style.width = "190mm";
   iframe.style.height = "1123px";
   iframe.style.border = "none";
   iframe.style.opacity = "0";
@@ -925,6 +1138,24 @@ export async function printExamPaper(
     });
 
     fixKatexSvgRadicals(doc);
+
+    if (repaginate) {
+      onProgress?.({
+        step: "pdf",
+        percent: 94,
+        message: "ছবির প্রকৃত মাপ অনুযায়ী পাতা সাজানো হচ্ছে...",
+      });
+
+      try {
+        const applied = applyMeasuredPagination(doc, repaginate, PRINT_PAGE_CONTENT_HEIGHT);
+        if (applied) {
+          await reloadDocumentAssets(doc, 5000, 60);
+          fixKatexSvgRadicals(doc);
+        }
+      } catch (err) {
+        console.warn("Repagination skipped:", err);
+      }
+    }
 
     onProgress?.({
       step: "done",
@@ -1018,7 +1249,8 @@ function fixKatexSvgRadicals(targetDoc: Document): void {
 export async function downloadExamPaperPdf(
   htmlContent: string,
   filename: string = "exam-paper",
-  onProgress?: (status: PdfProgressStatus) => void
+  onProgress?: (status: PdfProgressStatus) => void,
+  repaginate?: RepaginateFn
 ): Promise<void> {
   if (typeof window === "undefined") return;
 
@@ -1145,6 +1377,24 @@ export async function downloadExamPaperPdf(
 
     // Fix KaTeX SVGs (especially square root radical hooks) before html2canvas captures
     fixKatexSvgRadicals(doc);
+
+    if (repaginate) {
+      onProgress?.({
+        step: "pdf",
+        percent: 80,
+        message: "ছবির প্রকৃত মাপ অনুযায়ী পাতা সাজানো হচ্ছে...",
+      });
+
+      try {
+        const applied = applyMeasuredPagination(doc, repaginate, PDF_PAGE_CONTENT_HEIGHT);
+        if (applied) {
+          await reloadDocumentAssets(doc, 5000, 60);
+          fixKatexSvgRadicals(doc);
+        }
+      } catch (err) {
+        console.warn("Repagination skipped:", err);
+      }
+    }
 
     onProgress?.({
       step: "pdf",
