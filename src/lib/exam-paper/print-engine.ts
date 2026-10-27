@@ -5,12 +5,66 @@ import { KATEX_INLINE_CSS } from "./katex-css";
 
 const BANGLA_NUMERALS = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
 const BANGLA_OPTIONS = ["(ক)", "(খ)", "(গ)", "(ঘ)", "(ঙ)", "(চ)"];
+const BANGLA_OPTIONS_PLAIN = ["ক", "খ", "গ", "ঘ", "ঙ", "চ"];
 
 export function toBanglaNumber(n: number | string): string {
   return String(n)
     .split("")
     .map((d) => (/\d/.test(d) ? BANGLA_NUMERALS[parseInt(d, 10)] : d))
     .join("");
+}
+
+function getAnswerLetter(q: QuestionListItem | undefined): string {
+  if (!q) return "—";
+  if (
+    q.correct_option !== null &&
+    q.correct_option !== undefined &&
+    q.correct_option > 0
+  ) {
+    const idx = q.correct_option - 1;
+    return BANGLA_OPTIONS_PLAIN[idx] ?? String(q.correct_option);
+  }
+  const raw = (q.answer || "").replace(/[()（）]/g, "").trim();
+  const letterMap: Record<string, string> = {
+    a: "ক", b: "খ", c: "গ", d: "ঘ", e: "ঙ", f: "চ",
+    A: "ক", B: "খ", C: "গ", D: "ঘ", E: "ঙ", F: "চ",
+    "1": "ক", "2": "খ", "3": "গ", "4": "ঘ", "5": "ঙ", "6": "চ",
+    "১": "ক", "২": "খ", "৩": "গ", "৪": "ঘ", "৫": "ঙ", "৬": "চ",
+    "ক": "ক", "খ": "খ", "গ": "গ", "ঘ": "ঘ", "ঙ": "ঙ", "চ": "চ",
+  };
+  return letterMap[raw] || raw || "—";
+}
+
+function renderAnswerGridTable(questionsList: QuestionListItem[]): string {
+  const COLS = 10;
+  const total = questionsList.length;
+  if (total === 0) return "";
+  const numRows = Math.ceil(total / COLS);
+  const rowsHtml: string[] = [];
+
+  for (let r = 0; r < numRows; r++) {
+    const cellsHtml: string[] = [];
+    for (let c = 0; c < COLS; c++) {
+      const idx = r * COLS + c;
+      if (idx < total) {
+        const q = questionsList[idx];
+        const qNo = toBanglaNumber(idx + 1);
+        const ansChar = getAnswerLetter(q);
+        cellsHtml.push(`<td class="ans-grid-cell">${qNo}-${ansChar}</td>`);
+      } else {
+        cellsHtml.push(`<td class="ans-grid-cell">&nbsp;</td>`);
+      }
+    }
+    rowsHtml.push(`<tr>${cellsHtml.join("")}</tr>`);
+  }
+
+  return `
+    <table class="ans-grid-table">
+      <tbody>
+        ${rowsHtml.join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 function formatRichContent(
@@ -62,6 +116,221 @@ function shuffleArray<T>(array: T[], seed: number): T[] {
   }
   return arr;
 }
+function estimateQuestionHeight(q: QuestionListItem, qSize: number): number {
+  let h = 6;
+  const text = (q.question_text || "").trim();
+  const html = (q.question_html || "").trim();
+  const clean = (html.replace(/<[^>]*>/g, " ") || text).replace(/\s+/g, " ");
+
+  // 350px column width fits ~45-50 chars per line at standard font size
+  const charsPerLine = Math.max(40, Math.floor(350 / (qSize * 0.58)));
+  const textLines = Math.max(1, Math.ceil(clean.length / charsPerLine));
+  h += textLines * (qSize * 1.25);
+
+  if (html.includes("katex-display") || html.includes("\\[") || html.includes("$$")) {
+    h += 18;
+  } else if (html.includes("katex") || html.includes("\\(") || html.includes("$")) {
+    h += 4;
+  }
+
+  const imgMatches = html.match(/<img[^>]+>/gi);
+  if (imgMatches) {
+    h += imgMatches.length * 120;
+  }
+
+  const opts = Array.isArray(q.options) ? q.options : [];
+  if (opts.length > 0) {
+    const optRows = Math.ceil(opts.length / 2);
+    const hasOptImg = opts.some((o) => o.h && /<img/i.test(o.h));
+    if (hasOptImg) {
+      h += optRows * 65;
+    } else {
+      h += optRows * (qSize * 1.2 + 2);
+    }
+  }
+
+  return Math.ceil(h);
+}
+
+type PageChunk = {
+  left: { question: QuestionListItem; index: number }[];
+  right: { question: QuestionListItem; index: number }[];
+};
+
+function findBestPageSplit(
+  items: { question: QuestionListItem; index: number }[],
+  maxColH: number,
+  qSize: number
+): { canFit: boolean; splitIdx: number } {
+  const n = items.length;
+  if (n === 0) return { canFit: true, splitIdx: 0 };
+  if (n === 1) return { canFit: true, splitIdx: 1 };
+
+  const heights = items.map((item) => estimateQuestionHeight(item.question, qSize));
+  const totalH = heights.reduce((a, b) => a + b, 0);
+
+  let bestSplit = -1;
+  let minDiff = Infinity;
+
+  // s is the count of items in Left column (from 1 to n - 1)
+  let leftH = 0;
+  for (let s = 1; s < n; s++) {
+    leftH += heights[s - 1]!;
+    const rightH = totalH - leftH;
+
+    if (leftH <= maxColH && rightH <= maxColH) {
+      const diff = Math.abs(leftH - rightH);
+      if (diff < minDiff) {
+        minDiff = diff;
+        bestSplit = s;
+      }
+    }
+  }
+
+  if (bestSplit !== -1) {
+    return { canFit: true, splitIdx: bestSplit };
+  }
+
+  // If strict fit is not found, pick split that minimizes the taller column
+  let fallbackSplit = Math.ceil(n / 2);
+  let minMaxH = Infinity;
+  leftH = 0;
+  for (let s = 1; s < n; s++) {
+    leftH += heights[s - 1]!;
+    const rightH = totalH - leftH;
+    const maxH = Math.max(leftH, rightH);
+    if (maxH < minMaxH) {
+      minMaxH = maxH;
+      fallbackSplit = s;
+    }
+  }
+
+  // Allow up to 8% tolerance if close
+  return { canFit: minMaxH <= maxColH * 1.08, splitIdx: fallbackSplit };
+}
+
+function paginateSetQuestions(
+  items: QuestionListItem[],
+  qSize: number
+): PageChunk[] {
+  const total = items.length;
+  if (total === 0) return [];
+
+  const PAGE_1_COL_CAP = 920;
+  const SUB_PAGE_COL_CAP = 1000;
+  const MAX_PAGE_ITEMS = 28;
+
+  // Step 1: Pack questions into pages dynamically
+  const pageItemGroups: { question: QuestionListItem; index: number }[][] = [];
+  let currentIdx = 0;
+
+  while (currentIdx < total) {
+    const isFirstPage = pageItemGroups.length === 0;
+    const maxColH = isFirstPage ? PAGE_1_COL_CAP : SUB_PAGE_COL_CAP;
+
+    const currentGroup: { question: QuestionListItem; index: number }[] = [];
+
+    while (currentIdx < total && currentGroup.length < MAX_PAGE_ITEMS) {
+      const nextItem = { question: items[currentIdx]!, index: currentIdx + 1 };
+      const testGroup = [...currentGroup, nextItem];
+
+      if (testGroup.length <= 2) {
+        currentGroup.push(nextItem);
+        currentIdx++;
+        continue;
+      }
+
+      const { canFit } = findBestPageSplit(testGroup, maxColH, qSize);
+      if (canFit) {
+        currentGroup.push(nextItem);
+        currentIdx++;
+      } else {
+        break;
+      }
+    }
+
+    if (currentGroup.length === 0 && currentIdx < total) {
+      currentGroup.push({ question: items[currentIdx]!, index: currentIdx + 1 });
+      currentIdx++;
+    }
+
+    pageItemGroups.push(currentGroup);
+  }
+
+  // Step 2: Prevent orphan questions (e.g. 1-3 leftover questions taking a whole new page)
+  if (pageItemGroups.length > 1) {
+    const lastGroup = pageItemGroups[pageItemGroups.length - 1]!;
+    if (lastGroup.length <= 3) {
+      const prevGroup = pageItemGroups[pageItemGroups.length - 2]!;
+      const isPrevFirst = pageItemGroups.length === 2;
+      const prevMaxColH = isPrevFirst ? PAGE_1_COL_CAP : SUB_PAGE_COL_CAP;
+
+      // Always absorb if it can fit or combined is reasonable (<= 28 items)
+      const combined = [...prevGroup, ...lastGroup];
+      const { canFit: canAbsorb } = findBestPageSplit(combined, prevMaxColH * 1.15, qSize);
+
+      if (canAbsorb || combined.length <= 28) {
+        pageItemGroups[pageItemGroups.length - 2] = combined;
+        pageItemGroups.pop();
+      }
+    }
+  }
+
+  // Step 3: Split each page group into Left and Right columns
+  const pages: PageChunk[] = [];
+  for (let pIdx = 0; pIdx < pageItemGroups.length; pIdx++) {
+    const group = pageItemGroups[pIdx]!;
+    const isFirst = pIdx === 0;
+    const maxColH = isFirst ? PAGE_1_COL_CAP : SUB_PAGE_COL_CAP;
+
+    const { splitIdx } = findBestPageSplit(group, maxColH, qSize);
+    const leftCol = group.slice(0, splitIdx);
+    const rightCol = group.slice(splitIdx);
+
+    pages.push({ left: leftCol, right: rightCol });
+  }
+
+  return pages;
+}
+
+function renderQuestionItem(
+  q: QuestionListItem,
+  indexNumber: number,
+  qSize: number
+): string {
+  const num = toBanglaNumber(indexNumber);
+  const qHtml = formatRichContent(q.question_html, q.question_text);
+  const opts = Array.isArray(q.options) ? q.options : [];
+
+  return `
+  <div class="q-item">
+    <div class="q-text">
+      <span class="q-num">${num}.</span>
+      <span>${qHtml}</span>
+    </div>
+    ${
+      opts.length > 0
+        ? `
+      <div class="q-options">
+        ${opts
+          .map((opt, oIdx) => {
+            const optLabel = BANGLA_OPTIONS[oIdx] ?? `(${oIdx + 1})`;
+            const optText = formatRichContent(opt.h, opt.t);
+            return `
+            <div class="q-opt">
+              <span class="q-opt-label">${optLabel}</span>
+              <span>${optText}</span>
+            </div>
+          `;
+          })
+          .join("")}
+      </div>
+    `
+        : ""
+    }
+  </div>
+`;
+}
 
 export function generateExamPaperHtml(
   questions: QuestionListItem[],
@@ -112,7 +381,7 @@ export function generateExamPaperHtml(
 
     @page {
       size: A4;
-      margin: 12mm 12mm 14mm 12mm;
+      margin: 10mm 10mm 12mm 10mm;
     }
     * {
       box-sizing: border-box;
@@ -125,7 +394,7 @@ export function generateExamPaperHtml(
       font-family: 'Hind Siliguri', 'Kalpurush', -apple-system, BlinkMacSystemFont, sans-serif;
       color: #0f172a;
       background: #ffffff;
-      line-height: 1.45;
+      line-height: 1.38;
     }
     .page-set {
       position: relative;
@@ -195,21 +464,52 @@ export function generateExamPaperHtml(
       font-weight: 800;
       border-radius: 4px;
     }
-    .paper-content {
+    .exam-page {
+      position: relative;
+      box-sizing: border-box;
+      width: 100%;
+      background: #ffffff;
+    }
+    .exam-page + .exam-page {
+      page-break-before: always;
+      break-before: page;
+    }
+    .running-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: #334155;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 4px;
+      margin-bottom: 10px;
+    }
+    .paper-columns {
+      display: flex;
+      align-items: stretch;
+      gap: 16px;
       position: relative;
       z-index: 1;
-      column-count: 2;
-      column-gap: 20px;
-      column-rule: 1px solid #cbd5e1;
+    }
+    .paper-col {
+      flex: 1;
+      min-width: 0;
+    }
+    .paper-col-divider {
+      width: 1px;
+      background: #cbd5e1;
+      align-self: stretch;
+      flex-shrink: 0;
     }
     .q-item {
-      break-inside: avoid-column;
-      page-break-inside: avoid;
       font-size: ${qSize}px;
-      margin-bottom: 12px;
+      margin-bottom: 7px;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .q-text {
-      margin-bottom: 4px;
+      margin-bottom: 2px;
       font-weight: 500;
     }
     .q-num {
@@ -219,8 +519,8 @@ export function generateExamPaperHtml(
     .q-options {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 3px 6px;
-      margin-top: 4px;
+      gap: 2px 6px;
+      margin-top: 2.5px;
       font-size: ${Math.max(qSize - 1, 9)}px;
     }
     .q-opt {
@@ -237,6 +537,65 @@ export function generateExamPaperHtml(
       page-break-before: always;
       position: relative;
       z-index: 1;
+    }
+    .answer-key-page {
+      page-break-before: always;
+      position: relative;
+      z-index: 1;
+      box-sizing: border-box;
+      width: 100%;
+      background: #ffffff;
+      padding-top: 10px;
+    }
+    .ans-sheet-header {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .ans-sheet-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #000000;
+      margin: 0 0 8px 0;
+      letter-spacing: 0.5px;
+    }
+    .ans-sheet-divider {
+      width: 100%;
+      height: 2px;
+      background: #000000;
+      margin-bottom: 14px;
+    }
+    .ans-set-block {
+      margin-bottom: 18px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .ans-set-badge {
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+      border: 1.5px solid #0f172a;
+      padding: 1px 8px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+    }
+    .ans-grid-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin: 0 0 16px 0;
+    }
+    .ans-grid-cell {
+      border: 1px solid #000000;
+      padding: 5px 2px;
+      text-align: center;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #000000;
+      width: 10%;
+      white-space: nowrap;
+      vertical-align: middle;
+      line-height: 1.25;
     }
     .ans-table {
       width: 100%;
@@ -255,18 +614,25 @@ export function generateExamPaperHtml(
     }
     .explanations {
       margin-top: 14px;
-      display: block;
+      position: relative;
+      z-index: 1;
+      column-count: 2;
+      column-gap: 18px;
+      column-rule: 1px solid #cbd5e1;
     }
     .exp-item {
-      display: block;
+      display: inline-block;
+      width: 100%;
+      box-sizing: border-box;
       font-size: 11px;
-      padding: 8px 12px;
-      background: #eef2ff;
-      border: 1px solid #c7d2fe;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
       border-left: 3.5px solid #6366f1;
       border-radius: 6px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       break-inside: avoid;
+      break-inside: avoid-column;
       page-break-inside: avoid;
     }
     .exp-header {
@@ -318,59 +684,50 @@ export function generateExamPaperHtml(
 
   ${setsData
     .map((s) => {
+      const pages = paginateSetQuestions(s.questions, qSize);
       return `
     <div class="page-set">
-      <header class="paper-header">
-        <h1 class="paper-title">${config.title || "পরীক্ষাপত্র"}</h1>
-        ${config.subtitle ? `<div class="paper-subtitle">${config.subtitle}</div>` : ""}
-        <div class="paper-meta-row">
-          <div>${config.tutorName ? `শিক্ষক: ${config.tutorName}` : ""}</div>
-          ${config.hasFourSets ? `<div class="set-badge">সেট: ${s.name}</div>` : ""}
-          <div>পূর্ণমান: ${toBanglaNumber(config.marks || s.questions.length)} &nbsp;|&nbsp; সময়: ${config.time || "৫০ মিনিট"}</div>
-        </div>
-      </header>
-
-      <main class="paper-content">
-        ${s.questions
-          .map((q, idx) => {
-            const num = toBanglaNumber(idx + 1);
-            const qHtml = formatRichContent(q.question_html, q.question_text);
-            const opts = Array.isArray(q.options) ? q.options : [];
-
-            return `
-            <div class="q-item">
-              <div class="q-text">
-                <span class="q-num">${num}.</span>
-                <span>${qHtml}</span>
+      ${pages
+        .map((p, pIdx) => {
+          const isFirst = pIdx === 0;
+          return `
+        <div class="exam-page ${isFirst ? "first-page" : "subsequent-page"}">
+          ${
+            isFirst
+              ? `
+            <header class="paper-header">
+              <h1 class="paper-title">${config.title || "পরীক্ষাপত্র"}</h1>
+              ${config.subtitle ? `<div class="paper-subtitle">${config.subtitle}</div>` : ""}
+              <div class="paper-meta-row">
+                <div>${config.tutorName ? `শিক্ষক: ${config.tutorName}` : ""}</div>
+                ${config.hasFourSets ? `<div class="set-badge">সেট: ${s.name}</div>` : ""}
+                <div>পূর্ণমান: ${toBanglaNumber(config.marks || s.questions.length)} &nbsp;|&nbsp; সময়: ${config.time || "৫০ মিনিট"}</div>
               </div>
-              ${
-                opts.length > 0
-                  ? `
-                <div class="q-options">
-                  ${opts
-                    .map((opt, oIdx) => {
-                      const optLabel = BANGLA_OPTIONS[oIdx] ?? `(${oIdx + 1})`;
-                      const optText = formatRichContent(opt.h, opt.t);
-                      return `
-                      <div class="q-opt">
-                        <span class="q-opt-label">${optLabel}</span>
-                        <span>${optText}</span>
-                      </div>
-                    `;
-                    })
-                    .join("")}
-                </div>
-              `
-                  : ""
-              }
-            </div>
-          `;
-          })
-          .join("")}
-      </main>
+            </header>
+            `
+              : `
+            <header class="running-header">
+              <div>${config.title || "পরীক্ষাপত্র"} ${config.hasFourSets ? `(সেট: ${s.name})` : ""}</div>
+              <div>পৃষ্ঠা ${toBanglaNumber(pIdx + 1)}</div>
+            </header>
+            `
+          }
 
-      </div>
-    `;
+          <div class="paper-columns">
+            <div class="paper-col col-left">
+              ${p.left.map((item) => renderQuestionItem(item.question, item.index, qSize)).join("")}
+            </div>
+            <div class="paper-col-divider"></div>
+            <div class="paper-col col-right">
+              ${p.right.map((item) => renderQuestionItem(item.question, item.index, qSize)).join("")}
+            </div>
+          </div>
+        </div>
+      `;
+        })
+        .join("")}
+    </div>
+  `;
     })
     .join("")}
 
@@ -378,42 +735,25 @@ export function generateExamPaperHtml(
     config.withAnswers
       ? `
     <div class="answer-key-page">
-      <header class="paper-header">
-        <h1 class="paper-title">উত্তরমালা (Answer Key)</h1>
-        <div class="paper-subtitle">${config.title || "পরীক্ষাপত্র"}</div>
-      </header>
+      <div class="ans-sheet-header">
+        <h1 class="ans-sheet-title">উত্তর তালিকা</h1>
+        <div class="ans-sheet-divider"></div>
+      </div>
 
-      <table class="ans-table">
-        <thead>
-          <tr>
-            <th>প্রশ্ন নং</th>
-            ${setsData.map((s) => `<th>সেট ${s.name}</th>`).join("")}
-          </tr>
-        </thead>
-        <tbody>
-          ${questions
-            .map((_, idx) => {
-              const qNo = toBanglaNumber(idx + 1);
-              return `
-              <tr>
-                <td><strong>${qNo}</strong></td>
-                ${setsData
-                  .map((s) => {
-                    const qInSet = s.questions[idx];
-                    const optIdx =
-                      qInSet?.correct_option !== null && qInSet?.correct_option !== undefined
-                        ? qInSet.correct_option - 1
-                        : -1;
-                    const ansLabel = optIdx >= 0 ? BANGLA_OPTIONS[optIdx] ?? String(optIdx + 1) : qInSet?.answer || "—";
-                    return `<td>${ansLabel}</td>`;
-                  })
-                  .join("")}
-              </tr>
-            `;
-            })
-            .join("")}
-        </tbody>
-      </table>
+      ${
+        setsData.length > 1
+          ? setsData
+              .map(
+                (s) => `
+        <div class="ans-set-block">
+          <div class="ans-set-badge">সেট: ${s.name}</div>
+          ${renderAnswerGridTable(s.questions)}
+        </div>
+      `
+              )
+              .join("")
+          : renderAnswerGridTable(setsData[0]?.questions || questions)
+      }
     </div>
 
     ${
@@ -508,61 +848,83 @@ async function waitForAllImages(
   ]);
 }
 
-export function printExamPaper(
+export async function printExamPaper(
   htmlContent: string,
   onProgress?: (status: PdfProgressStatus) => void
-): void {
+): Promise<void> {
+  if (typeof window === "undefined") return;
+
   onProgress?.({
     step: "init",
     percent: 15,
-    message: "প্রিন্ট উইন্ডো প্রস্তুত করা হচ্ছে...",
+    message: "প্রিন্ট পেপার প্রস্তুত করা হচ্ছে...",
   });
 
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) {
-    alert("পপ-আপ ব্লক করা আছে। দয়া করে ব্রাউজারের পপ-আপ এলাউ করুন।");
-    return;
-  }
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.left = "-9999px";
+  iframe.style.top = "0";
+  iframe.style.width = "794px";
+  iframe.style.height = "1123px";
+  iframe.style.border = "none";
+  iframe.style.opacity = "0";
+  iframe.style.pointerEvents = "none";
+  iframe.style.zIndex = "-9999";
+  document.body.appendChild(iframe);
 
-  printWindow.document.open();
-  printWindow.document.write(htmlContent);
-  printWindow.document.close();
+  try {
+    const iWin = iframe.contentWindow;
+    const doc = iWin?.document || iframe.contentDocument;
+    if (!doc || !iWin) throw new Error("Iframe print document access error");
 
-  onProgress?.({
-    step: "fonts",
-    percent: 35,
-    message: "ফন্ট ও পেজ ফরম্যাট লোড হচ্ছে...",
-  });
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
 
-  const handlePrint = async () => {
-    try {
-      if (printWindow.document.fonts) {
-        await printWindow.document.fonts.ready;
+    onProgress?.({
+      step: "fonts",
+      percent: 35,
+      message: "ফন্ট ও পেজ ফরম্যাট লোড হচ্ছে...",
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    if (doc.fonts) {
+      try {
+        await Promise.allSettled([
+          doc.fonts.load("1em KaTeX_Main"),
+          doc.fonts.load("1em KaTeX_Math"),
+          doc.fonts.ready,
+        ]);
+      } catch {}
+    }
+
+    onProgress?.({
+      step: "images",
+      percent: 60,
+      message: "ছবি ও ব্যাখ্যা প্রস্তুত হচ্ছে...",
+    });
+
+    await waitForAllImages(doc, 7000, (loaded, total) => {
+      if (total > 0) {
+        const pct = 60 + Math.round((loaded / total) * 25);
+        onProgress?.({
+          step: "images",
+          percent: Math.min(85, pct),
+          message: `ছবি ও ব্যাখ্যা লোড হচ্ছে (${toBanglaNumber(loaded)}/${toBanglaNumber(total)})...`,
+          loadedImages: loaded,
+          totalImages: total,
+        });
       }
-      onProgress?.({
-        step: "images",
-        percent: 60,
-        message: "ছবি ও ব্যাখ্যা প্রস্তুত হচ্ছে...",
-      });
-      await waitForAllImages(printWindow.document, 7000, (loaded, total) => {
-        if (total > 0) {
-          const pct = 60 + Math.round((loaded / total) * 25);
-          onProgress?.({
-            step: "images",
-            percent: Math.min(85, pct),
-            message: `ছবি ও ব্যাখ্যা লোড হচ্ছে (${toBanglaNumber(loaded)}/${toBanglaNumber(total)})...`,
-            loadedImages: loaded,
-            totalImages: total,
-          });
-        }
-      });
-      onProgress?.({
-        step: "math",
-        percent: 90,
-        message: "গাণিতিক প্রতীক ও সূত্র সাজানো হচ্ছে...",
-      });
-      fixKatexSvgRadicals(printWindow.document);
-    } catch {}
+    });
+
+    onProgress?.({
+      step: "math",
+      percent: 90,
+      message: "গাণিতিক প্রতীক ও সূত্র সাজানো হচ্ছে...",
+    });
+
+    fixKatexSvgRadicals(doc);
 
     onProgress?.({
       step: "done",
@@ -570,18 +932,18 @@ export function printExamPaper(
       message: "প্রস্তুত! প্রিন্ট ডায়ালগ ওপেন হচ্ছে...",
     });
 
-    setTimeout(() => {
-      printWindow.focus();
-      printWindow.print();
-    }, 300);
-  };
+    // Brief layout settle before triggering print dialog
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
-  if (printWindow.document.readyState === "complete") {
-    void handlePrint();
-  } else {
-    printWindow.onload = () => {
-      void handlePrint();
-    };
+    iWin.focus();
+    iWin.print();
+  } finally {
+    // Keep iframe temporarily for print dialog, then safely remove
+    setTimeout(() => {
+      if (iframe.parentNode) {
+        iframe.parentNode.removeChild(iframe);
+      }
+    }, 60000);
   }
 }
 
@@ -853,8 +1215,8 @@ export async function downloadExamPaperPdf(
       },
       pagebreak: {
         mode: ["css", "legacy"],
-        before: [".page-set + .page-set", ".answer-key-page", ".explanations-page"],
-        avoid: [".q-item", ".exp-item", "tr"],
+        before: [".exam-page + .exam-page", ".page-set + .page-set", ".answer-key-page", ".explanations-page"],
+        avoid: [".q-item", ".exp-item", "tr", ".ans-grid-table"],
       },
     };
 
@@ -862,14 +1224,14 @@ export async function downloadExamPaperPdf(
     let currentPct = 85;
     const progressTicker = setInterval(() => {
       if (currentPct < 96) {
-        currentPct += 2;
+        currentPct += 1;
         onProgress?.({
           step: "pdf",
           percent: currentPct,
           message: "PDF পাতা তৈরি ও ফাইল চূড়ান্ত হচ্ছে...",
         });
       }
-    }, 350);
+    }, 150);
 
     try {
       await html2pdfInstance().set(opt).from(doc.body).save();

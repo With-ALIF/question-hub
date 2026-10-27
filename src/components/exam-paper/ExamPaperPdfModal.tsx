@@ -143,10 +143,12 @@ export function ExamPaperPdfModal({
   const [progressStatus, setProgressStatus] = useState<PdfProgressStatus | null>(null);
   const [generationMode, setGenerationMode] = useState<"download" | "print" | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [displayPercent, setDisplayPercent] = useState(10);
 
   useEffect(() => {
     if (!progressStatus) {
       setElapsedSeconds(0);
+      setDisplayPercent(10);
       return;
     }
     const startTime = Date.now();
@@ -155,6 +157,33 @@ export function ExamPaperPdfModal({
     }, 100);
     return () => clearInterval(interval);
   }, [Boolean(progressStatus)]);
+
+  // Continuous percentage updater so numbers never freeze during heavy operations
+  useEffect(() => {
+    if (!progressStatus) {
+      setDisplayPercent(10);
+      return;
+    }
+
+    if (progressStatus.percent === 100) {
+      setDisplayPercent(100);
+      return;
+    }
+
+    setDisplayPercent((prev) => Math.max(prev, progressStatus.percent));
+
+    const ticker = setInterval(() => {
+      setDisplayPercent((prev) => {
+        if (prev >= 98) return 98;
+        if (prev < (progressStatus?.percent || 0)) {
+          return prev + 1;
+        }
+        return prev + 1;
+      });
+    }, 130);
+
+    return () => clearInterval(ticker);
+  }, [progressStatus?.percent, Boolean(progressStatus)]);
 
   const handlePreview = () => {
     const html = generateExamPaperHtml(questions, getConfig());
@@ -184,7 +213,7 @@ export function ExamPaperPdfModal({
     } catch (error) {
       console.error("Direct PDF download failed, falling back to browser print:", error);
       const html = generateExamPaperHtml(questions, getConfig());
-      printExamPaper(html);
+      await printExamPaper(html);
     } finally {
       setIsDownloading(false);
       setProgressStatus(null);
@@ -203,7 +232,7 @@ export function ExamPaperPdfModal({
       });
 
       const html = generateExamPaperHtml(questions, getConfig());
-      printExamPaper(html, (status) => {
+      await printExamPaper(html, (status) => {
         setProgressStatus(status);
       });
 
@@ -714,65 +743,92 @@ export function ExamPaperPdfModal({
                   <Clock className="size-3" />
                   <span>{tr(`Time: ${num(elapsedSeconds.toFixed(1))}s`, `সময়: ${num(elapsedSeconds.toFixed(1))} সেকেন্ড`)}</span>
                 </span>
-                {elapsedSeconds > 0.6 && progressStatus.percent < 95 && (
-                  <span className="text-[11px] text-muted-foreground/80">
-                    • {tr(`Est. ~${num(Math.max(1, Math.ceil(3.2 - elapsedSeconds)))}s`, `আনুমানিক ~${num(Math.max(1, Math.ceil(3.2 - elapsedSeconds)))} সে.`)}
-                  </span>
-                )}
               </div>
             </div>
 
-            {/* Smooth Progress Bar with Percentage */}
+            {/* Smooth Progress Bar with Continuous Animation & Shimmer */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold">
                 <span className="text-muted-foreground truncate max-w-[270px]">
                   {progressStatus.message}
                 </span>
-                <span className="text-primary font-bold text-sm">
-                  {num(progressStatus.percent)}%
+                <span className="text-primary font-bold text-sm tracking-wide">
+                  {num(displayPercent)}%
                 </span>
               </div>
-              <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-muted/60 p-0.5">
+              <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted/60 p-0.5">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-primary via-indigo-500 to-emerald-500 transition-all duration-300 ease-out shadow-sm"
-                  style={{ width: `${progressStatus.percent}%` }}
-                />
+                  className="h-full rounded-full bg-gradient-to-r from-primary via-indigo-500 to-emerald-500 transition-all duration-200 ease-out shadow-sm relative overflow-hidden"
+                  style={{ width: `${displayPercent}%` }}
+                >
+                  {/* Moving animated stripes so loading is always visibly moving */}
+                  {displayPercent < 100 && (
+                    <div
+                      className="absolute inset-0 opacity-40"
+                      style={{
+                        backgroundImage:
+                          "linear-gradient(45deg, rgba(255,255,255,0.4) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.4) 75%, transparent 75%, transparent)",
+                        backgroundSize: "20px 20px",
+                        animation: "progress-move-stripes 0.8s linear infinite",
+                      }}
+                    />
+                  )}
+                </div>
               </div>
             </div>
 
             {/* 4 Visual Step Badges */}
             <div className="grid grid-cols-4 gap-1.5 pt-1">
               {[
-                { label: tr("Fonts", "ফন্ট"), minPct: 30 },
-                { label: tr("Images", "ছবি"), minPct: 50 },
-                { label: tr("Math", "KaTeX"), minPct: 75 },
-                { label: generationMode === "print" ? tr("Print", "প্রিন্ট") : tr("PDF", "PDF ফাইল"), minPct: 85 },
+                { key: "fonts", label: tr("Fonts", "ফন্ট") },
+                { key: "images", label: tr("Images", "ছবি") },
+                { key: "math", label: tr("Math", "KaTeX") },
+                {
+                  key: "pdf",
+                  label: generationMode === "print" ? tr("Print", "প্রিন্ট") : tr("PDF", "PDF ফাইল"),
+                },
               ].map((step, idx) => {
-                const isPassed = progressStatus.percent >= step.minPct + 15 || progressStatus.percent === 100;
-                const isActive = !isPassed && progressStatus.percent >= step.minPct;
+                const stepKeys = ["fonts", "images", "math", "pdf"];
+                const activeIdx =
+                  progressStatus.step === "done"
+                    ? 4
+                    : progressStatus.step === "init"
+                    ? 0
+                    : stepKeys.indexOf(progressStatus.step);
+
+                const isPassed = progressStatus.step === "done" || idx < activeIdx;
+                const isActive = progressStatus.step !== "done" && idx === activeIdx;
+
                 return (
                   <div
-                    key={idx}
-                    className={`flex flex-col items-center gap-1 rounded-xl p-2 text-center border transition-colors ${
+                    key={step.key}
+                    className={`flex flex-col items-center gap-1.5 rounded-xl p-2 text-center border transition-all duration-300 ${
                       isPassed
                         ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold"
                         : isActive
-                        ? "border-primary/40 bg-primary/10 text-primary font-bold ring-1 ring-primary/20"
-                        : "border-border/40 bg-muted/20 text-muted-foreground/60"
+                        ? "border-primary/50 bg-primary/10 text-primary font-bold ring-2 ring-primary/25 shadow-sm"
+                        : "border-border/40 bg-muted/20 text-muted-foreground/50"
                     }`}
                   >
                     {isPassed ? (
-                      <CheckCircle2 className="size-3.5" />
+                      <CheckCircle2 className="size-4 text-emerald-500 animate-in zoom-in-75 duration-200" />
                     ) : isActive ? (
-                      <Loader2 className="size-3.5 animate-spin" />
+                      <Loader2 className="size-4 animate-spin text-primary" />
                     ) : (
-                      <span className="size-1.5 rounded-full bg-muted-foreground/40 my-1" />
+                      <span className="size-2 rounded-full bg-muted-foreground/30 my-1" />
                     )}
                     <span className="text-[10px] truncate max-w-full">{step.label}</span>
                   </div>
                 );
               })}
             </div>
+
+            <style>{`
+              @keyframes progress-move-stripes {
+                0% { background-position: 0 0; }
+                100% { background-position: 20px 0; }
+              }
+            `}</style>
 
             {/* Fast Cached Notice */}
             <div className="rounded-xl border border-border/50 bg-muted/20 px-3.5 py-2 text-center">
