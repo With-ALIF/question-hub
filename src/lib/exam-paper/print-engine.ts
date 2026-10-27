@@ -969,9 +969,12 @@ export type RepaginateFn = (context: RepaginateContext) => string;
 
 // A4 height (297mm) minus the @page top (10mm) and bottom (12mm) margins, at 96dpi.
 const PRINT_PAGE_CONTENT_HEIGHT = 1039;
-// html2pdf fits a 794px wide render into A4 minus 8mm margins on every side,
-// so one PDF page holds roughly this much height in CSS pixels.
-const PDF_PAGE_CONTENT_HEIGHT = 1150;
+// The download path renders A4 minus 8mm margins on every side at 194mm (≈733px)
+// wide, so one PDF page holds about this much height in CSS pixels.
+const PDF_PAGE_CONTENT_HEIGHT = 1058;
+const PDF_PAGE_WIDTH_MM = 194;
+const PDF_PAGE_HEIGHT_MM = 281;
+const PDF_MARGIN_MM = 8;
 
 function measureOuterHeight(el: Element | null, fallback: number): number {
   if (!el) return fallback;
@@ -1178,15 +1181,37 @@ export async function printExamPaper(
   }
 }
 
-function loadScriptInWindow(targetWindow: Window, src: string): Promise<any> {
+type PdfJsDocument = {
+  addPage: () => void;
+  addImage: (
+    imageData: string,
+    format: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    alias?: string,
+    compression?: string
+  ) => void;
+  save: (filename: string) => void;
+};
+
+type Html2CanvasFn = (element: Element, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>;
+
+function loadScriptInWindow(targetWindow: Window, src: string, globalName: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    if ((targetWindow as any).html2pdf) {
-      resolve((targetWindow as any).html2pdf);
+    const globals = targetWindow as unknown as Record<string, unknown>;
+    if (globals[globalName]) {
+      resolve(globals[globalName]);
       return;
     }
     const script = targetWindow.document.createElement("script");
     script.src = src;
-    script.onload = () => resolve((targetWindow as any).html2pdf);
+    script.onload = () => {
+      const loaded = globals[globalName];
+      if (loaded) resolve(loaded);
+      else reject(new Error(`Global ${globalName} missing after loading ${src}`));
+    };
     script.onerror = () => reject(new Error(`Failed to load ${src}`));
     targetWindow.document.head.appendChild(script);
   });
@@ -1246,6 +1271,217 @@ function fixKatexSvgRadicals(targetDoc: Document): void {
   });
 }
 
+/** Outer height of a block, including vertical margins. */
+function measureBlockHeight(el: Element): number {
+  const win = el.ownerDocument.defaultView;
+  const style = win?.getComputedStyle(el);
+  const marginTop = style ? parseFloat(style.marginTop) || 0 : 0;
+  const marginBottom = style ? parseFloat(style.marginBottom) || 0 : 0;
+  const rect = el.getBoundingClientRect();
+  return Math.ceil(rect.height + marginTop + marginBottom);
+}
+
+/** A container that maps 1:1 onto a single PDF page. */
+function createPdfPageBlock(doc: Document, height: number, paddingTop = 0): HTMLElement {
+  const block = doc.createElement("div");
+  block.className = "pdf-page-block";
+  block.style.cssText = [
+    "box-sizing:border-box",
+    "width:100%",
+    `height:${height}px`,
+    paddingTop > 0 ? `padding-top:${paddingTop}px` : "",
+    "overflow:hidden",
+    "background:#ffffff",
+  ]
+    .filter(Boolean)
+    .join(";");
+  return block;
+}
+
+/**
+ * Move the children of a section into fixed-height page blocks.
+ * Every block becomes exactly one PDF page, so nothing is ever cut in half.
+ */
+function splitSectionIntoPages(
+  doc: Document,
+  section: HTMLElement | null,
+  pageHeight: number,
+  paddingTop = 0
+): void {
+  if (!section) return;
+  const children = Array.from(section.children) as HTMLElement[];
+  if (children.length === 0) return;
+
+  const maxContent = pageHeight - paddingTop - 2;
+  const blocks: HTMLElement[] = [];
+  let current = createPdfPageBlock(doc, pageHeight, paddingTop);
+  blocks.push(current);
+  let used = 0;
+
+  for (const child of children) {
+    const height = measureBlockHeight(child);
+    if (used > 0 && used + height > maxContent) {
+      current = createPdfPageBlock(doc, pageHeight, paddingTop);
+      blocks.push(current);
+      used = 0;
+    }
+    current.appendChild(child);
+    used += height;
+  }
+
+  section.replaceChildren(...blocks);
+}
+
+/** Split a column list into two balanced columns that both fit `cap`. */
+function findBalancedColumnSplit(heights: number[], cap: number): number {
+  const total = heights.reduce((sum, h) => sum + h, 0);
+  let best = -1;
+  let minDiff = Infinity;
+  let left = 0;
+
+  for (let split = 1; split < heights.length; split++) {
+    left += heights[split - 1] ?? 0;
+    const right = total - left;
+    if (left <= cap && right <= cap) {
+      const diff = Math.abs(left - right);
+      if (diff < minDiff) {
+        minDiff = diff;
+        best = split;
+      }
+    }
+  }
+
+  return best === -1 ? Math.ceil(heights.length / 2) : best;
+}
+
+/** Lay the explanation cards out into explicit two-column PDF pages. */
+function paginateExplanationCards(doc: Document, pageHeight: number): void {
+  const section = doc.querySelector<HTMLElement>(".explanations-page");
+  const list = section?.querySelector<HTMLElement>(".explanations");
+  if (!section || !list) return;
+
+  const cards = Array.from(list.querySelectorAll<HTMLElement>(".exp-item"));
+  if (cards.length === 0) return;
+
+  const header = section.querySelector<HTMLElement>(".paper-header");
+  const headerHeight = header ? measureBlockHeight(header) : 0;
+  const heights = cards.map((card) => measureBlockHeight(card));
+  const gap = 16;
+
+  const fitsInColumns = (from: number, count: number, cap: number): boolean => {
+    if (count <= 2) return true;
+    const slice = heights.slice(from, from + count);
+    const split = findBalancedColumnSplit(slice, cap);
+    const left = slice.slice(0, split).reduce((sum, h) => sum + h, 0);
+    const right = slice.slice(split).reduce((sum, h) => sum + h, 0);
+    return left <= cap && right <= cap;
+  };
+
+  // 1. Group the cards into pages, balancing both columns of every page.
+  const pageGroups: HTMLElement[][] = [];
+  let index = 0;
+
+  while (index < cards.length) {
+    const isFirstPage = pageGroups.length === 0;
+    const columnCap = isFirstPage
+      ? Math.max(240, pageHeight - headerHeight - 2)
+      : pageHeight - 2;
+
+    const group: HTMLElement[] = [];
+    while (index + group.length < cards.length) {
+      const nextCount = group.length + 1;
+      if (fitsInColumns(index, nextCount, columnCap)) {
+        group.push(cards[index + group.length]!);
+      } else {
+        break;
+      }
+    }
+
+    if (group.length === 0) group.push(cards[index]!);
+    index += group.length;
+    pageGroups.push(group);
+  }
+
+  // 2. Render each group as a two-column page block.
+  const pages = pageGroups.map((group, pageIndex) => {
+    const page = createPdfPageBlock(doc, pageHeight);
+    page.style.display = "flex";
+    page.style.flexDirection = "column";
+
+    let columnCap = pageHeight - 2;
+    if (pageIndex === 0 && header) {
+      page.appendChild(header);
+      columnCap = Math.max(240, pageHeight - headerHeight - 2);
+    }
+
+    const columns = doc.createElement("div");
+    columns.style.cssText = [
+      "display:flex",
+      `gap:${gap}px`,
+      "flex:1 1 auto",
+      "min-height:0",
+      "overflow:hidden",
+    ].join(";");
+
+    const left = doc.createElement("div");
+    left.style.cssText = "flex:1 1 0;min-width:0;display:flex;flex-direction:column;";
+    const divider = doc.createElement("div");
+    divider.style.cssText = "flex:0 0 1px;width:1px;background:#cbd5e1;";
+    const right = doc.createElement("div");
+    right.style.cssText = "flex:1 1 0;min-width:0;display:flex;flex-direction:column;";
+
+    const split = findBalancedColumnSplit(
+      group.map((card) => measureBlockHeight(card)),
+      columnCap
+    );
+
+    group.forEach((card, cardIndex) => {
+      if (cardIndex < split) left.appendChild(card);
+      else right.appendChild(card);
+    });
+
+    columns.append(left, divider, right);
+    page.appendChild(columns);
+    return page;
+  });
+
+  section.replaceChildren(...pages);
+}
+
+/**
+ * Turn the whole document into a list of blocks where one block === one PDF page.
+ */
+function collectPdfPageBlocks(doc: Document, pageHeight: number): HTMLElement[] {
+  splitSectionIntoPages(doc, doc.querySelector<HTMLElement>(".answer-key-page"), pageHeight, 10);
+  paginateExplanationCards(doc, pageHeight);
+
+  const blocks = Array.from(
+    doc.body.querySelectorAll<HTMLElement>(".exam-page, .pdf-page-block")
+  );
+
+  // The print stylesheet repeats a `position: fixed` watermark on every printed
+  // page. Each block is captured on its own, so clone it into every page block.
+  const watermark = doc.querySelector<HTMLElement>(".watermark-img, .watermark-text");
+  if (watermark) {
+    for (const block of blocks) {
+      const clone = watermark.cloneNode(true) as HTMLElement;
+      clone.style.position = "absolute";
+      clone.style.pointerEvents = "none";
+      block.style.position = "relative";
+      block.appendChild(clone);
+    }
+    watermark.remove();
+  }
+
+  return blocks;
+}
+
+/** Keep the iframe viewport from reserving a scrollbar, so measurements match the PDF. */
+function hideDocumentScrollbars(doc: Document): void {
+  doc.documentElement.style.overflow = "hidden";
+  if (doc.body) doc.body.style.overflow = "hidden";
+}
+
 export async function downloadExamPaperPdf(
   htmlContent: string,
   filename: string = "exam-paper",
@@ -1264,7 +1500,8 @@ export async function downloadExamPaperPdf(
   iframe.style.position = "fixed";
   iframe.style.left = "-9999px";
   iframe.style.top = "0";
-  iframe.style.width = "794px"; 
+  // Match the PDF content box exactly: A4 width (210mm) minus 2 x 8mm margins.
+  iframe.style.width = "194mm";
   iframe.style.height = "1123px";
   iframe.style.border = "none";
   iframe.style.opacity = "0";
@@ -1306,6 +1543,7 @@ export async function downloadExamPaperPdf(
     doc.open();
     doc.write(htmlContent);
     doc.close();
+    hideDocumentScrollbars(doc);
 
     onProgress?.({
       step: "fonts",
@@ -1313,24 +1551,29 @@ export async function downloadExamPaperPdf(
       message: "বাংলা ও গণিত ফন্ট লোড হচ্ছে...",
     });
 
-    // Load html2pdf directly inside the iframe window to avoid parent document stylesheets
-    let html2pdfInstance = (iWin as any).html2pdf;
-    if (!html2pdfInstance) {
+    // Load the PDF toolchain directly inside the iframe window
+    // (avoids parent document stylesheets interfering with the canvas render).
+    const loadPdfLib = async (cdn: string, fallback: string, globalName: string) => {
       try {
-        html2pdfInstance = await loadScriptInWindow(
-          iWin,
-          "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
-        );
+        return await loadScriptInWindow(iWin, cdn, globalName);
       } catch {
-        html2pdfInstance = await loadScriptInWindow(
-          iWin,
-          "https://unpkg.com/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"
-        );
+        return await loadScriptInWindow(iWin, fallback, globalName);
       }
-    }
+    };
 
-    if (!html2pdfInstance) {
-      throw new Error("Could not initialize html2pdf inside document sandbox");
+    const html2canvas = (await loadPdfLib(
+      "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+      "https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js",
+      "html2canvas"
+    )) as Html2CanvasFn;
+    const jsPdfNamespace = (await loadPdfLib(
+      "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+      "https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js",
+      "jspdf"
+    )) as { jsPDF?: new (options: Record<string, unknown>) => PdfJsDocument } | null;
+    const JsPDF = jsPdfNamespace?.jsPDF;
+    if (!html2canvas || !JsPDF) {
+      throw new Error("Could not initialize the PDF renderer inside document sandbox");
     }
 
     await new Promise((resolve) => setTimeout(resolve, 200));
@@ -1389,6 +1632,7 @@ export async function downloadExamPaperPdf(
         const applied = applyMeasuredPagination(doc, repaginate, PDF_PAGE_CONTENT_HEIGHT);
         if (applied) {
           await reloadDocumentAssets(doc, 5000, 60);
+          hideDocumentScrollbars(doc);
           fixKatexSvgRadicals(doc);
         }
       } catch (err) {
@@ -1443,57 +1687,73 @@ export async function downloadExamPaperPdf(
       });
     };
 
-    const opt = {
-      margin: 8,
-      filename: `${cleanName}.pdf`,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        windowWidth: 794,
-        backgroundColor: "#ffffff",
-        onclone: (clonedDoc: Document) => {
-          fixKatexSvgRadicals(clonedDoc);
-        },
-      },
-      jsPDF: {
-        unit: "mm",
-        format: "a4",
-        orientation: "portrait",
-      },
-      pagebreak: {
-        mode: ["css", "legacy"],
-        before: [".exam-page + .exam-page", ".page-set + .page-set", ".answer-key-page", ".explanations-page"],
-        avoid: [".q-item", ".exp-item", "tr", ".ans-grid-table"],
-      },
-    };
+    // One block === one PDF page, so nothing is ever sliced in half.
+    const blocks = collectPdfPageBlocks(doc, PDF_PAGE_CONTENT_HEIGHT);
+    if (blocks.length === 0) {
+      throw new Error("No page content to render");
+    }
 
-    // Dynamic ticker while html2pdf compiles and captures canvas
-    let currentPct = 85;
-    const progressTicker = setInterval(() => {
-      if (currentPct < 96) {
-        currentPct += 1;
-        onProgress?.({
-          step: "pdf",
-          percent: currentPct,
-          message: "PDF পাতা তৈরি ও ফাইল চূড়ান্ত হচ্ছে...",
-        });
-      }
-    }, 150);
+    const pdf = new JsPDF({
+      unit: "mm",
+      format: "a4",
+      orientation: "portrait",
+      compress: true,
+    });
+
+    const viewportWidth = Math.max(320, Math.ceil(iWin.innerWidth));
 
     try {
-      await html2pdfInstance().set(opt).from(doc.body).save();
-      clearInterval(progressTicker);
+      let rendered = 0;
+
+      for (const block of blocks) {
+        const canvas = await html2canvas(block, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: "#ffffff",
+          windowWidth: viewportWidth,
+          onclone: (clonedDoc: Document) => {
+            fixKatexSvgRadicals(clonedDoc);
+          },
+        });
+
+        if (rendered > 0) pdf.addPage();
+
+        // Width drives the scale so typography stays identical on every page.
+        // Taller-than-a-page blocks are shrunk proportionally instead of squashed.
+        let imageWidthMm = PDF_PAGE_WIDTH_MM;
+        let imageHeightMm = (canvas.height / canvas.width) * imageWidthMm;
+        if (imageHeightMm > PDF_PAGE_HEIGHT_MM) {
+          imageHeightMm = PDF_PAGE_HEIGHT_MM;
+          imageWidthMm = (canvas.width / canvas.height) * imageHeightMm;
+        }
+
+        pdf.addImage(
+          canvas.toDataURL("image/jpeg", 0.98),
+          "JPEG",
+          PDF_MARGIN_MM + (PDF_PAGE_WIDTH_MM - imageWidthMm) / 2,
+          PDF_MARGIN_MM,
+          imageWidthMm,
+          imageHeightMm,
+          undefined,
+          "FAST"
+        );
+
+        rendered += 1;
+        onProgress?.({
+          step: "pdf",
+          percent: Math.min(98, 85 + Math.round((rendered / blocks.length) * 13)),
+          message: `PDF পাতা তৈরি হচ্ছে (${toBanglaNumber(rendered)}/${toBanglaNumber(blocks.length)})...`,
+        });
+      }
+
+      pdf.save(`${cleanName}.pdf`);
+
       onProgress?.({
         step: "done",
         percent: 100,
         message: "PDF তৈরি সম্পন্ন! ফাইল ডাউনলোড শুরু হচ্ছে...",
       });
-    } catch (err) {
-      clearInterval(progressTicker);
-      throw err;
     } finally {
       window.console.warn = origWinWarn;
       if (origIWinWarn && iWinConsole) iWinConsole.warn = origIWinWarn;
