@@ -9,13 +9,15 @@ import {
   CheckSquare,
   Sliders,
   Sparkles,
-  AlignLeft,
   Eye,
   X,
   Download,
   Upload,
   Trash2,
   Loader2,
+  Printer,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -25,6 +27,7 @@ import {
   generateExamPaperHtml,
   printExamPaper,
   downloadExamPaperPdf,
+  type PdfProgressStatus,
 } from "@/lib/exam-paper/print-engine";
 import { getSavedQuestions, saveQuestion } from "@/lib/saved-questions";
 import type { QuestionListItem } from "@/components/questions/QuestionCard";
@@ -70,9 +73,6 @@ export function ExamPaperPdfModal({
   const [watermarkImgName, setWatermarkImgName] = useState(() =>
     tr("No image", "কোনো ছবি নেই"),
   );
-
-  const [footerLeft, setFooterLeft] = useState("QuestionBank");
-  const [footerRight, setFooterRight] = useState(() => tr("Exam paper", "পরীক্ষাপত্র"));
 
   const [savedCount, setSavedCount] = useState(0);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
@@ -137,11 +137,24 @@ export function ExamPaperPdfModal({
     watermarkText: watermarkText.trim() || undefined,
     watermarkOpacity,
     watermarkImageUrl: watermarkImg || undefined,
-    footerLeft: footerLeft.trim() || undefined,
-    footerRight: footerRight.trim() || undefined,
   });
 
   const [isDownloading, setIsDownloading] = useState(false);
+  const [progressStatus, setProgressStatus] = useState<PdfProgressStatus | null>(null);
+  const [generationMode, setGenerationMode] = useState<"download" | "print" | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!progressStatus) {
+      setElapsedSeconds(0);
+      return;
+    }
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      setElapsedSeconds((Date.now() - startTime) / 1000);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [Boolean(progressStatus)]);
 
   const handlePreview = () => {
     const html = generateExamPaperHtml(questions, getConfig());
@@ -152,15 +165,55 @@ export function ExamPaperPdfModal({
   const handleDownloadPdf = async () => {
     try {
       setIsDownloading(true);
+      setGenerationMode("download");
+      setProgressStatus({
+        step: "init",
+        percent: 10,
+        message: tr("Initializing document...", "ডকুমেন্ট কাঠামো প্রস্তুত হচ্ছে..."),
+      });
+
       const html = generateExamPaperHtml(questions, getConfig());
       const safeTitle = title.trim() || "exam-paper";
-      await downloadExamPaperPdf(html, safeTitle);
+
+      await downloadExamPaperPdf(html, safeTitle, (status) => {
+        setProgressStatus(status);
+      });
+
+      // Brief delay so user sees the 100% completion checkmark
+      await new Promise((res) => setTimeout(res, 600));
     } catch (error) {
       console.error("Direct PDF download failed, falling back to browser print:", error);
       const html = generateExamPaperHtml(questions, getConfig());
       printExamPaper(html);
     } finally {
       setIsDownloading(false);
+      setProgressStatus(null);
+      setGenerationMode(null);
+    }
+  };
+
+  const handleDirectPrint = async () => {
+    try {
+      setIsDownloading(true);
+      setGenerationMode("print");
+      setProgressStatus({
+        step: "init",
+        percent: 15,
+        message: tr("Preparing print view...", "প্রিন্ট ভিউ প্রস্তুত হচ্ছে..."),
+      });
+
+      const html = generateExamPaperHtml(questions, getConfig());
+      printExamPaper(html, (status) => {
+        setProgressStatus(status);
+      });
+
+      await new Promise((res) => setTimeout(res, 600));
+    } catch (error) {
+      console.error("Print failed:", error);
+    } finally {
+      setIsDownloading(false);
+      setProgressStatus(null);
+      setGenerationMode(null);
     }
   };
 
@@ -511,55 +564,15 @@ export function ExamPaperPdfModal({
               </div>
             </section>
 
-            <section className="rounded-xl border border-border/70 p-4 space-y-4 bg-muted/10">
-              <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-                <AlignLeft className="size-4 text-primary" />
-                <div>
-                  <h4 className="leading-none">{tr("Footer", "ফুটার")}</h4>
-                  <p className="text-[11px] font-normal text-muted-foreground mt-0.5">
-                    {tr(
-                      "Left and right side of each page footer",
-                      "প্রতিটি পাতার নিচে বাম ও ডান দিকে",
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="pdfFootL" className="text-xs font-semibold">
-                    {tr("Left text", "বাম দিকের লেখা")}
-                  </Label>
-                  <Input
-                    id="pdfFootL"
-                    value={footerLeft}
-                    onChange={(e) => setFooterLeft(e.target.value)}
-                    placeholder="QuestionBank"
-                    className="h-9 text-xs"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="pdfFootR" className="text-xs font-semibold">
-                    {tr("Right text", "ডান দিকের লেখা")}
-                  </Label>
-                  <Input
-                    id="pdfFootR"
-                    value={footerRight}
-                    onChange={(e) => setFooterRight(e.target.value)}
-                    placeholder={tr("Exam paper", "পরীক্ষাপত্র")}
-                    className="h-9 text-xs"
-                  />
-                </div>
-              </div>
-            </section>
           </div>
 
-          <div className="sticky bottom-0 z-10 flex items-center justify-end gap-2.5 border-t border-border bg-card/95 backdrop-blur-sm p-4">
+          <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-card/95 backdrop-blur-sm p-4">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={handlePreview}
+              disabled={isDownloading}
               className="h-9 gap-1.5 text-xs cursor-pointer font-medium"
             >
               <Eye className="size-3.5 text-primary" />
@@ -567,9 +580,21 @@ export function ExamPaperPdfModal({
             </Button>
             <Button
               type="button"
+              variant="outline"
+              size="sm"
+              disabled={isDownloading}
+              onClick={handleDirectPrint}
+              className="h-9 gap-1.5 text-xs cursor-pointer font-medium border-border hover:bg-muted"
+            >
+              <Printer className="size-3.5 text-primary" />
+              <span>{tr("Direct print", "সরাসরি প্রিন্ট")}</span>
+            </Button>
+            <Button
+              type="button"
               variant="ghost"
               size="sm"
               onClick={onClose}
+              disabled={isDownloading}
               className="h-9 text-xs cursor-pointer"
             >
               <span>{tr("Cancel", "বাতিল")}</span>
@@ -581,7 +606,7 @@ export function ExamPaperPdfModal({
               onClick={handleDownloadPdf}
               className="h-9 gap-1.5 text-xs bg-primary text-primary-foreground font-semibold hover:bg-primary/90 cursor-pointer shadow-sm disabled:opacity-60"
             >
-              {isDownloading ? (
+              {isDownloading && generationMode === "download" ? (
                 <>
                   <Loader2 className="size-3.5 animate-spin" />
                   <span>{tr("Creating PDF...", "PDF তৈরি হচ্ছে...")}</span>
@@ -610,13 +635,21 @@ export function ExamPaperPdfModal({
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
+                  variant="outline"
                   disabled={isDownloading}
-                  onClick={() => {
-                    handleDownloadPdf();
-                  }}
+                  onClick={handleDirectPrint}
+                  className="h-8 gap-1.5 text-xs font-medium cursor-pointer border-border hover:bg-muted disabled:opacity-60"
+                >
+                  <Printer className="size-3.5 text-primary" />
+                  <span>{tr("Print", "প্রিন্ট")}</span>
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={isDownloading}
+                  onClick={handleDownloadPdf}
                   className="h-8 gap-1.5 text-xs bg-primary text-primary-foreground font-medium cursor-pointer disabled:opacity-60"
                 >
-                  {isDownloading ? (
+                  {isDownloading && generationMode === "download" ? (
                     <>
                       <Loader2 className="size-3.5 animate-spin" />
                       <span>{tr("Downloading...", "ডাউনলোড হচ্ছে...")}</span>
@@ -644,6 +677,111 @@ export function ExamPaperPdfModal({
                 title={tr("Exam Paper Preview", "পরীক্ষাপত্র প্রিভিউ")}
                 className="w-full h-[76vh] border-0 rounded-lg bg-white shadow-inner"
               />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Interactive Progress & Live Countdown Modal */}
+      {progressStatus && (
+        <Dialog open={true}>
+          <DialogContent
+            className="max-w-md w-[92vw] p-6 rounded-3xl border-border bg-card/95 backdrop-blur-xl shadow-2xl space-y-5 [&>button]:hidden"
+          >
+            {/* Header Icon with glowing effect */}
+            <div className="relative mx-auto flex size-16 items-center justify-center">
+              <div className="absolute inset-0 rounded-2xl bg-primary/20 blur-xl animate-pulse" />
+              <div className="relative flex size-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary/10 via-primary/20 to-primary/5 border border-primary/30 shadow-lg text-primary">
+                {progressStatus.percent === 100 ? (
+                  <CheckCircle2 className="size-8 text-emerald-500 animate-in zoom-in-75 duration-300" />
+                ) : generationMode === "print" ? (
+                  <Printer className="size-8 text-primary animate-pulse" />
+                ) : (
+                  <FileText className="size-8 text-primary animate-pulse" />
+                )}
+              </div>
+            </div>
+
+            {/* Title & Real-time Live Timer / Countdown */}
+            <div className="text-center space-y-1.5">
+              <h4 className="text-lg font-bold text-foreground">
+                {progressStatus.percent === 100
+                  ? (generationMode === "print" ? tr("Ready to print!", "প্রিন্ট প্রস্তুত!") : tr("PDF download ready!", "PDF তৈরি সম্পন্ন!"))
+                  : (generationMode === "print" ? tr("Preparing print...", "প্রিন্ট প্রস্তুত করা হচ্ছে...") : tr("Generating PDF...", "PDF প্রস্তুত করা হচ্ছে..."))}
+              </h4>
+              <div className="flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground">
+                <span className="inline-flex items-center gap-1 text-primary bg-primary/10 px-2.5 py-0.5 rounded-full font-semibold">
+                  <Clock className="size-3" />
+                  <span>{tr(`Time: ${num(elapsedSeconds.toFixed(1))}s`, `সময়: ${num(elapsedSeconds.toFixed(1))} সেকেন্ড`)}</span>
+                </span>
+                {elapsedSeconds > 0.6 && progressStatus.percent < 95 && (
+                  <span className="text-[11px] text-muted-foreground/80">
+                    • {tr(`Est. ~${num(Math.max(1, Math.ceil(3.2 - elapsedSeconds)))}s`, `আনুমানিক ~${num(Math.max(1, Math.ceil(3.2 - elapsedSeconds)))} সে.`)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Smooth Progress Bar with Percentage */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold">
+                <span className="text-muted-foreground truncate max-w-[270px]">
+                  {progressStatus.message}
+                </span>
+                <span className="text-primary font-bold text-sm">
+                  {num(progressStatus.percent)}%
+                </span>
+              </div>
+              <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-muted/60 p-0.5">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-primary via-indigo-500 to-emerald-500 transition-all duration-300 ease-out shadow-sm"
+                  style={{ width: `${progressStatus.percent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* 4 Visual Step Badges */}
+            <div className="grid grid-cols-4 gap-1.5 pt-1">
+              {[
+                { label: tr("Fonts", "ফন্ট"), minPct: 30 },
+                { label: tr("Images", "ছবি"), minPct: 50 },
+                { label: tr("Math", "KaTeX"), minPct: 75 },
+                { label: generationMode === "print" ? tr("Print", "প্রিন্ট") : tr("PDF", "PDF ফাইল"), minPct: 85 },
+              ].map((step, idx) => {
+                const isPassed = progressStatus.percent >= step.minPct + 15 || progressStatus.percent === 100;
+                const isActive = !isPassed && progressStatus.percent >= step.minPct;
+                return (
+                  <div
+                    key={idx}
+                    className={`flex flex-col items-center gap-1 rounded-xl p-2 text-center border transition-colors ${
+                      isPassed
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold"
+                        : isActive
+                        ? "border-primary/40 bg-primary/10 text-primary font-bold ring-1 ring-primary/20"
+                        : "border-border/40 bg-muted/20 text-muted-foreground/60"
+                    }`}
+                  >
+                    {isPassed ? (
+                      <CheckCircle2 className="size-3.5" />
+                    ) : isActive ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <span className="size-1.5 rounded-full bg-muted-foreground/40 my-1" />
+                    )}
+                    <span className="text-[10px] truncate max-w-full">{step.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Fast Cached Notice */}
+            <div className="rounded-xl border border-border/50 bg-muted/20 px-3.5 py-2 text-center">
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                {tr(
+                  "Cached images and formulas load directly without extra wait time.",
+                  "ছবি ও ফন্ট ব্রাউজারে ক্যাশ থাকলে সময় না লেগে সরাসরি প্রিন্ট/ডাউনলোড হবে।"
+                )}
+              </p>
             </div>
           </DialogContent>
         </Dialog>

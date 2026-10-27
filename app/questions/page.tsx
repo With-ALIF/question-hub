@@ -5,7 +5,6 @@ import { ChevronLeft, ChevronRight, Lock, LogIn, X } from "lucide-react";
 import { QuestionCard } from "@/components/questions/QuestionCard";
 import { Footer } from "@/components/site/Footer";
 import { Navbar } from "@/components/site/Navbar";
-import { ExamPaperFloatingBar } from "@/components/exam-paper/ExamPaperFloatingBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,6 +37,8 @@ type QuestionsSearchParams = Promise<{
   paper?: string | string[];
   chapter?: string | string[];
   topic?: string | string[];
+  no_explanation?: string | string[];
+  has_explanation?: string | string[];
 }>;
 
 export const dynamic = "force-dynamic";
@@ -97,7 +98,9 @@ export default async function QuestionsPage({
   const user = await getCurrentUser();
   const { tr, num, subjectName, filterLabel, typeLabel } = await getI18n();
   const params = await searchParams;
-  const requestedSubject = firstValue(params.subject)?.trim() ?? "";
+  const requestedSubject = Array.isArray(params.subject)
+    ? params.subject.join(",")
+    : (params.subject?.trim() ?? "");
   const requestedType = firstValue(params.type)?.trim() ?? "";
   const requestedPage = Number(firstValue(params.page) ?? "1");
   const page =
@@ -125,13 +128,15 @@ export default async function QuestionsPage({
 
   const summaryFilters = QUESTION_FILTER_KEYS.filter((key) => activeFilters[key]).map(
     (key) =>
-      `${filterLabel(key)}: ${
-        key === "chapter"
-          ? formatChapterLabel(activeFilters[key])
-          : key === "paper"
-            ? formatPaperLabel(activeFilters[key])
-            : activeFilters[key]
-      }`,
+      key === "no_explanation" || key === "has_explanation"
+        ? filterLabel(key)
+        : `${filterLabel(key)}: ${
+            key === "chapter"
+              ? formatChapterLabel(activeFilters[key])
+              : key === "paper"
+                ? formatPaperLabel(activeFilters[key])
+                : activeFilters[key]
+          }`,
   );
 
   return (
@@ -221,7 +226,11 @@ export default async function QuestionsPage({
                       <span className="text-muted-foreground">{filterLabel(key)}:</span>
                       <span className="font-medium">
                         {key === "chapter"
-                          ? formatChapterLabel(activeFilters[key])
+                          ? (activeFilters[key] ?? "")
+                              .split(",")
+                              .filter(Boolean)
+                              .map((c) => formatChapterLabel(c))
+                              .join(", ")
                           : key === "paper"
                             ? formatPaperLabel(activeFilters[key])
                             : activeFilters[key]}
@@ -383,7 +392,6 @@ export default async function QuestionsPage({
           )}
         </section>
       </main>
-      <ExamPaperFloatingBar />
       <Footer initialUser={user} />
     </div>
   );

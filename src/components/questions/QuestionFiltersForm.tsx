@@ -1,16 +1,18 @@
 "use client";
 
-import { useTransition } from "react";
+import { useMemo, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
+  INDEX_FILTER_KEYS,
   QUESTION_FILTER_KEYS,
   QUESTION_TYPES,
   type QuestionFilterKey,
   type QuestionFilterFacet,
+  type QuestionFilterOption,
   type QuestionFilterOptions,
   type QuestionFilters,
   type QuestionSubject,
@@ -19,6 +21,8 @@ import {
 import { formatChapterLabel } from "@/data/chapters";
 import { formatPaperLabel } from "@/data/papers";
 import { useI18n } from "@/lib/i18n/client";
+import { ChapterMultiSelect } from "./ChapterMultiSelect";
+import { FilterMultiSelect } from "./FilterMultiSelect";
 
 export function QuestionFiltersForm({
   subjects,
@@ -27,6 +31,7 @@ export function QuestionFiltersForm({
   facetFilters,
   activeFilters,
   filtering,
+  actionPath = "/questions",
 }: {
   subjects: QuestionSubject[];
   selectedSubject: string;
@@ -34,26 +39,45 @@ export function QuestionFiltersForm({
   facetFilters: QuestionFilterOptions | null;
   activeFilters: QuestionFilters;
   filtering: boolean;
+  actionPath?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const { tr, num, filterLabel, typeLabel, subjectName } = useI18n();
 
+  const selectedSubjectList = useMemo(() => {
+    return selectedSubject.split(",").map((s) => s.trim()).filter(Boolean);
+  }, [selectedSubject]);
+
+  const subjectOptions = useMemo<QuestionFilterOption[]>(() => {
+    return subjects.map((item) => ({
+      value: item.slug,
+      label: subjectName(item.slug, item.name),
+      count: type === "mcq" ? item.mcq : type === "written" ? item.written : item.total,
+    }));
+  }, [subjects, type, subjectName]);
+
+  const totalSubjectsCount = useMemo(() => {
+    return subjectOptions.reduce((acc: number, cur: QuestionFilterOption) => acc + cur.count, 0);
+  }, [subjectOptions]);
+
   const currentSubjectObj = subjects.find((s) => s.slug === selectedSubject);
 
   const handleSubjectChange = (newSubject: string) => {
-    const params = new URLSearchParams();
-    params.set("subject", newSubject);
-    if (type && type !== "all") {
-      params.set("type", type);
+    const params = new URLSearchParams(searchParams.toString());
+    if (newSubject) {
+      params.set("subject", newSubject);
+    } else {
+      params.delete("subject");
     }
-    if (activeFilters.db) params.set("db", activeFilters.db);
-    if (activeFilters.un) params.set("un", activeFilters.un);
-    if (activeFilters.year) params.set("year", activeFilters.year);
+    params.delete("chapter");
+    params.delete("paper");
+    params.delete("topic");
+    params.delete("page");
 
     startTransition(() => {
-      router.push(`/questions?${params.toString()}`);
+      router.push(`${actionPath}?${params.toString()}`);
     });
   };
 
@@ -63,7 +87,7 @@ export function QuestionFiltersForm({
     params.delete("page");
 
     startTransition(() => {
-      router.push(`/questions?${params.toString()}`);
+      router.push(`${actionPath}?${params.toString()}`);
     });
   };
 
@@ -72,12 +96,18 @@ export function QuestionFiltersForm({
 
     if (value) {
       params.set(key, value);
+      if (key === "no_explanation") params.delete("has_explanation");
+      if (key === "has_explanation") params.delete("no_explanation");
     } else {
       params.delete(key);
     }
 
     if (key === "paper" && activeFilters.chapter && value) {
-      if (!activeFilters.chapter.startsWith(value)) {
+      const selectedChaps = activeFilters.chapter.split(",").filter(Boolean);
+      const remainingChaps = selectedChaps.filter((ch) => ch.startsWith(value));
+      if (remainingChaps.length > 0) {
+        params.set("chapter", remainingChaps.join(","));
+      } else {
         params.delete("chapter");
       }
     }
@@ -85,7 +115,7 @@ export function QuestionFiltersForm({
     params.delete("page");
 
     startTransition(() => {
-      router.push(`/questions?${params.toString()}`);
+      router.push(`${actionPath}?${params.toString()}`);
     });
   };
 
@@ -103,20 +133,32 @@ export function QuestionFiltersForm({
     }
 
     for (const key of QUESTION_FILTER_KEYS) {
-      const val = String(formData.get(key) ?? "").trim();
-      if (val) {
-        params.set(key, val);
+      if (key === "no_explanation" || key === "has_explanation") {
+        const val = formData.get(key);
+        if (val === "true" || val === "on" || val === "1") {
+          params.set(key, "true");
+        }
+      } else {
+        const val = String(formData.get(key) ?? "").trim();
+        if (val) {
+          params.set(key, val);
+        }
       }
     }
 
+    // Mutual exclusivity
+    if (params.get("no_explanation") === "true" && params.get("has_explanation") === "true") {
+      params.delete("has_explanation");
+    }
+
     startTransition(() => {
-      router.push(`/questions?${params.toString()}`);
+      router.push(`${actionPath}?${params.toString()}`);
     });
   };
 
   return (
     <form
-      action="/questions"
+      action={actionPath}
       method="get"
       onSubmit={handleSubmit}
       className={`mt-7 rounded-xl border border-border bg-card p-4 shadow-sm transition-opacity ${
@@ -124,28 +166,23 @@ export function QuestionFiltersForm({
       }`}
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="space-y-1.5">
+        <div className="space-y-1.5">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {tr("Subject", "বিষয়")}
           </span>
-          <select
+          <FilterMultiSelect
             name="subject"
-            value={selectedSubject}
-            onChange={(e) => handleSubjectChange(e.target.value)}
+            title={tr("Select Subjects", "বিষয় নির্বাচন করুন")}
+            searchPlaceholder={tr("Search subject...", "বিষয় খুঁজুন...")}
+            allLabel={tr("All subjects", "সকল বিষয়")}
+            unitLabel={tr("subjects selected", "টি বিষয়")}
+            options={subjectOptions}
+            selectedValues={selectedSubjectList}
+            totalCount={totalSubjectsCount}
             disabled={isPending}
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed"
-          >
-            {subjects.length === 0 ? (
-              <option value="physics">{tr("Physics", "পদার্থবিজ্ঞান")}</option>
-            ) : (
-              subjects.map((item) => (
-                <option key={item.slug} value={item.slug}>
-                  {subjectName(item.slug, item.name)} ({num(item.total)})
-                </option>
-              ))
-            )}
-          </select>
-        </label>
+            onChange={(values) => handleSubjectChange(values.join(","))}
+          />
+        </div>
 
         <label className="space-y-1.5">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -177,9 +214,53 @@ export function QuestionFiltersForm({
         </label>
 
         {facetFilters &&
-          QUESTION_FILTER_KEYS.map((key) => {
-            const facet: QuestionFilterFacet = facetFilters[key];
+          INDEX_FILTER_KEYS.map((key) => {
+            const facet: QuestionFilterFacet | undefined = facetFilters[key];
             const selected = activeFilters[key] ?? "";
+
+            if (!facet) return null;
+
+            if (key === "chapter") {
+              const selectedChapters = selected.split(",").map((s) => s.trim()).filter(Boolean);
+              return (
+                <div key={key} className="space-y-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {filterLabel(key)}
+                  </span>
+                  <ChapterMultiSelect
+                    options={facet.options}
+                    selectedValues={selectedChapters}
+                    totalCount={facet.all}
+                    disabled={isPending}
+                    onChange={(values) => handleFilterChange("chapter", values.join(","))}
+                  />
+                </div>
+              );
+            }
+
+            if (key === "un") {
+              const selectedUns = selected.split(",").map((s) => s.trim()).filter(Boolean);
+              return (
+                <div key={key} className="space-y-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {filterLabel(key)}
+                  </span>
+                  <FilterMultiSelect
+                    name="un"
+                    title={tr("Select University / Institution", "বিশ্ববিদ্যালয় / প্রতিষ্ঠান")}
+                    searchPlaceholder={tr("Search institution...", "প্রতিষ্ঠান খুঁজুন...")}
+                    allLabel={tr("All institutions", "সকল প্রতিষ্ঠান")}
+                    unitLabel={tr("institutions selected", "টি প্রতিষ্ঠান")}
+                    options={facet.options}
+                    selectedValues={selectedUns}
+                    totalCount={facet.all}
+                    disabled={isPending}
+                    onChange={(values) => handleFilterChange("un", values.join(","))}
+                  />
+                </div>
+              );
+            }
+
             const hasSelection = !selected || facet.options.some((opt) => opt.value === selected);
 
             return (
@@ -194,9 +275,7 @@ export function QuestionFiltersForm({
                   disabled={isPending}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed"
                 >
-                  <option value="">
-                    {tr(`All (${num(facet.all)})`, `সব (${num(facet.all)})`)}
-                  </option>
+                  <option value="">{tr(`All (${num(facet.all)})`, `সব (${num(facet.all)})`)}</option>
                   {facet.options.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label} ({num(option.count)})
@@ -204,11 +283,7 @@ export function QuestionFiltersForm({
                   ))}
                   {!hasSelection && (
                     <option value={selected}>
-                      {key === "chapter"
-                        ? formatChapterLabel(selected)
-                        : key === "paper"
-                          ? formatPaperLabel(selected)
-                          : selected}{" "}
+                      {key === "paper" ? formatPaperLabel(selected) : selected}{" "}
                       ({num(0)})
                     </option>
                   )}
@@ -216,6 +291,48 @@ export function QuestionFiltersForm({
               </label>
             );
           })}
+
+        {/* no_explanation filter — always visible */}
+        <div className="space-y-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {filterLabel("no_explanation")}
+          </span>
+          <label className="flex h-9 cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              name="no_explanation"
+              value="true"
+              checked={activeFilters.no_explanation === "true"}
+              onChange={(e) =>
+                handleFilterChange("no_explanation", e.target.checked ? "true" : "")
+              }
+              disabled={isPending}
+              className="size-4 rounded border-input text-primary focus:ring-1 focus:ring-ring"
+            />
+            <span className="text-sm">{tr("No Explanation", "ব্যাখ্যা নেই")}</span>
+          </label>
+        </div>
+
+        {/* has_explanation filter — always visible */}
+        <div className="space-y-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {filterLabel("has_explanation")}
+          </span>
+          <label className="flex h-9 cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              name="has_explanation"
+              value="true"
+              checked={activeFilters.has_explanation === "true"}
+              onChange={(e) =>
+                handleFilterChange("has_explanation", e.target.checked ? "true" : "")
+              }
+              disabled={isPending}
+              className="size-4 rounded border-input text-primary focus:ring-1 focus:ring-ring"
+            />
+            <span className="text-sm">{tr("Has Explanation", "ব্যাখ্যা আছে")}</span>
+          </label>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -233,7 +350,7 @@ export function QuestionFiltersForm({
 
         {filtering && (
           <Button variant="ghost" size="sm" asChild>
-            <Link href={`/questions?subject=${selectedSubject}${type !== "all" ? `&type=${type}` : ""}`}>
+            <Link href={`${actionPath}?subject=${selectedSubject}${type !== "all" ? `&type=${type}` : ""}`}>
               <X className="mr-1 size-3.5" aria-hidden="true" />
               {tr("Clear filters", "ফিল্টার মুছুন")}
             </Link>

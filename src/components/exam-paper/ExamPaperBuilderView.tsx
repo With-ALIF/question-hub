@@ -13,6 +13,7 @@ import {
   Download,
   BookOpen,
   CheckCircle2,
+  ArrowUp,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,8 +38,7 @@ import {
   EXAM_PAPER_EVENT,
 } from "@/lib/exam-paper/store";
 import { getSavedQuestions } from "@/lib/saved-questions";
-import { formatChapterLabel } from "@/data/chapters";
-import { formatPaperLabel } from "@/data/papers";
+import { QuestionFiltersForm } from "@/components/questions/QuestionFiltersForm";
 import type { QuestionSubject, QuestionType, StorageQuestion } from "@/lib/questions/storage";
 import type { QuestionFilterOptions, QuestionFilters } from "@/lib/questions/filters";
 import { useI18n } from "@/lib/i18n/client";
@@ -81,6 +81,33 @@ export function ExamPaperBuilderView({
   const [savedQuestionsCount, setSavedQuestionsCount] = useState(0);
   const [isClearAllDialogOpen, setIsClearAllDialogOpen] = useState(false);
   const [questionToRemove, setQuestionToRemove] = useState<QuestionListItem | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
+  const isFiltering = Boolean(
+    activeFilters.db ||
+    activeFilters.un ||
+    activeFilters.year ||
+    activeFilters.paper ||
+    activeFilters.chapter ||
+    activeFilters.topic ||
+    currentType !== "all"
+  );
 
   const syncStore = () => {
     const list = getExamQuestions();
@@ -270,130 +297,15 @@ export function ExamPaperBuilderView({
 
       {activeTab === "browse" && (
         <div className="space-y-5">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            <span className="text-xs font-bold text-muted-foreground">{tr("Type:", "ধরন:")}</span>
-            <Button
-              size="sm"
-              variant={currentType === "all" ? "default" : "outline"}
-              onClick={() => handleFilterChange("type", "all")}
-              className="h-7 text-xs rounded-full px-3 font-semibold cursor-pointer"
-            >
-              {tr("All questions", "সকল প্রশ্ন")}
-            </Button>
-            <Button
-              size="sm"
-              variant={currentType === "mcq" ? "default" : "outline"}
-              onClick={() => handleFilterChange("type", "mcq")}
-              className="h-7 text-xs rounded-full px-3 font-semibold cursor-pointer"
-            >
-              {tr("MCQ (Multiple choice)", "MCQ (বহুনির্বাচনী)")}
-            </Button>
-            <Button
-              size="sm"
-              variant={currentType === "written" ? "default" : "outline"}
-              onClick={() => handleFilterChange("type", "written")}
-              className="h-7 text-xs rounded-full px-3 font-semibold cursor-pointer"
-            >
-              {tr("Written", "Written (লিখিত)")}
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 rounded-xl border border-border/80 bg-muted/20 p-3.5">
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold text-muted-foreground uppercase">
-                {tr("Subject", "বিষয়")}
-              </label>
-              <select
-                value={currentSubject?.slug ?? "all"}
-                onChange={(e) => handleFilterChange("subject", e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-card px-2.5 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="all">{tr("All subjects", "সকল বিষয়")}</option>
-                {subjects.map((sub) => (
-                  <option key={sub.slug} value={sub.slug}>
-                    {subjectName(sub.slug, sub.name)} ({num(sub.total)})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold text-muted-foreground uppercase">
-                {tr("Question type", "প্রশ্নের ধরন")}
-              </label>
-              <select
-                value={currentType ?? "all"}
-                onChange={(e) => handleFilterChange("type", e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-card px-2.5 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-medium"
-              >
-                <option value="all">{tr("All questions (MCQ + written)", "সকল প্রশ্ন (MCQ + লিখিত)")}</option>
-                <option value="mcq">{tr("MCQ only", "শুধুমাত্র MCQ")}</option>
-                <option value="written">{tr("Written only", "শুধুমাত্র Written (লিখিত)")}</option>
-              </select>
-            </div>
-
-            {filters?.paper ? (
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-muted-foreground uppercase">
-                  {tr("Paper", "পত্র")}
-                </label>
-                <select
-                  value={activeFilters.paper ?? ""}
-                  onChange={(e) => handleFilterChange("paper", e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-card px-2.5 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  <option value="">
-                    {tr(`All papers (${num(filters.paper.all)})`, `সকল পত্র (${num(filters.paper.all)})`)}
-                  </option>
-                  {filters.paper.options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {formatPaperLabel(opt.value)} ({num(opt.count)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="space-y-1 opacity-50">
-                <label className="text-[11px] font-bold text-muted-foreground uppercase">
-                  {tr("Paper", "পত্র")}
-                </label>
-                <select disabled className="flex h-9 w-full rounded-md border border-input bg-card px-2.5 py-1 text-xs shadow-xs">
-                  <option>{tr("All papers", "সকল পত্র")}</option>
-                </select>
-              </div>
-            )}
-
-            {filters?.chapter ? (
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-muted-foreground uppercase">
-                  {tr("Chapter", "অধ্যায়")}
-                </label>
-                <select
-                  value={activeFilters.chapter ?? ""}
-                  onChange={(e) => handleFilterChange("chapter", e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-card px-2.5 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  <option value="">
-                    {tr(`All chapters (${num(filters.chapter.all)})`, `সকল অধ্যায় (${num(filters.chapter.all)})`)}
-                  </option>
-                  {filters.chapter.options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {formatChapterLabel(opt.value)} ({num(opt.count)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="space-y-1 opacity-50">
-                <label className="text-[11px] font-bold text-muted-foreground uppercase">
-                  {tr("Chapter", "অধ্যায়")}
-                </label>
-                <select disabled className="flex h-9 w-full rounded-md border border-input bg-card px-2.5 py-1 text-xs shadow-xs">
-                  <option>{tr("All chapters", "সকল অধ্যায়")}</option>
-                </select>
-              </div>
-            )}
-          </div>
+          <QuestionFiltersForm
+            subjects={subjects}
+            selectedSubject={currentSubject?.slug ?? "physics"}
+            type={currentType}
+            facetFilters={filters}
+            activeFilters={activeFilters}
+            filtering={isFiltering}
+            actionPath="/exam-paper"
+          />
 
           {questions.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 rounded-2xl border border-dashed border-border bg-card text-center">
@@ -639,6 +551,18 @@ export function ExamPaperBuilderView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={scrollToTop}
+          aria-label={tr("Scroll to top", "উপরে যান")}
+          title={tr("Scroll to top", "উপরে যান")}
+          className="fixed bottom-6 right-6 z-40 flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 backdrop-blur-md transition-all duration-300 hover:scale-110 hover:bg-primary/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer animate-in fade-in zoom-in-75 slide-in-from-bottom-4 group"
+        >
+          <ArrowUp className="size-5 transition-transform duration-300 group-hover:-translate-y-0.5" />
+        </button>
+      )}
     </div>
   );
 }

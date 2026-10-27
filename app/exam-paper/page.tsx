@@ -31,6 +31,9 @@ type SearchParams = Promise<{
   subject?: string | string[];
   type?: string | string[];
   page?: string | string[];
+  db?: string | string[];
+  un?: string | string[];
+  year?: string | string[];
   paper?: string | string[];
   chapter?: string | string[];
   topic?: string | string[];
@@ -47,7 +50,9 @@ export default async function ExamPaperPage({
 }) {
   const user = await getCurrentUser();
   const params = await searchParams;
-  const requestedSubject = firstValue(params.subject)?.trim() ?? "";
+  const requestedSubject = Array.isArray(params.subject)
+    ? params.subject.join(",")
+    : (params.subject?.trim() ?? "");
   const requestedType = firstValue(params.type)?.trim() ?? "";
   const requestedPage = Number(firstValue(params.page) ?? "1");
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? Math.floor(requestedPage) : 1;

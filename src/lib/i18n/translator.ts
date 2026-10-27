@@ -51,6 +51,8 @@ const FILTER_LABELS: Record<string, { en: string; bn: string }> = {
   paper: { en: "Paper", bn: "পত্র" },
   chapter: { en: "Chapter", bn: "অধ্যায়" },
   topic: { en: "Topic", bn: "টপিক" },
+  no_explanation: { en: "No Explanation", bn: "ব্যাখ্যা নেই" },
+  has_explanation: { en: "Has Explanation", bn: "ব্যাখ্যা আছে" },
 };
 
 const TYPE_LABELS: Record<string, { en: string; bn: string }> = {

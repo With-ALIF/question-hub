@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getI18n } from "@/lib/i18n/server";
 import { sendReportNotificationEmail } from "./email";
+import { sendReportNotificationTelegram } from "./telegram";
 import type { ReportType } from "./types";
 
 export type SubmitReportInput = {
@@ -79,6 +80,13 @@ export async function submitQuestionReport(
     if (error) return { success: false, error: error.message };
 
     void sendReportNotificationEmail({
+      questionId,
+      reportType,
+      message,
+      userEmail: user?.email,
+    });
+
+    void sendReportNotificationTelegram({
       questionId,
       reportType,
       message,

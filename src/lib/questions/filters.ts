@@ -5,7 +5,9 @@ import { formatPaperLabel } from "@/data/papers";
 
 export * from "./constants";
 import {
+  INDEX_FILTER_KEYS,
   QUESTION_FILTER_KEYS,
+  type IndexFilterKey,
   type QuestionFilterKey,
   type QuestionFilters,
   type QuestionFiltersInput,
@@ -20,11 +22,11 @@ export type QuestionFilterIndex = {
   total: number;
   mcq: number;
   written: number;
-  dict: Record<QuestionFilterKey, string[]>;
+  dict: Record<IndexFilterKey, string[]>;
   rows: number[][];
 };
 
-const COLUMN: Record<QuestionFilterKey, number> = {
+const COLUMN: Record<IndexFilterKey, number> = {
   db: 0,
   un: 1,
   year: 2,
@@ -59,7 +61,7 @@ function isQuestionFilterIndex(value: unknown): value is QuestionFilterIndex {
   if (typeof index.written !== "number" || !Array.isArray(index.rows)) return false;
   if (!index.dict || typeof index.dict !== "object") return false;
 
-  return QUESTION_FILTER_KEYS.every((key) => isStringArray(index.dict?.[key]));
+  return INDEX_FILTER_KEYS.every((key) => isStringArray(index.dict?.[key]));
 }
 
 export function getQuestionFilterIndex(subject: string): Promise<QuestionFilterIndex | null> {
@@ -93,9 +95,9 @@ export function filterIndexMatches(
     index.version === 1 &&
     index.subject === subject.slug &&
     index.shardSize === shardSize &&
-    index.total === subject.total &&
-    index.mcq === subject.mcq &&
-    index.written === subject.written &&
+    Math.abs(index.total - subject.total) <= 10 &&
+    Math.abs(index.mcq - subject.mcq) <= 10 &&
+    Math.abs(index.written - subject.written) <= 10 &&
     Number.isInteger(index.shardSize) &&
     index.shardSize > 0
   );
@@ -106,10 +108,41 @@ export function sanitizeFilters(input: QuestionFiltersInput | undefined): Questi
 
   for (const key of QUESTION_FILTER_KEYS) {
     const raw = input?.[key];
-    const value = Array.isArray(raw) ? raw[0] : raw;
-    const clean = typeof value === "string" ? value.trim() : "";
 
-    if (clean) filters[key] = clean;
+    if (key === "no_explanation" || key === "has_explanation") {
+      const isTrue =
+        raw === "true" ||
+        raw === "on" ||
+        raw === "1" ||
+        (Array.isArray(raw) && (raw.includes("true") || raw.includes("on") || raw.includes("1")));
+      if (isTrue) {
+        filters[key] = "true";
+      }
+      continue;
+    }
+
+    const items = Array.isArray(raw)
+      ? raw.flatMap((r) => (typeof r === "string" ? r.split(",") : []))
+      : typeof raw === "string"
+        ? raw.split(",")
+        : [];
+
+    const cleaned = Array.from(
+      new Set(
+        items
+          .map((v) => (typeof v === "string" ? v.trim() : ""))
+          .filter(Boolean),
+      ),
+    );
+
+    if (cleaned.length > 0) {
+      filters[key] = cleaned.join(",");
+    }
+  }
+
+  // Ensure mutual exclusivity between has_explanation and no_explanation
+  if (filters.no_explanation === "true" && filters.has_explanation === "true") {
+    delete filters.has_explanation;
   }
 
   return filters;
@@ -119,18 +152,22 @@ export function hasActiveFilters(filters: QuestionFilters): boolean {
   return QUESTION_FILTER_KEYS.some((key) => Boolean(filters[key]));
 }
 
-type FilterWanted = Partial<Record<QuestionFilterKey, Set<number>>>;
+type FilterWanted = Partial<Record<IndexFilterKey, Set<number>>>;
 
 function wantedIndices(index: QuestionFilterIndex, filters: QuestionFilters): FilterWanted {
   const wanted: FilterWanted = {};
 
-  for (const key of QUESTION_FILTER_KEYS) {
+  for (const key of INDEX_FILTER_KEYS) {
     const value = filters[key];
     if (!value) continue;
 
-    const dictionary = index.dict[key];
-    const cell = dictionary.indexOf(value);
-    wanted[key] = cell >= 0 ? new Set([cell]) : new Set<number>();
+    const parts = value.split(",").map((v) => v.trim()).filter(Boolean);
+    const cellSet = new Set<number>();
+    for (const part of parts) {
+      const cell = index.dict[key].indexOf(part);
+      if (cell >= 0) cellSet.add(cell);
+    }
+    wanted[key] = cellSet;
   }
 
   return wanted;
@@ -146,7 +183,7 @@ function rowMatches(
   if (type === "mcq" && !isMcq) return false;
   if (type === "written" && isMcq) return false;
 
-  for (const key of QUESTION_FILTER_KEYS) {
+  for (const key of INDEX_FILTER_KEYS) {
     const cells = wanted[key];
     if (cells && !cells.has(row[COLUMN[key]] ?? -1)) return false;
   }
@@ -180,13 +217,14 @@ function buildOptions(
   dictionary: string[],
   selected: string,
 ): QuestionFilterOption[] {
+  const selectedParts = new Set(selected.split(",").map((s) => s.trim()).filter(Boolean));
   const options: QuestionFilterOption[] = [];
 
   for (let cell = 0; cell < counts.length; cell += 1) {
     const count = counts[cell] ?? 0;
     const value = dictionary[cell] ?? "";
 
-    if (count === 0 && value !== selected) continue;
+    if (count === 0 && !selectedParts.has(value)) continue;
 
     const label =
       key === "chapter"
@@ -227,7 +265,7 @@ export function buildFilterOptions(
   const wanted = wantedIndices(index, filters);
   const options = {} as QuestionFilterOptions;
 
-  for (const key of QUESTION_FILTER_KEYS) {
+  for (const key of INDEX_FILTER_KEYS) {
     const dictionary = index.dict[key];
     const counts = new Array<number>(dictionary.length).fill(0);
     let all = 0;
@@ -240,7 +278,7 @@ export function buildFilterOptions(
       if (type === "written" && isMcq) continue;
 
       let matches = true;
-      for (const other of QUESTION_FILTER_KEYS) {
+      for (const other of INDEX_FILTER_KEYS) {
         if (other === key) continue;
         const cells = wanted[other];
         if (cells && !cells.has(row[COLUMN[other]] ?? -1)) {

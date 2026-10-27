@@ -1,6 +1,7 @@
 import { renderMathInContent } from "@/lib/math";
 import type { QuestionListItem } from "@/components/questions/QuestionCard";
 import type { ExamPaperConfig } from "./types";
+import { KATEX_INLINE_CSS } from "./katex-css";
 
 const BANGLA_NUMERALS = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
 const BANGLA_OPTIONS = ["(ক)", "(খ)", "(গ)", "(ঘ)", "(ঙ)", "(চ)"];
@@ -12,9 +13,40 @@ export function toBanglaNumber(n: number | string): string {
     .join("");
 }
 
-function cleanHtmlText(text: string | null | undefined): string {
-  if (!text) return "";
-  return renderMathInContent(text);
+function formatRichContent(
+  html: string | null | undefined,
+  text: string | null | undefined
+): string {
+  let content = "";
+  const textTrimmed = (text || "").trim();
+  const htmlTrimmed = (html || "").trim();
+
+  if (htmlTrimmed && textTrimmed) {
+    const htmlClean = htmlTrimmed.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    if (htmlClean === textTrimmed) {
+      content = htmlTrimmed;
+    } else {
+      const imgMatches = htmlTrimmed.match(/<img[^>]+>/gi);
+      if (imgMatches && imgMatches.length > 0) {
+        content = `${imgMatches.join("<br/>")}<br/>${textTrimmed}`;
+      } else {
+        content = `${htmlTrimmed}<br/>${textTrimmed}`;
+      }
+    }
+  } else {
+    content = textTrimmed || htmlTrimmed || "";
+  }
+
+  if (!content) return "";
+
+  // Ensure images load eagerly and with CORS support for canvas/print
+  content = content.replace(/<img\b(?![^>]*\bcrossorigin=)/gi, '<img crossorigin="anonymous" loading="eager"');
+
+  if (!/<(p|div|br|table|ul|ol|li)\b/i.test(content)) {
+    content = content.replace(/\n/g, "<br/>");
+  }
+
+  return renderMathInContent(content);
 }
 
 function shuffleArray<T>(array: T[], seed: number): T[] {
@@ -55,11 +87,29 @@ export function generateExamPaperHtml(
 <head>
   <meta charset="utf-8" />
   <title>${config.title || "পরীক্ষাপত্র"}</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" />
+  <style id="katex-inline-css">
+    ${KATEX_INLINE_CSS}
+  </style>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" crossorigin="anonymous" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    /* KaTeX layout stabilization for PDF/canvas rendering */
+    .katex {
+      display: inline-block;
+      white-space: nowrap;
+    }
+    .katex-display {
+      display: block;
+      margin: 0.5em 0;
+      text-align: center;
+    }
+    .katex .frac-line {
+      min-height: 1.2px;
+      border-bottom-style: solid;
+    }
+
     @page {
       size: A4;
       margin: 12mm 12mm 14mm 12mm;
@@ -182,18 +232,6 @@ export function generateExamPaperHtml(
       font-weight: 600;
       color: #334155;
     }
-    .paper-footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      color: #64748b;
-      border-top: 1px solid #e2e8f0;
-      padding-top: 4px;
-    }
     .answer-key-page,
     .explanations-page {
       page-break-before: always;
@@ -217,18 +255,17 @@ export function generateExamPaperHtml(
     }
     .explanations {
       margin-top: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+      display: block;
     }
     .exp-item {
+      display: block;
       font-size: 11px;
       padding: 8px 12px;
       background: #eef2ff;
       border: 1px solid #c7d2fe;
       border-left: 3.5px solid #6366f1;
       border-radius: 6px;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
       break-inside: avoid;
       page-break-inside: avoid;
     }
@@ -255,7 +292,14 @@ export function generateExamPaperHtml(
     }
     .exp-text {
       color: #1e1b4b;
-      line-height: 1.5;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .exp-text img {
+      max-width: 100%;
+      height: auto;
+      margin: 6px 0;
+      display: block;
     }
     img {
       max-width: 100%;
@@ -290,7 +334,7 @@ export function generateExamPaperHtml(
         ${s.questions
           .map((q, idx) => {
             const num = toBanglaNumber(idx + 1);
-            const qHtml = cleanHtmlText(q.question_text);
+            const qHtml = formatRichContent(q.question_html, q.question_text);
             const opts = Array.isArray(q.options) ? q.options : [];
 
             return `
@@ -306,7 +350,7 @@ export function generateExamPaperHtml(
                   ${opts
                     .map((opt, oIdx) => {
                       const optLabel = BANGLA_OPTIONS[oIdx] ?? `(${oIdx + 1})`;
-                      const optText = cleanHtmlText(opt.t || opt.h || "");
+                      const optText = formatRichContent(opt.h, opt.t);
                       return `
                       <div class="q-opt">
                         <span class="q-opt-label">${optLabel}</span>
@@ -325,11 +369,7 @@ export function generateExamPaperHtml(
           .join("")}
       </main>
 
-      <footer class="paper-footer">
-        <div>${config.footerLeft || "QuestionBank"}</div>
-        <div>${config.footerRight || (config.hasFourSets ? `সেট - ${s.name}` : "পৃষ্ঠা")}</div>
-      </footer>
-    </div>
+      </div>
     `;
     })
     .join("")}
@@ -390,7 +430,7 @@ export function generateExamPaperHtml(
           .map((q, idx) => {
             const hasExp = Boolean(q.explanation || q.explanation_html);
             if (!hasExp) return "";
-            const expText = cleanHtmlText(q.explanation || q.explanation_html);
+            const expText = formatRichContent(q.explanation_html, q.explanation);
             return `
             <div class="exp-item">
               <div class="exp-header">
@@ -415,7 +455,69 @@ export function generateExamPaperHtml(
   `;
 }
 
-export function printExamPaper(htmlContent: string): void {
+export type PdfProgressStatus = {
+  step: "init" | "fonts" | "images" | "math" | "pdf" | "done";
+  percent: number;
+  message: string;
+  totalImages?: number;
+  loadedImages?: number;
+};
+
+async function waitForAllImages(
+  targetDoc: Document,
+  timeoutMs = 8000,
+  onImageProgress?: (loaded: number, total: number) => void
+): Promise<void> {
+  const images = Array.from(targetDoc.querySelectorAll<HTMLImageElement>("img"));
+  if (images.length === 0) {
+    onImageProgress?.(0, 0);
+    return;
+  }
+
+  let loadedCount = 0;
+  const total = images.length;
+  onImageProgress?.(0, total);
+
+  const loadPromises = images.map((img) => {
+    if (img.complete && img.naturalWidth > 0) {
+      loadedCount++;
+      onImageProgress?.(loadedCount, total);
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      let resolved = false;
+      const done = () => {
+        if (!resolved) {
+          resolved = true;
+          loadedCount++;
+          onImageProgress?.(loadedCount, total);
+          img.removeEventListener("load", done);
+          img.removeEventListener("error", done);
+          resolve();
+        }
+      };
+      img.addEventListener("load", done);
+      img.addEventListener("error", done);
+      if (img.complete) done();
+    });
+  });
+
+  await Promise.race([
+    Promise.all(loadPromises),
+    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
+}
+
+export function printExamPaper(
+  htmlContent: string,
+  onProgress?: (status: PdfProgressStatus) => void
+): void {
+  onProgress?.({
+    step: "init",
+    percent: 15,
+    message: "প্রিন্ট উইন্ডো প্রস্তুত করা হচ্ছে...",
+  });
+
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
     alert("পপ-আপ ব্লক করা আছে। দয়া করে ব্রাউজারের পপ-আপ এলাউ করুন।");
@@ -426,12 +528,61 @@ export function printExamPaper(htmlContent: string): void {
   printWindow.document.write(htmlContent);
   printWindow.document.close();
 
-  printWindow.onload = () => {
+  onProgress?.({
+    step: "fonts",
+    percent: 35,
+    message: "ফন্ট ও পেজ ফরম্যাট লোড হচ্ছে...",
+  });
+
+  const handlePrint = async () => {
+    try {
+      if (printWindow.document.fonts) {
+        await printWindow.document.fonts.ready;
+      }
+      onProgress?.({
+        step: "images",
+        percent: 60,
+        message: "ছবি ও ব্যাখ্যা প্রস্তুত হচ্ছে...",
+      });
+      await waitForAllImages(printWindow.document, 7000, (loaded, total) => {
+        if (total > 0) {
+          const pct = 60 + Math.round((loaded / total) * 25);
+          onProgress?.({
+            step: "images",
+            percent: Math.min(85, pct),
+            message: `ছবি ও ব্যাখ্যা লোড হচ্ছে (${toBanglaNumber(loaded)}/${toBanglaNumber(total)})...`,
+            loadedImages: loaded,
+            totalImages: total,
+          });
+        }
+      });
+      onProgress?.({
+        step: "math",
+        percent: 90,
+        message: "গাণিতিক প্রতীক ও সূত্র সাজানো হচ্ছে...",
+      });
+      fixKatexSvgRadicals(printWindow.document);
+    } catch {}
+
+    onProgress?.({
+      step: "done",
+      percent: 100,
+      message: "প্রস্তুত! প্রিন্ট ডায়ালগ ওপেন হচ্ছে...",
+    });
+
     setTimeout(() => {
       printWindow.focus();
       printWindow.print();
-    }, 500);
+    }, 300);
   };
+
+  if (printWindow.document.readyState === "complete") {
+    void handlePrint();
+  } else {
+    printWindow.onload = () => {
+      void handlePrint();
+    };
+  }
 }
 
 function loadScriptInWindow(targetWindow: Window, src: string): Promise<any> {
@@ -448,11 +599,72 @@ function loadScriptInWindow(targetWindow: Window, src: string): Promise<any> {
   });
 }
 
+function fixKatexSvgRadicals(targetDoc: Document): void {
+  // 1. Fix radical square roots (\sqrt) in KaTeX (.hide-tail wrapper containing stretchy SVG)
+  const hideTails = targetDoc.querySelectorAll<HTMLElement>(".katex .hide-tail");
+  hideTails.forEach((ht) => {
+    const svg = ht.querySelector<SVGElement>("svg");
+    if (!svg) return;
+    const rect = ht.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    if (w > 0 && h > 0) {
+      const vb = svg.getAttribute("viewBox");
+      if (vb) {
+        const parts = vb.trim().split(/\s+/);
+        if (parts.length === 4 && parts[2] === "400000" && parts[3]) {
+          const vbHeight = parseFloat(parts[3]);
+          if (vbHeight > 0) {
+            // KaTeX draws stretchy root with viewBox="0 0 400000 <vbHeight>".
+            // Replace 400000 with exact width proportional to rendered height so aspect ratio is 1:1
+            const newVbWidth = Math.round(w * (vbHeight / h));
+            svg.setAttribute("viewBox", `0 0 ${newVbWidth} ${vbHeight}`);
+            svg.setAttribute("preserveAspectRatio", "none");
+          }
+        }
+      }
+      const roundedW = `${Math.round(w)}px`;
+      const roundedH = `${Math.round(h)}px`;
+      svg.setAttribute("width", roundedW);
+      svg.setAttribute("height", roundedH);
+      svg.style.width = roundedW;
+      svg.style.height = roundedH;
+      svg.setAttribute("fill", "#0f172a");
+      svg.setAttribute("stroke", "#0f172a");
+    }
+  });
+
+  // 2. Fix other KaTeX SVGs (stretchy arrows, accents, delimiters)
+  targetDoc.querySelectorAll<SVGElement>(".katex svg").forEach((svg) => {
+    const currentW = svg.getAttribute("width");
+    if (!currentW || currentW.includes("em") || currentW.includes("%")) {
+      const rect = svg.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const roundedW = `${Math.round(rect.width)}px`;
+        const roundedH = `${Math.round(rect.height)}px`;
+        svg.setAttribute("width", roundedW);
+        svg.setAttribute("height", roundedH);
+        svg.style.width = roundedW;
+        svg.style.height = roundedH;
+        svg.setAttribute("fill", "#0f172a");
+        svg.setAttribute("stroke", "#0f172a");
+      }
+    }
+  });
+}
+
 export async function downloadExamPaperPdf(
   htmlContent: string,
-  filename: string = "exam-paper"
+  filename: string = "exam-paper",
+  onProgress?: (status: PdfProgressStatus) => void
 ): Promise<void> {
   if (typeof window === "undefined") return;
+
+  onProgress?.({
+    step: "init",
+    percent: 15,
+    message: "ডকুমেন্ট ও পরীক্ষাপত্র কাঠামো প্রস্তুত হচ্ছে...",
+  });
 
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
@@ -501,6 +713,12 @@ export async function downloadExamPaperPdf(
     doc.write(htmlContent);
     doc.close();
 
+    onProgress?.({
+      step: "fonts",
+      percent: 30,
+      message: "বাংলা ও গণিত ফন্ট লোড হচ্ছে...",
+    });
+
     // Load html2pdf directly inside the iframe window to avoid parent document stylesheets
     let html2pdfInstance = (iWin as any).html2pdf;
     if (!html2pdfInstance) {
@@ -521,12 +739,56 @@ export async function downloadExamPaperPdf(
       throw new Error("Could not initialize html2pdf inside document sandbox");
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    if (doc.fonts?.ready) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    if (doc.fonts) {
       try {
-        await doc.fonts.ready;
+        await Promise.allSettled([
+          doc.fonts.load("1em KaTeX_Main"),
+          doc.fonts.load("1em KaTeX_Math"),
+          doc.fonts.load("1em KaTeX_Size1"),
+          doc.fonts.load("1em KaTeX_Size2"),
+          doc.fonts.ready,
+        ]);
       } catch {}
     }
+
+    onProgress?.({
+      step: "images",
+      percent: 50,
+      message: "প্রশ্ন ও ব্যাখ্যার ছবি প্রস্তুত হচ্ছে...",
+    });
+
+    // Wait for all explanation diagrams and images to finish loading from network
+    await waitForAllImages(doc, 8000, (loaded, total) => {
+      if (total > 0) {
+        const pct = 50 + Math.round((loaded / total) * 22);
+        onProgress?.({
+          step: "images",
+          percent: Math.min(72, pct),
+          message: `প্রশ্ন ও ব্যাখ্যার ছবি লোড হচ্ছে (${toBanglaNumber(loaded)}/${toBanglaNumber(total)})...`,
+          totalImages: total,
+          loadedImages: loaded,
+        });
+      }
+    });
+
+    onProgress?.({
+      step: "math",
+      percent: 75,
+      message: "KaTeX গাণিতিক সমীকরণ ও রুট সাইন সাজানো হচ্ছে...",
+    });
+
+    // Extra tick for browser layout engine to settle with image dimensions
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    // Fix KaTeX SVGs (especially square root radical hooks) before html2canvas captures
+    fixKatexSvgRadicals(doc);
+
+    onProgress?.({
+      step: "pdf",
+      percent: 85,
+      message: "পাতা বিন্যাস ও PDF ফাইল রেন্ডার হচ্ছে...",
+    });
 
     const cleanName = (filename || "exam-paper")
       .trim()
@@ -544,30 +806,6 @@ export async function downloadExamPaperPdf(
     };
     window.console.warn = filterWarn;
     if (origIWinWarn && iWinConsole) iWinConsole.warn = filterWarn;
-
-    // 1. Temporarily disable any parent stylesheets containing modern lab/oklch colors
-    const disabledSheets: CSSStyleSheet[] = [];
-    try {
-      const sheets = Array.from(document.styleSheets);
-      for (const sheet of sheets) {
-        try {
-          const rules = sheet.cssRules;
-          if (!rules) continue;
-          let hasLab = false;
-          for (let r = 0; r < rules.length; r++) {
-            const txt = rules[r]?.cssText || "";
-            if (txt.includes("lab(") || txt.includes("oklch(")) {
-              hasLab = true;
-              break;
-            }
-          }
-          if (hasLab) {
-            sheet.disabled = true;
-            disabledSheets.push(sheet);
-          }
-        } catch {}
-      }
-    } catch {}
 
     // 2. Patch window.getComputedStyle on parent window during canvas rendering
     const origWinGetComputedStyle = window.getComputedStyle;
@@ -600,10 +838,13 @@ export async function downloadExamPaperPdf(
       html2canvas: {
         scale: 2,
         useCORS: true,
-        letterRendering: true,
+        allowTaint: true,
         logging: false,
         windowWidth: 794,
         backgroundColor: "#ffffff",
+        onclone: (clonedDoc: Document) => {
+          fixKatexSvgRadicals(clonedDoc);
+        },
       },
       jsPDF: {
         unit: "mm",
@@ -617,15 +858,34 @@ export async function downloadExamPaperPdf(
       },
     };
 
+    // Dynamic ticker while html2pdf compiles and captures canvas
+    let currentPct = 85;
+    const progressTicker = setInterval(() => {
+      if (currentPct < 96) {
+        currentPct += 2;
+        onProgress?.({
+          step: "pdf",
+          percent: currentPct,
+          message: "PDF পাতা তৈরি ও ফাইল চূড়ান্ত হচ্ছে...",
+        });
+      }
+    }, 350);
+
     try {
       await html2pdfInstance().set(opt).from(doc.body).save();
+      clearInterval(progressTicker);
+      onProgress?.({
+        step: "done",
+        percent: 100,
+        message: "PDF তৈরি সম্পন্ন! ফাইল ডাউনলোড শুরু হচ্ছে...",
+      });
+    } catch (err) {
+      clearInterval(progressTicker);
+      throw err;
     } finally {
       window.console.warn = origWinWarn;
       if (origIWinWarn && iWinConsole) iWinConsole.warn = origIWinWarn;
       window.getComputedStyle = origWinGetComputedStyle;
-      for (const s of disabledSheets) {
-        s.disabled = false;
-      }
     }
   } finally {
     setTimeout(() => {

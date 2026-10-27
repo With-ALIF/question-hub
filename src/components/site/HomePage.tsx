@@ -9,6 +9,7 @@ import { Footer } from "@/components/site/Footer";
 import { PricingTabs } from "@/components/site/PricingTabs";
 import { CountUp } from "@/components/site/CountUp";
 import { HeroCarousel } from "@/components/site/HeroCarousel";
+import { HomeFaqSection } from "@/components/site/HomeFaqSection";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/client";
 import type { Subject } from "@/data/subjects";
@@ -277,6 +278,9 @@ export function HomePage({
             </Button>
           </div>
         </section>
+
+        {/* FAQ Section */}
+        <HomeFaqSection />
       </main>
 
       <Footer />

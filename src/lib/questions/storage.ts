@@ -3,14 +3,18 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { QuestionOption } from "@/lib/supabase/types";
 
+import { compareChapterCodes } from "@/data/chapters";
+
 import {
   buildFilterOptions,
   filterIndexMatches,
   getQuestionFilterIndex,
   sanitizeFilters,
   selectFilterRows,
+  INDEX_FILTER_KEYS,
   QUESTION_FILTER_KEYS,
   type QuestionFilterKey,
+  type QuestionFilterOption,
   type QuestionFilterOptions,
   type QuestionFilters,
   type QuestionFiltersInput,
@@ -22,7 +26,7 @@ const BUCKET = process.env["SUPABASE_QUESTIONS_BUCKET"] ?? "qb-raw";
 const PREFIX = process.env["SUPABASE_QUESTIONS_PREFIX"] ?? "questions-v2";
 const MANIFEST_TTL_MS = 60 * 1000;
 const SHARD_TTL_MS = 10 * 60 * 1000;
-const MAX_CACHED_SHARDS = 80;
+const MAX_CACHED_SHARDS = 500;
 
 export type StorageQuestion = {
   id: string;
@@ -43,6 +47,16 @@ export type StorageQuestion = {
   subject: string;
   _shard?: number | undefined;
 };
+
+export function hasExplanation(q: {
+  explanation?: string | null;
+  explanation_html?: string | null;
+}): boolean {
+  return Boolean(
+    (q.explanation && q.explanation.trim().length > 0) ||
+      (q.explanation_html && q.explanation_html.trim().length > 0),
+  );
+}
 
 export type QuestionSubject = {
   slug: string;
@@ -314,9 +328,17 @@ async function loadQuestionsAt(
   if (positions.length === 0) return [];
 
   const shardNumbers = [...new Set(positions.map((position) => position.shard))];
-  const shards = await Promise.all(
-    shardNumbers.map((shard) => getQuestionShard(subject, shard, "all")),
-  );
+  const BATCH_SIZE = 30;
+  const shards: StorageQuestion[][] = [];
+
+  for (let i = 0; i < shardNumbers.length; i += BATCH_SIZE) {
+    const batch = shardNumbers.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map((shard) => getQuestionShard(subject, shard, "all")),
+    );
+    shards.push(...batchResults);
+  }
+
   const byShard = new Map(shardNumbers.map((shard, index) => [shard, shards[index] ?? []]));
 
   const questions: StorageQuestion[] = [];
@@ -342,6 +364,8 @@ export async function getQuestionPage({
 }): Promise<QuestionPageResult> {
   const selectedType: QuestionType = isQuestionType(type) ? type : "all";
   const activeFilters = sanitizeFilters(filters);
+  const filterNoExplanation = activeFilters.no_explanation === "true";
+  const filterHasExplanation = activeFilters.has_explanation === "true";
   const legacyQuery = activeFilters.chapter ?? activeFilters.topic ?? "";
 
   try {
@@ -413,6 +437,26 @@ export async function getQuestionPage({
         },
       };
 
+      if (filterHasExplanation || filterNoExplanation) {
+        const filtered = questions.filter((q) =>
+          filterHasExplanation ? hasExplanation(q) : !hasExplanation(q),
+        );
+        return {
+          manifest,
+          subjects,
+          subject: allSubjectObj,
+          type: selectedType,
+          questions: filtered,
+          page: safePage,
+          pageSize,
+          totalPages,
+          total: filtered.length,
+          error: null,
+          filters: null,
+          activeFilters,
+        };
+      }
+
       return {
         manifest,
         subjects,
@@ -427,6 +471,217 @@ export async function getQuestionPage({
         filters: null,
         activeFilters,
       };
+    }
+
+    const requestedSlugs = subject
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (requestedSlugs.length > 1) {
+      const selectedSubjects = subjects.filter((item) =>
+        requestedSlugs.includes(item.slug),
+      );
+
+      if (selectedSubjects.length > 0) {
+        const pageSize = manifest.pageSize > 0 ? manifest.pageSize : QUESTION_PAGE_SIZE;
+        const shardSize = manifest.shardSize > 0 ? manifest.shardSize : 100;
+
+        const subResults = await Promise.all(
+          selectedSubjects.map(async (sub) => {
+            const index = await getQuestionFilterIndex(sub.slug);
+            const indexUsable = index !== null && filterIndexMatches(index, sub, shardSize);
+
+            if (index && indexUsable) {
+              const subFilters: QuestionFilters = { ...activeFilters };
+              delete subFilters.no_explanation;
+              delete subFilters.has_explanation;
+
+              for (const key of INDEX_FILTER_KEYS) {
+                const val = subFilters[key];
+                if (val) {
+                  const parts = val.split(",").map((v) => v.trim()).filter(Boolean);
+                  const validParts = parts.filter((v) => index.dict[key].includes(v));
+                  if (validParts.length > 0) {
+                    subFilters[key] = validParts.join(",");
+                  } else {
+                    delete subFilters[key];
+                  }
+                }
+              }
+
+              const matched = selectFilterRows(index, subFilters, selectedType);
+              const filterOptions = buildFilterOptions(index, subFilters, selectedType);
+              return { sub, matched, filterOptions, index };
+            }
+
+            return { sub, matched: [], filterOptions: null, index: null };
+          }),
+        );
+
+        const combinedOptions: QuestionFilterOptions = {};
+        for (const key of INDEX_FILTER_KEYS) {
+          let allCount = 0;
+          const optionsMap = new Map<string, QuestionFilterOption>();
+          for (const res of subResults) {
+            const facet = res.filterOptions?.[key];
+            if (facet) {
+              allCount += facet.all;
+              for (const opt of facet.options) {
+                const existing = optionsMap.get(opt.value);
+                if (existing) {
+                  existing.count += opt.count;
+                } else {
+                  optionsMap.set(opt.value, { ...opt });
+                }
+              }
+            }
+          }
+          const opts = Array.from(optionsMap.values());
+          if (key === "year") {
+            opts.sort((a, b) => {
+              const left = Number(a.value);
+              const right = Number(b.value);
+              if (Number.isFinite(left) && Number.isFinite(right)) return right - left;
+              if (Number.isFinite(left)) return -1;
+              if (Number.isFinite(right)) return 1;
+              return a.value.localeCompare(b.value);
+            });
+          } else if (key === "chapter") {
+            opts.sort((a, b) => compareChapterCodes(a.value, b.value));
+          } else if (key === "paper") {
+            opts.sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true }));
+          } else {
+            opts.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+          }
+          combinedOptions[key] = { all: allCount, options: opts };
+        }
+
+        type TaggedPosition = {
+          subject: string;
+          shard: number;
+          offset: number;
+        };
+
+        const allPositions: TaggedPosition[] = [];
+        for (const res of subResults) {
+          for (const row of res.matched) {
+            allPositions.push({
+              subject: res.sub.slug,
+              shard: Math.floor(row / shardSize) + 1,
+              offset: row % shardSize,
+            });
+          }
+        }
+
+        const combinedSubject: QuestionSubject = {
+          slug: selectedSubjects.map((s) => s.slug).join(","),
+          name: selectedSubjects.map((s) => s.name).join(" + "),
+          total: selectedSubjects.reduce((acc, s) => acc + s.total, 0),
+          mcq: selectedSubjects.reduce((acc, s) => acc + s.mcq, 0),
+          written: selectedSubjects.reduce((acc, s) => acc + s.written, 0),
+          shards: { all: 0, mcq: 0, written: 0 },
+        };
+
+        if (filterHasExplanation || filterNoExplanation) {
+          const bySub = new Map<string, PagePosition[]>();
+          for (const pos of allPositions) {
+            let list = bySub.get(pos.subject);
+            if (!list) {
+              list = [];
+              bySub.set(pos.subject, list);
+            }
+            list.push({ shard: pos.shard, offset: pos.offset });
+          }
+          const loadedBySub = new Map<string, StorageQuestion[]>();
+          await Promise.all(
+            Array.from(bySub.entries()).map(async ([subSlug, posList]) => {
+              const qs = await loadQuestionsAt(subSlug, posList);
+              loadedBySub.set(subSlug, qs);
+            }),
+          );
+          const subIndices = new Map<string, number>();
+          const allQuestions: StorageQuestion[] = [];
+          for (const pos of allPositions) {
+            const qs = loadedBySub.get(pos.subject);
+            const idx = subIndices.get(pos.subject) ?? 0;
+            if (qs && qs[idx]) {
+              allQuestions.push({ ...qs[idx], subject: pos.subject });
+              subIndices.set(pos.subject, idx + 1);
+            }
+          }
+          const postFiltered = allQuestions.filter((q) =>
+            filterHasExplanation ? hasExplanation(q) : !hasExplanation(q),
+          );
+          const postTotal = postFiltered.length;
+          const postPages = Math.max(1, Math.ceil(postTotal / pageSize));
+          const safePage = Math.min(Math.max(1, Math.floor(page || 1)), postPages);
+          const start = (safePage - 1) * pageSize;
+
+          return {
+            manifest,
+            subjects,
+            subject: combinedSubject,
+            type: selectedType,
+            questions: postFiltered.slice(start, start + pageSize),
+            page: safePage,
+            pageSize,
+            totalPages: postPages,
+            total: postTotal,
+            error: null,
+            filters: combinedOptions,
+            activeFilters,
+          };
+        }
+
+        const totalMatched = allPositions.length;
+        const totalPages = Math.max(1, Math.ceil(totalMatched / pageSize));
+        const safePage = Math.min(Math.max(1, Math.floor(page || 1)), totalPages);
+        const start = (safePage - 1) * pageSize;
+        const pageSlice = allPositions.slice(start, start + pageSize);
+
+        const bySub = new Map<string, PagePosition[]>();
+        for (const pos of pageSlice) {
+          let list = bySub.get(pos.subject);
+          if (!list) {
+            list = [];
+            bySub.set(pos.subject, list);
+          }
+          list.push({ shard: pos.shard, offset: pos.offset });
+        }
+        const loadedBySub = new Map<string, StorageQuestion[]>();
+        await Promise.all(
+          Array.from(bySub.entries()).map(async ([subSlug, posList]) => {
+            const qs = await loadQuestionsAt(subSlug, posList);
+            loadedBySub.set(subSlug, qs);
+          }),
+        );
+        const subIndices = new Map<string, number>();
+        const pageQuestions: StorageQuestion[] = [];
+        for (const pos of pageSlice) {
+          const qs = loadedBySub.get(pos.subject);
+          const idx = subIndices.get(pos.subject) ?? 0;
+          if (qs && qs[idx]) {
+            pageQuestions.push({ ...qs[idx], subject: pos.subject });
+            subIndices.set(pos.subject, idx + 1);
+          }
+        }
+
+        return {
+          manifest,
+          subjects,
+          subject: combinedSubject,
+          type: selectedType,
+          questions: pageQuestions,
+          page: safePage,
+          pageSize,
+          totalPages,
+          total: totalMatched,
+          error: null,
+          filters: combinedOptions,
+          activeFilters,
+        };
+      }
     }
 
     const selectedSubject =
@@ -473,15 +728,59 @@ export async function getQuestionPage({
 
     if (index && indexUsable) {
       const validFilters: QuestionFilters = { ...activeFilters };
-      for (const key of QUESTION_FILTER_KEYS) {
+      // Explanation filters are handled post-load, not in the index
+      delete validFilters.no_explanation;
+      delete validFilters.has_explanation;
+
+      for (const key of INDEX_FILTER_KEYS) {
         const val = validFilters[key];
-        if (val && !index.dict[key].includes(val)) {
-          delete validFilters[key];
+        if (val) {
+          const parts = val.split(",").map((v) => v.trim()).filter(Boolean);
+          const validParts = parts.filter((v) => index.dict[key].includes(v));
+          if (validParts.length > 0) {
+            validFilters[key] = validParts.join(",");
+          } else {
+            delete validFilters[key];
+          }
         }
       }
 
       const matched = selectFilterRows(index, validFilters, selectedType);
       const filterOptions = buildFilterOptions(index, validFilters, selectedType);
+
+      if (filterHasExplanation || filterNoExplanation) {
+        if (filterHasExplanation) validFilters.has_explanation = "true";
+        if (filterNoExplanation) validFilters.no_explanation = "true";
+        // Load all matched questions, post-filter by explanation presence, then paginate
+        const allPositions: PagePosition[] = matched.map((row) => ({
+          shard: Math.floor(row / shardSize) + 1,
+          offset: row % shardSize,
+        }));
+        const allQuestions = await loadQuestionsAt(selectedSubject.slug, allPositions);
+        const postFiltered = allQuestions.filter((q) =>
+          filterHasExplanation ? hasExplanation(q) : !hasExplanation(q),
+        );
+        const postTotal = postFiltered.length;
+        const postPages = Math.max(1, Math.ceil(postTotal / pageSize));
+        const safePage = Math.min(Math.max(1, Math.floor(page || 1)), postPages);
+        const start = (safePage - 1) * pageSize;
+
+        return {
+          manifest,
+          subjects,
+          subject: selectedSubject,
+          type: selectedType,
+          questions: postFiltered.slice(start, start + pageSize),
+          page: safePage,
+          pageSize,
+          totalPages: postPages,
+          total: postTotal,
+          error: null,
+          filters: filterOptions,
+          activeFilters: validFilters,
+        };
+      }
+
       const matchedTotal = matched.length;
       const matchedPages = Math.max(1, Math.ceil(matchedTotal / pageSize));
       const safePage = Math.min(Math.max(1, Math.floor(page || 1)), matchedPages);
@@ -535,7 +834,45 @@ export async function getQuestionPage({
       }
       const loadedShards = await Promise.all(shardPromises);
       const allQuestions = loadedShards.flat();
-      const filtered = allQuestions.filter((q) => matchesChapterQuery(q, query));
+      let filtered = allQuestions.filter((q) => matchesChapterQuery(q, query));
+      if (filterHasExplanation) {
+        filtered = filtered.filter(hasExplanation);
+      } else if (filterNoExplanation) {
+        filtered = filtered.filter((q) => !hasExplanation(q));
+      }
+
+      const filteredTotal = filtered.length;
+      const filteredTotalPages = Math.max(1, Math.ceil(filteredTotal / pageSize));
+      const safePage = Math.min(Math.max(1, Math.floor(page || 1)), filteredTotalPages);
+      const offset = (safePage - 1) * pageSize;
+
+      return {
+        manifest,
+        subjects,
+        subject: selectedSubject,
+        type: selectedType,
+        questions: filtered.slice(offset, offset + pageSize),
+        page: safePage,
+        pageSize,
+        totalPages: filteredTotalPages,
+        total: filteredTotal,
+        error: null,
+        filters: null,
+        activeFilters,
+      };
+    }
+
+    if (filterHasExplanation || filterNoExplanation) {
+      const shardsToLoad = Math.min(maxShards, 40);
+      const shardPromises: Promise<StorageQuestion[]>[] = [];
+      for (let s = 1; s <= shardsToLoad; s++) {
+        shardPromises.push(getQuestionShard(selectedSubject.slug, s, selectedType));
+      }
+      const loadedShards = await Promise.all(shardPromises);
+      const allQuestions = loadedShards.flat();
+      const filtered = allQuestions.filter((q) =>
+        filterHasExplanation ? hasExplanation(q) : !hasExplanation(q),
+      );
 
       const filteredTotal = filtered.length;
       const filteredTotalPages = Math.max(1, Math.ceil(filteredTotal / pageSize));

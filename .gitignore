@@ -48,10 +48,15 @@ bun.lockb
 
 # Lovable
 .lovable/
-# Markdown files (ignore all .md files except README.md)
+# Markdown files (ignore all .md files except README.md and docs folder)
 *.md
+**/*.md
 !README.md
 !readme.md
+!docs/
+!docs/*.md
+!docs/**/*.md
+.cursorrules
 
 # Scripts
 scripts/build-favicon.cjs

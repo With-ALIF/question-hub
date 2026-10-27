@@ -1,10 +1,18 @@
-export const QUESTION_FILTER_KEYS = [
+export const INDEX_FILTER_KEYS = [
   "db",
   "un",
   "year",
   "paper",
   "chapter",
   "topic",
+] as const;
+
+export type IndexFilterKey = (typeof INDEX_FILTER_KEYS)[number];
+
+export const QUESTION_FILTER_KEYS = [
+  ...INDEX_FILTER_KEYS,
+  "no_explanation",
+  "has_explanation",
 ] as const;
 
 export type QuestionFilterKey = (typeof QUESTION_FILTER_KEYS)[number];
@@ -26,7 +34,7 @@ export type QuestionFilterFacet = {
   options: QuestionFilterOption[];
 };
 
-export type QuestionFilterOptions = Record<QuestionFilterKey, QuestionFilterFacet>;
+export type QuestionFilterOptions = Partial<Record<QuestionFilterKey, QuestionFilterFacet>>;
 
 export const QUESTION_FILTER_LABELS: Record<QuestionFilterKey, string> = {
   db: "Source DB",
@@ -35,6 +43,8 @@ export const QUESTION_FILTER_LABELS: Record<QuestionFilterKey, string> = {
   paper: "Paper",
   chapter: "Chapter",
   topic: "Topic",
+  no_explanation: "No Explanation",
+  has_explanation: "Has Explanation",
 };
 
 export const QUESTION_TYPES = ["all", "mcq", "written"] as const;
