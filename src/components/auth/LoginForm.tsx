@@ -25,6 +25,15 @@ export function LoginForm() {
     INITIAL_AUTH_STATE,
   );
 
+  const nextParam = searchParams.get("next");
+  const nextPath =
+    nextParam &&
+    nextParam.startsWith("/") &&
+    !nextParam.startsWith("//") &&
+    !nextParam.includes("\\")
+      ? nextParam
+      : "";
+
   const urlError = searchParams.get("error");
   const callbackError =
     urlError === "auth_callback_failed"
@@ -85,6 +94,8 @@ export function LoginForm() {
             <CardContent className="space-y-4">
               {/* Email + Password Form */}
               <form className="space-y-4" action={formAction}>
+                {nextPath && <input type="hidden" name="next" value={nextPath} />}
+
                 <div className="space-y-2">
                   <Label htmlFor="email">{tr("Email", "ইমেইল")}</Label>
                   <input
@@ -136,6 +147,7 @@ export function LoginForm() {
 
               {/* Continue with Google */}
               <GoogleSignInButton
+                nextUrl={nextPath || "/dashboard"}
                 onError={(err) => setGoogleError(err)}
               />
 

@@ -18,6 +18,22 @@ function readField(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
 }
 
+/** Only allow same-site absolute paths, never protocol-relative/backslash tricks. */
+function readSafeNext(formData: FormData): string {
+  const value = readField(formData, "next");
+
+  if (
+    !value ||
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.includes("\\")
+  ) {
+    return "/dashboard";
+  }
+
+  return value;
+}
+
 async function getRequestOrigin(): Promise<string | null> {
   const configuredOrigin = process.env["NEXT_PUBLIC_SITE_URL"]?.trim();
 
@@ -84,7 +100,7 @@ export async function signInAction(
     };
   }
 
-  redirect("/dashboard");
+  redirect(readSafeNext(formData));
 }
 
 export async function signUpAction(

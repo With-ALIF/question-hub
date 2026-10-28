@@ -56,6 +56,18 @@ export function GoogleSignInButton({
         (window.location.hostname === "localhost" ||
           window.location.hostname === "127.0.0.1");
 
+      const safeNext =
+        nextUrl.startsWith("/") &&
+        !nextUrl.startsWith("//") &&
+        !nextUrl.includes("\\")
+          ? nextUrl
+          : "/dashboard";
+
+      // Remember where to land after the OAuth round-trip. A cookie survives
+      // the redirect without changing the allowlisted callback URL.
+      const secure = window.location.protocol === "https:" ? "; secure" : "";
+      document.cookie = `qb_next=${encodeURIComponent(safeNext)}; path=/; max-age=600; samesite=lax${secure}`;
+
       const redirectTo = isLocal
         ? `${window.location.origin}/auth/callback`
         : "https://question-hub-bd.vercel.app/auth/callback";

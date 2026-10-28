@@ -9,6 +9,10 @@ export type Plan = {
   id: string;
   name: LocalizedText;
   price: string;
+  /** Numeric price in BDT. Always charged from this server-side value, never from the URL/UI. */
+  amountBdt: number;
+  /** Access length in days. */
+  durationDays: number;
   priceNote: LocalizedText;
   duration: LocalizedText;
   features: LocalizedText[];
@@ -24,6 +28,8 @@ export const studentPlans: Plan[] = [
     id: "student-free",
     name: text("Starter", "Starter"),
     price: "৳0",
+    amountBdt: 0,
+    durationDays: 0,
     priceNote: text("forever free", "চিরকাল ফ্রি"),
     duration: text("No expiry", "মেয়াদ নেই"),
     features: [
@@ -39,6 +45,8 @@ export const studentPlans: Plan[] = [
     id: "student-monthly",
     name: text("Scholar", "Scholar"),
     price: "৳199",
+    amountBdt: 199,
+    durationDays: 30,
     priceNote: text("per month", "প্রতি মাসে"),
     duration: text("1 month", "১ মাস"),
     features: [
@@ -56,6 +64,8 @@ export const studentPlans: Plan[] = [
     id: "student-yearly",
     name: text("Topper", "Topper"),
     price: "৳1,499",
+    amountBdt: 1499,
+    durationDays: 365,
     priceNote: text("per year — save 37%", "প্রতি বছর — ৩৭% সাশ্রয়"),
     duration: text("12 months", "১২ মাস"),
     features: [
@@ -75,6 +85,8 @@ export const teacherPlans: Plan[] = [
     id: "teacher-free",
     name: text("Educator", "Educator"),
     price: "৳0",
+    amountBdt: 0,
+    durationDays: 0,
     priceNote: text("forever free", "চিরকাল ফ্রি"),
     duration: text("No expiry", "মেয়াদ নেই"),
     features: [
@@ -90,6 +102,8 @@ export const teacherPlans: Plan[] = [
     id: "teacher-monthly",
     name: text("Teacher Pro", "Teacher Pro"),
     price: "৳299",
+    amountBdt: 299,
+    durationDays: 30,
     priceNote: text("per month", "প্রতি মাসে"),
     duration: text("1 month", "১ মাস"),
     features: [
@@ -107,6 +121,8 @@ export const teacherPlans: Plan[] = [
     id: "teacher-yearly",
     name: text("Institution", "Institution"),
     price: "৳2,499",
+    amountBdt: 2499,
+    durationDays: 365,
     priceNote: text("per year — save 30%", "প্রতি বছর — ৩০% সাশ্রয়"),
     duration: text("12 months", "১২ মাস"),
     features: [
@@ -117,7 +133,7 @@ export const teacherPlans: Plan[] = [
       text("Dedicated onboarding", "ডেডিকেটেড অনবোর্ডিং"),
     ],
     highlighted: false,
-    cta: text("Contact Sales", "যোগাযোগ করুন"),
+    cta: text("Subscribe Now", "এখনই সাবস্ক্রাইব"),
   },
 ];
 

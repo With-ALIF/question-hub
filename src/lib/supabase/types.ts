@@ -8,6 +8,9 @@ export type Json =
 
 export type UserRole = "user" | "admin" | "super_admin";
 export type QuestionDifficulty = "easy" | "medium" | "hard";
+export type PaymentMethod = "bkash" | "nagad";
+export type OrderStatus = "pending" | "approved" | "rejected" | "cancelled";
+export type SubscriptionStatus = "active" | "expired" | "cancelled";
 
 export type QuestionOption = {
   n: number;
@@ -297,6 +300,108 @@ export type Database = {
         };
         Relationships: [];
       };
+      qb_orders: {
+        Row: {
+          id: string;
+          order_code: string;
+          user_id: string;
+          plan_id: string;
+          plan_name: string;
+          audience: "student" | "teacher";
+          amount_bdt: number;
+          duration_days: number;
+          payment_method: PaymentMethod;
+          sender_number: string | null;
+          trx_id: string;
+          status: OrderStatus;
+          admin_note: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_code: string;
+          user_id: string;
+          plan_id: string;
+          plan_name: string;
+          audience: "student" | "teacher";
+          amount_bdt: number;
+          duration_days: number;
+          payment_method: PaymentMethod;
+          sender_number?: string | null;
+          trx_id: string;
+          status?: OrderStatus;
+          admin_note?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_code?: string;
+          user_id?: string;
+          plan_id?: string;
+          plan_name?: string;
+          audience?: "student" | "teacher";
+          amount_bdt?: number;
+          duration_days?: number;
+          payment_method?: PaymentMethod;
+          sender_number?: string | null;
+          trx_id?: string;
+          status?: OrderStatus;
+          admin_note?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      qb_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          order_id: string;
+          plan_id: string;
+          plan_name: string;
+          audience: "student" | "teacher";
+          status: SubscriptionStatus;
+          starts_at: string;
+          expires_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          order_id: string;
+          plan_id: string;
+          plan_name: string;
+          audience: "student" | "teacher";
+          status?: SubscriptionStatus;
+          starts_at?: string;
+          expires_at: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          order_id?: string;
+          plan_id?: string;
+          plan_name?: string;
+          audience?: "student" | "teacher";
+          status?: SubscriptionStatus;
+          starts_at?: string;
+          expires_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       settings: {
         Row: {
           id: string;
@@ -327,6 +432,14 @@ export type Database = {
         Args: { p_user_id?: string };
         Returns: boolean;
       };
+      qb_approve_order: {
+        Args: { p_order_id: string; p_admin_id?: string };
+        Returns: Json;
+      };
+      qb_reject_order: {
+        Args: { p_order_id: string; p_admin_id?: string; p_note?: string };
+        Returns: boolean;
+      };
     };
     Enums: {
       question_difficulty: QuestionDifficulty;
@@ -343,3 +456,5 @@ export type Subject = Database["public"]["Tables"]["qb_subjects"]["Row"];
 export type Chapter = Database["public"]["Tables"]["qb_chapters"]["Row"];
 export type Question = Database["public"]["Tables"]["qb_questions"]["Row"];
 export type Feature = Database["public"]["Tables"]["qb_features"]["Row"];
+export type Order = Database["public"]["Tables"]["qb_orders"]["Row"];
+export type Subscription = Database["public"]["Tables"]["qb_subscriptions"]["Row"];

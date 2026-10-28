@@ -15,6 +15,7 @@ import { PaperCreationGuide } from "@/components/site/PaperCreationGuide";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/client";
 import type { Subject } from "@/data/subjects";
+import type { PaymentNumbers } from "@/lib/payments/config";
 import { cn } from "@/lib/utils";
 
 export type RecentQuestion = {
@@ -31,6 +32,8 @@ type HomePageProps = {
   mcqTotal?: number | undefined;
   recentQuestions?: RecentQuestion[] | undefined;
   slides: string[];
+  signedIn: boolean;
+  paymentNumbers: PaymentNumbers;
 };
 
 const featureSpanClasses = [
@@ -55,6 +58,8 @@ export function HomePage({
   mcqTotal,
   recentQuestions = [],
   slides,
+  signedIn,
+  paymentNumbers,
 }: HomePageProps) {
   const { tr } = useI18n();
 
@@ -273,7 +278,7 @@ export function HomePage({
             </p>
           </div>
 
-          <PricingTabs />
+          <PricingTabs signedIn={signedIn} paymentNumbers={paymentNumbers} />
 
           <div className="mt-8 text-center">
             <Button variant="link" asChild>

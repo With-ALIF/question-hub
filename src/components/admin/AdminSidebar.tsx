@@ -10,6 +10,7 @@ import {
   ListChecks,
   LogOut,
   ShieldCheck,
+  Wallet,
 } from "lucide-react";
 import { adminSignOutAction } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,12 @@ const navigationItems = [
     icon: Flag,
   },
   {
+    href: "/admin/orders",
+    label: "Payments",
+    labelBn: "পেমেন্ট ও অর্ডার",
+    icon: Wallet,
+  },
+  {
     href: "/admin/home-slider",
     label: "Home Slider",
     labelBn: "হোম স্লাইডার",
@@ -57,6 +64,7 @@ export function AdminSidebar({
     currentPath === "/admin/dashboard" || currentPath === "/admin";
   const isQuestionsActive = currentPath.startsWith("/admin/questions");
   const isReportsActive = currentPath.startsWith("/admin/reports");
+  const isOrdersActive = currentPath.startsWith("/admin/orders");
   const isHomeSliderActive = currentPath.startsWith("/admin/home-slider");
 
   return (
@@ -255,6 +263,27 @@ export function AdminSidebar({
               <Flag className="size-4.5" aria-hidden="true" />
             </span>
             <span className="text-[10px] tracking-tight">রিপোর্ট</span>
+          </Link>
+
+          {/* Payments */}
+          <Link
+            href="/admin/orders"
+            className={cn(
+              "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors relative",
+              isOrdersActive
+                ? "font-semibold text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <span
+              className={cn(
+                "flex size-7 items-center justify-center rounded-lg transition-colors",
+                isOrdersActive && "bg-primary/10 text-primary"
+              )}
+            >
+              <Wallet className="size-4.5" aria-hidden="true" />
+            </span>
+            <span className="text-[10px] tracking-tight">পেমেন্ট</span>
           </Link>
 
           {/* Slider */}

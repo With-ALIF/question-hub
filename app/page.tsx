@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 
 import { HomePage, type RecentQuestion } from "@/components/site/HomePage";
+import { getCurrentUser } from "@/lib/auth/session";
 import { getSubjects } from "@/lib/questions/catalog";
 import { getQuestionManifest } from "@/lib/questions/storage";
+import { getPaymentNumbers } from "@/lib/payments/server";
 import { getI18n } from "@/lib/i18n/server";
 import { getHomeSlideUrls } from "@/lib/home-slides";
 
@@ -26,10 +28,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Page() {
-  const [subjects, manifest, slides] = await Promise.all([
+  const [subjects, manifest, slides, user] = await Promise.all([
     getSubjects(),
     getQuestionManifest().catch(() => null),
     getHomeSlideUrls(),
+    getCurrentUser(),
   ]);
 
   const recentQuestions: RecentQuestion[] = (manifest?.recentQuestions ?? []).map(
@@ -49,6 +52,8 @@ export default async function Page() {
       mcqTotal={manifest?.mcqTotal}
       recentQuestions={recentQuestions}
       slides={slides}
+      signedIn={Boolean(user)}
+      paymentNumbers={getPaymentNumbers()}
     />
   );
 }

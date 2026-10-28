@@ -19,6 +19,7 @@ import { Navbar } from "@/components/site/Navbar";
 import { signOutAction } from "@/lib/auth/actions";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth/session";
 import { getQuestionManifest } from "@/lib/questions/storage";
+import { getMyPendingOrder, getMySubscription } from "@/lib/payments/queries";
 import { localeForLanguage } from "@/lib/i18n/config";
 import { getI18n } from "@/lib/i18n/server";
 
@@ -57,8 +58,12 @@ export default async function UserDashboard(props: DashboardPageProps) {
     redirect("/login");
   }
 
-  const profile = await getCurrentProfile();
-  const manifest = await getQuestionManifest().catch(() => null);
+  const [profile, manifest, subscription, pendingOrder] = await Promise.all([
+    getCurrentProfile(),
+    getQuestionManifest().catch(() => null),
+    getMySubscription(),
+    getMyPendingOrder(),
+  ]);
   const { tr, num, lang, subjectName } = await getI18n();
   const locale = localeForLanguage(lang);
 
@@ -71,14 +76,20 @@ export default async function UserDashboard(props: DashboardPageProps) {
     user.email?.split("@")[0] ||
     tr("Student", "শিক্ষার্থী");
 
-  const planName =
+  const metaPlanName =
     (typeof meta["plan_name"] === "string" && meta["plan_name"]) ||
     (typeof meta["plan"] === "string" && meta["plan"]) ||
+    null;
+
+  const planName =
+    subscription?.plan_name ||
+    metaPlanName ||
     (rawRole === "admin" || rawRole === "super_admin"
       ? tr("Admin Pro (Lifetime access)", "Admin Pro (লাইফটাইম অ্যাক্সেস)")
-      : tr("Scholar Plan", "Scholar প্ল্যান"));
+      : tr("Starter (Free)", "Starter (ফ্রি)"));
 
   const expiresAt =
+    subscription?.expires_at ||
     (typeof meta["access_expires_at"] === "string" && meta["access_expires_at"]) ||
     (typeof meta["subscription_expires_at"] === "string" && meta["subscription_expires_at"]) ||
     null;
@@ -152,6 +163,33 @@ export default async function UserDashboard(props: DashboardPageProps) {
               </form>
             </div>
           </div>
+
+          {pendingOrder && (
+            <div className="mt-5 flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                  <CalendarClock className="size-4" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {tr("Payment under review", "পেমেন্ট যাচাই চলছে")}
+                  </p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                    {tr(
+                      `Order ${pendingOrder.order_code} · ${pendingOrder.plan_name} · ৳${num(pendingOrder.amount_bdt)}. We usually verify within 24 hours.`,
+                      `অর্ডার ${pendingOrder.order_code} · ${pendingOrder.plan_name} · ৳${num(pendingOrder.amount_bdt)}। সাধারণত ২৪ ঘণ্টার মধ্যে যাচাই করা হয়।`,
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Badge
+                variant="outline"
+                className="self-start border-amber-500/40 bg-amber-500/10 text-[11px] font-semibold text-amber-700 dark:text-amber-400 sm:self-auto"
+              >
+                {tr("Pending", "পেন্ডিং")}
+              </Badge>
+            </div>
+          )}
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-border/70 shadow-sm transition-all hover:border-primary/40">

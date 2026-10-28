@@ -6,11 +6,20 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/client";
+import type { PaymentNumbers } from "@/lib/payments/config";
 import type { LocalizedText, Plan } from "@/data/plans";
+import { PlanPaymentDialog } from "./PlanPaymentDialog";
 
-export function PlanCard({ plan }: { plan: Plan }) {
+type PlanCardProps = {
+  plan: Plan;
+  signedIn: boolean;
+  paymentNumbers: PaymentNumbers;
+};
+
+export function PlanCard({ plan, signedIn, paymentNumbers }: PlanCardProps) {
   const { lang, tr } = useI18n();
   const pick = (value: LocalizedText) => value[lang];
+  const isFree = plan.amountBdt <= 0;
 
   return (
     <Card
@@ -47,13 +56,32 @@ export function PlanCard({ plan }: { plan: Plan }) {
         </ul>
       </CardContent>
       <CardFooter className="pt-4">
-        <Button
-          asChild
-          variant={plan.highlighted ? "default" : "outline"}
-          className="w-full"
-        >
-          <Link href="/register">{pick(plan.cta)}</Link>
-        </Button>
+        {!isFree && signedIn ? (
+          <PlanPaymentDialog
+            plan={plan}
+            label={pick(plan.cta)}
+            highlighted={plan.highlighted}
+            paymentNumbers={paymentNumbers}
+          />
+        ) : (
+          <Button
+            asChild
+            variant={plan.highlighted ? "default" : "outline"}
+            className="w-full"
+          >
+            <Link
+              href={
+                isFree
+                  ? signedIn
+                    ? "/dashboard"
+                    : "/register"
+                  : "/login?next=%2Fplans"
+              }
+            >
+              {pick(plan.cta)}
+            </Link>
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { PricingTabs } from "@/components/site/PricingTabs";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getPaymentNumbers } from "@/lib/payments/server";
 import { getI18n } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -23,7 +25,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function PlansPage() {
-  const { tr } = await getI18n();
+  const [{ tr }, user] = await Promise.all([getI18n(), getCurrentUser()]);
+  const paymentNumbers = getPaymentNumbers();
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -42,14 +45,11 @@ export default async function PlansPage() {
             </p>
           </div>
 
-          <PricingTabs defaultAudience="student" />
-
-          <p className="mt-10 text-center text-xs text-muted-foreground">
-            {tr(
-              "UI prototype — subscription and payment flows are not active yet.",
-              "UI প্রোটোটাইপ — সাবস্ক্রিপশন ও পেমেন্ট ফ্লো এখনো চালু হয়নি।",
-            )}
-          </p>
+          <PricingTabs
+            defaultAudience="student"
+            signedIn={Boolean(user)}
+            paymentNumbers={paymentNumbers}
+          />
         </section>
       </main>
       <Footer />

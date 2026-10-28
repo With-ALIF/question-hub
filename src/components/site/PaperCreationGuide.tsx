@@ -4,7 +4,6 @@ import { useState, type ReactNode } from "react";
 import {
   BadgeCheck,
   CheckCircle2,
-  ChevronDown,
   FileDown,
   LayoutGrid,
   ListFilter,
@@ -15,7 +14,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/client";
 
 function StepCard({
@@ -79,14 +77,6 @@ export function PaperCreationGuide() {
             )}
           </span>
         </div>
-
-        <span className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-lg border border-border bg-background px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground">
-          {open ? tr("Hide guide", "গাইড লুকান") : tr("View guide", "গাইড দেখুন")}
-          <ChevronDown
-            className={cn("size-3.5 transition-transform", open && "rotate-180")}
-            aria-hidden="true"
-          />
-        </span>
       </summary>
 
       <div className="border-t border-border p-4 sm:p-5">

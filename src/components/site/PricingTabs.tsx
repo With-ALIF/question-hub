@@ -6,9 +6,12 @@ import { PlanCard } from "@/components/site/PlanCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { plansByAudience, type PlanAudience } from "@/data/plans";
 import { useI18n } from "@/lib/i18n/client";
+import type { PaymentNumbers } from "@/lib/payments/config";
 
 type PricingTabsProps = {
   defaultAudience?: PlanAudience;
+  signedIn?: boolean;
+  paymentNumbers: PaymentNumbers;
 };
 
 const AUDIENCES: {
@@ -37,7 +40,11 @@ const AUDIENCES: {
   },
 ];
 
-export function PricingTabs({ defaultAudience = "student" }: PricingTabsProps) {
+export function PricingTabs({
+  defaultAudience = "student",
+  signedIn = false,
+  paymentNumbers,
+}: PricingTabsProps) {
   const { tr } = useI18n();
 
   return (
@@ -71,7 +78,12 @@ export function PricingTabs({ defaultAudience = "student" }: PricingTabsProps) {
 
           <div className="mt-8 grid gap-6 pt-2 md:grid-cols-3">
             {plansByAudience[value].map((plan) => (
-              <PlanCard key={plan.id} plan={plan} />
+              <PlanCard
+                key={plan.id}
+                plan={plan}
+                signedIn={signedIn}
+                paymentNumbers={paymentNumbers}
+              />
             ))}
           </div>
         </TabsContent>

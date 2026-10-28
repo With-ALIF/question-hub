@@ -1,0 +1,127 @@
+"use server";
+
+import { randomUUID } from "node:crypto";
+
+import { revalidatePath } from "next/cache";
+
+import { getCurrentUser } from "@/lib/auth/session";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { PaymentMethod } from "@/lib/supabase/types";
+
+import {
+  BD_PHONE_PATTERN,
+  TRX_PATTERN,
+  findPlan,
+  isPaymentMethod,
+} from "./config";
+import type { CreateOrderResult } from "./types";
+
+export type CreateManualOrderInput = {
+  planId: string;
+  method: PaymentMethod;
+  trxId: string;
+  senderNumber?: string;
+};
+
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX_ORDERS = 5;
+
+function makeOrderCode() {
+  const token = randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
+  return `QB-${token}`;
+}
+
+/**
+ * Creates a pending manual payment order. The price and duration are always
+ * resolved from the server-side plan catalog, never from client input.
+ */
+export async function createManualOrderAction(
+  input: CreateManualOrderInput,
+): Promise<CreateOrderResult> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return { ok: false, error: "auth" };
+  }
+
+  if (!input || typeof input.planId !== "string" || !isPaymentMethod(input.method)) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  const trxId = String(input.trxId ?? "").trim().toUpperCase();
+  const senderNumber = String(input.senderNumber ?? "").trim();
+
+  if (!TRX_PATTERN.test(trxId)) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  if (senderNumber && !BD_PHONE_PATTERN.test(senderNumber)) {
+    return { ok: false, error: "invalid_input" };
+  }
+
+  const match = findPlan(input.planId);
+
+  if (!match || match.plan.amountBdt <= 0 || match.plan.durationDays <= 0) {
+    return { ok: false, error: "invalid_plan" };
+  }
+
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+    const { count } = await supabase
+      .from("qb_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .gte("created_at", since);
+
+    if ((count ?? 0) >= RATE_LIMIT_MAX_ORDERS) {
+      return { ok: false, error: "rate_limited" };
+    }
+
+    const { data: duplicate } = await supabase
+      .from("qb_orders")
+      .select("id")
+      .eq("payment_method", input.method)
+      .eq("trx_id", trxId)
+      .in("status", ["pending", "approved"])
+      .maybeSingle();
+
+    if (duplicate) {
+      return { ok: false, error: "duplicate_trx" };
+    }
+
+    const { data, error } = await supabase
+      .from("qb_orders")
+      .insert({
+        order_code: makeOrderCode(),
+        user_id: user.id,
+        plan_id: match.plan.id,
+        plan_name: match.plan.name.en,
+        audience: match.audience,
+        amount_bdt: match.plan.amountBdt,
+        duration_days: match.plan.durationDays,
+        payment_method: input.method,
+        sender_number: senderNumber || null,
+        trx_id: trxId,
+        status: "pending",
+      })
+      .select("order_code")
+      .single();
+
+    if (error || !data) {
+      if (error?.code === "23505") {
+        return { ok: false, error: "duplicate_trx" };
+      }
+
+      return { ok: false, error: "failed" };
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/admin/orders");
+
+    return { ok: true, orderCode: data.order_code };
+  } catch {
+    return { ok: false, error: "failed" };
+  }
+}
