@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Navbar } from "@/components/site/Navbar";
 import { signOutAction } from "@/lib/auth/actions";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth/session";
+import { isAdminRole } from "@/lib/auth/roles";
 import { getQuestionManifest } from "@/lib/questions/storage";
 import { getMyPendingOrder, getMySubscription } from "@/lib/payments/queries";
 import { localeForLanguage } from "@/lib/i18n/config";
@@ -64,6 +65,10 @@ export default async function UserDashboard(props: DashboardPageProps) {
     getMySubscription(),
     getMyPendingOrder(),
   ]);
+
+  if (isAdminRole(profile?.role)) {
+    redirect("/admin/dashboard");
+  }
   const { tr, num, lang, subjectName } = await getI18n();
   const locale = localeForLanguage(lang);
 
@@ -84,9 +89,7 @@ export default async function UserDashboard(props: DashboardPageProps) {
   const planName =
     subscription?.plan_name ||
     metaPlanName ||
-    (rawRole === "admin" || rawRole === "super_admin"
-      ? tr("Admin Pro (Lifetime access)", "Admin Pro (লাইফটাইম অ্যাক্সেস)")
-      : tr("Starter (Free)", "Starter (ফ্রি)"));
+    tr("Starter (Free)", "Starter (ফ্রি)");
 
   const expiresAt =
     subscription?.expires_at ||
@@ -112,8 +115,6 @@ export default async function UserDashboard(props: DashboardPageProps) {
         year: "numeric",
       });
     }
-  } else if (rawRole === "admin" || rawRole === "super_admin") {
-    remainingDaysText = tr("Lifetime access", "আজীবন অ্যাক্সেস");
   }
 
   const allowedSubjectSlugs: string[] | null = Array.isArray(meta["accessible_subjects"])

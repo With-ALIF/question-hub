@@ -85,12 +85,31 @@ export async function signInAction(
 
   try {
     const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       return { status: "error", message: error.message };
     }
-  } catch {
+
+    if (data?.user) {
+      const adminRole = await readAdminRole(data.user.id);
+      if (adminRole) {
+        const next = readSafeNext(formData);
+        redirect(next.startsWith("/admin") ? next : "/admin/dashboard");
+      }
+    }
+  } catch (err) {
+    // Re-throw redirect error so Next.js can handle the redirect
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "digest" in err &&
+      typeof (err as Record<string, unknown>)["digest"] === "string" &&
+      ((err as Record<string, unknown>)["digest"] as string).startsWith("NEXT_REDIRECT")
+    ) {
+      throw err;
+    }
+
     return {
       status: "error",
       message: tr(

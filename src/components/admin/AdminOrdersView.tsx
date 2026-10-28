@@ -30,12 +30,13 @@ import type { AdminOrder, AdminOrderErrorCode } from "@/lib/payments/types";
 import type { OrderStatus } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 
-type Filter = "pending" | "approved" | "rejected" | "all";
+type Filter = "pending" | "approved" | "rejected" | "cancelled" | "all";
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: "pending", label: "পেন্ডিং" },
   { value: "approved", label: "অ্যাপ্রুভড" },
   { value: "rejected", label: "রিজেক্টেড" },
+  { value: "cancelled", label: "বাতিল" },
   { value: "all", label: "সব" },
 ];
 
@@ -49,14 +50,15 @@ const STATUS_META: Record<OrderStatus, { label: string; className: string }> = {
     className:
       "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   },
+    cancelled: {
+    label: "বাতিল",
+    className: "border-border bg-muted text-muted-foreground",
+  },
   rejected: {
     label: "রিজেক্টেড",
     className: "border-destructive/30 bg-destructive/10 text-destructive",
   },
-  cancelled: {
-    label: "বাতিল",
-    className: "border-border bg-muted text-muted-foreground",
-  },
+
 };
 
 function formatDate(iso: string) {
