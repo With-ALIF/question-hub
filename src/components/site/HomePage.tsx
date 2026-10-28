@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { BookOpen, Check, Library, ListChecks, type LucideIcon } from "lucide-react";
+import { BookOpen, Library, ListChecks, type LucideIcon } from "lucide-react";
 
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
@@ -188,30 +188,33 @@ export function HomePage({
           aria-labelledby="features-heading"
           className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24"
         >
-          <div className="mx-auto max-w-3xl text-center">
-            <h2
-              id="features-heading"
-              className="font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl lg:text-5xl"
-            >
-              <span className="flex items-center justify-center gap-2 text-primary">
-                <span>{tr("QuestionBank", "QuestionBank-এ")}</span>
-                <span
-                  className="inline-flex size-7 -rotate-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm sm:size-8"
-                  aria-hidden="true"
+          <div className="border-b border-border/60 pb-8">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-end lg:gap-12">
+              <div>
+                <div className="flex items-center gap-3">
+                  <span className="h-px w-8 bg-primary/70" aria-hidden="true" />
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                    {tr("Inside QuestionBank", "QuestionBank-এর ভেতরে")}
+                  </span>
+                </div>
+                <h2
+                  id="features-heading"
+                  className="mt-4 max-w-3xl font-display text-[2rem] font-semibold leading-[1.12] tracking-tight text-foreground sm:text-4xl lg:text-[3.4rem]"
                 >
-                  <Check className="size-4 sm:size-5" strokeWidth={3} />
-                </span>
-              </span>
-              <span className="mt-1 block text-foreground">
-                {tr("Everything students get", "শিক্ষার্থীরা যা যা পাচ্ছে")}
-              </span>
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-              {tr(
-                "One place for subjects, chapters, MCQ practice, and exam papers.",
-                "বিষয়, অধ্যায়, MCQ আর প্রশ্নপত্র — সব এক জায়গায়।",
-              )}
-            </p>
+                  <span className="text-primary">{tr("QuestionBank", "QuestionBank-এ")}</span>{" "}
+                  {tr(
+                    "gives students everything they need.",
+                    "শিক্ষার্থীরা যা\u00A0যা পাচ্ছে, সব একসাথে।",
+                  )}
+                </h2>
+              </div>
+              <p className="max-w-md text-sm leading-relaxed text-muted-foreground lg:justify-self-end lg:pb-2">
+                {tr(
+                  "Subjects, chapters, MCQ practice, and exam papers — for every step of your prep.",
+                  "বিষয়, অধ্যায়, MCQ আর প্রশ্নপত্র — প্রস্তুতির প্রতিটি ধাপে।",
+                )}
+              </p>
+            </div>
           </div>
 
           <div className="mt-10 grid grid-cols-6 gap-x-3 gap-y-7 sm:mt-12 sm:grid-cols-2 sm:gap-x-5 sm:gap-y-9 lg:grid-cols-6">

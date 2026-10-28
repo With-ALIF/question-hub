@@ -6,14 +6,17 @@ import { usePathname } from "next/navigation";
 import {
   BookmarkCheck,
   BookOpenCheck,
+  ChevronRight,
   FileText,
   Home,
   Layers,
   LayoutDashboard,
   LogIn,
   LogOut,
+  Menu,
   Sparkles,
   Timer,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -71,6 +74,7 @@ function isActivePath(pathname: string, href: string) {
 
 export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
   const [user, setUser] = useState<SupabaseUser | null>(initialUser ?? null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
   const { tr } = useI18n();
 
@@ -108,6 +112,26 @@ export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
 
   const navLinks = user ? loggedInNavLinks : baseNavLinks;
   const mobileNavItems = user ? loggedInMobileLinks : loggedOutMobileLinks;
@@ -194,78 +218,98 @@ export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
 
           <div className="flex items-center gap-1.5 md:hidden">
             <LanguageSwitcher />
-            {!user ? (
-              <Button size="sm" asChild className="h-8 px-3 text-xs">
-                <Link href="/login">{tr("Log in", "লগইন")}</Link>
-              </Button>
-            ) : (
-              <form action={signOutAction} onSubmit={handleSignOut}>
-                <Button
-                  type="submit"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 px-2 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  title={tr("Log out", "লগআউট")}
-                >
-                  <LogOut className="size-3.5" aria-hidden="true" />
-                  <span className="text-[11px]">{tr("Log out", "লগআউট")}</span>
-                </Button>
-              </form>
-            )}
+            <button
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              className="inline-flex size-9 items-center justify-center rounded-lg border border-border/70 bg-background text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={menuOpen ? tr("Close menu", "মেনু বন্ধ করুন") : tr("Open menu", "মেনু খুলুন")}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-menu"
+            >
+              {menuOpen ? (
+                <X className="size-4.5" aria-hidden="true" />
+              ) : (
+                <Menu className="size-4.5" aria-hidden="true" />
+              )}
+            </button>
           </div>
         </nav>
       </header>
 
-      <nav
-        aria-label={tr("Mobile bottom navigation", "মোবাইল নিচের নেভিগেশন")}
-        className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-background/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md shadow-lg md:hidden font-sans"
-      >
-        <div className="flex h-16 items-center justify-around px-1">
-          {mobileNavItems.map((item) => {
-            const active = isActivePath(pathname, item.href);
-            const Icon = item.icon;
+      {menuOpen ? (
+        <>
+          <button
+            type="button"
+            aria-label={tr("Close menu", "মেনু বন্ধ করুন")}
+            className="fixed inset-0 z-30 cursor-default bg-black/25 backdrop-blur-[1px] md:hidden"
+            onClick={() => setMenuOpen(false)}
+          />
+          <div
+            id="mobile-menu"
+            className="fixed inset-x-0 top-14 z-50 max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-b border-border bg-background shadow-xl md:hidden sm:top-16 sm:max-h-[calc(100dvh-4rem)]"
+          >
+            <nav
+              aria-label={tr("Mobile navigation", "মোবাইল নেভিগেশন")}
+              className="mx-auto max-w-6xl px-4 py-4 sm:px-6"
+            >
+              <div className="grid gap-1">
+                {mobileNavItems.map((item) => {
+                  const active = isActivePath(pathname, item.href);
+                  const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors",
-                  active
-                    ? "font-semibold text-primary"
-                    : "text-muted-foreground hover:text-foreground",
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMenuOpen(false)}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors",
+                        active
+                          ? "bg-primary/10 text-primary"
+                          : "text-foreground hover:bg-secondary",
+                      )}
+                    >
+                      {Icon ? <Icon className="size-4.5" aria-hidden="true" /> : null}
+                      <span className="flex-1">{tr(...item.label)}</span>
+                      <ChevronRight className="size-4 text-muted-foreground/60" aria-hidden="true" />
+                    </Link>
+                  );
+                })}
+              </div>
+
+              <div className="mt-4 border-t border-border/70 pt-4">
+                {user ? (
+                  <form action={signOutAction} onSubmit={handleSignOut}>
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      className="w-full justify-start gap-2 text-destructive hover:text-destructive"
+                    >
+                      <LogOut className="size-4" aria-hidden="true" />
+                      {tr("Log out", "লগআউট")}
+                    </Button>
+                  </form>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" asChild>
+                      <Link href="/login" onClick={() => setMenuOpen(false)}>
+                        <LogIn className="size-4" aria-hidden="true" />
+                        {tr("Log in", "লগইন")}
+                      </Link>
+                    </Button>
+                    <Button asChild>
+                      <Link href="/register" onClick={() => setMenuOpen(false)}>
+                        {tr("Register", "রেজিস্টার")}
+                      </Link>
+                    </Button>
+                  </div>
                 )}
-              >
-                <span
-                  className={cn(
-                    "flex size-7 items-center justify-center rounded-lg transition-colors",
-                    active && "bg-primary/10 text-primary",
-                  )}
-                >
-                  {Icon && (
-                    <Icon className={cn("size-4.5", active ? "stroke-[2.2]" : "stroke-[1.8]")} aria-hidden="true" />
-                  )}
-                </span>
-                <span className="text-[10px] tracking-tight">{tr(...item.label)}</span>
-              </Link>
-            );
-          })}
-
-          {user && (
-            <form action={signOutAction} onSubmit={handleSignOut} className="flex-1">
-              <button
-                type="submit"
-                className="flex w-full flex-col items-center justify-center gap-1 py-1 text-muted-foreground transition-colors hover:text-destructive"
-              >
-                <span className="flex size-7 items-center justify-center rounded-lg">
-                  <LogOut className="size-4.5 stroke-[1.8]" aria-hidden="true" />
-                </span>
-                <span className="text-[10px] tracking-tight">{tr("Log out", "লগআউট")}</span>
-              </button>
-            </form>
-          )}
-        </div>
-      </nav>
+              </div>
+            </nav>
+          </div>
+        </>
+      ) : null}
     </>
   );
 }

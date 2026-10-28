@@ -558,7 +558,7 @@ export function ExamPaperBuilderView({
           onClick={scrollToTop}
           aria-label={tr("Scroll to top", "উপরে যান")}
           title={tr("Scroll to top", "উপরে যান")}
-          className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] md:bottom-6 right-4 sm:right-6 z-40 flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 backdrop-blur-md transition-all duration-300 hover:scale-110 hover:bg-primary/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer animate-in fade-in zoom-in-75 slide-in-from-bottom-4 group"
+          className="fixed bottom-6 right-4 sm:right-6 z-40 flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 backdrop-blur-md transition-all duration-300 hover:scale-110 hover:bg-primary/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer animate-in fade-in zoom-in-75 slide-in-from-bottom-4 group"
         >
           <ArrowUp className="size-5 transition-transform duration-300 group-hover:-translate-y-0.5" />
         </button>
