@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -14,6 +15,7 @@ import {
   findPlan,
   isPaymentMethod,
 } from "./config";
+import { sendPaymentNotifications } from "./notify";
 import type { CreateOrderResult } from "./types";
 
 export type CreateManualOrderInput = {
@@ -116,6 +118,30 @@ export async function createManualOrderAction(
 
       return { ok: false, error: "failed" };
     }
+
+    const metadata = user.user_metadata ?? {};
+    const customerName =
+      typeof metadata["full_name"] === "string"
+        ? metadata["full_name"]
+        : typeof metadata["name"] === "string"
+          ? metadata["name"]
+          : null;
+
+    after(() =>
+      sendPaymentNotifications({
+        orderCode: data.order_code,
+        planName: match.plan.name.en,
+        planNameBn: match.plan.name.bn,
+        audience: match.audience,
+        amountBdt: match.plan.amountBdt,
+        durationLabel: match.plan.duration.bn,
+        method: input.method,
+        trxId,
+        senderNumber: senderNumber || null,
+        customerName,
+        customerEmail: user.email ?? null,
+      }),
+    );
 
     revalidatePath("/dashboard");
     revalidatePath("/admin/orders");

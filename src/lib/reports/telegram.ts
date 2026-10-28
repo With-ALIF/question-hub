@@ -1,4 +1,5 @@
 import { findQuestionById } from "@/lib/admin/question-search";
+import { sendTelegramMessage } from "@/lib/notifications/telegram";
 import { REPORT_TYPE_LABELS, type ReportType } from "./types";
 
 export type SendReportTelegramInput = {
@@ -27,16 +28,6 @@ function escapeHtml(text: string): string {
 export async function sendReportNotificationTelegram(
   input: SendReportTelegramInput
 ): Promise<boolean> {
-  const token =
-    process.env["TELEGRAM_BOT_TOKEN"] ??
-    "8829533636:AAEUOBgy7AnpwhV8ES1675UZKk7olXvsXSY";
-  const chatId =
-    process.env["TELEGRAM_CHAT_ID"] ?? "-1004445399445";
-
-  if (!token || !chatId) {
-    return false;
-  }
-
   try {
     const qData = await findQuestionById(input.questionId).catch(() => null);
     const subName = qData?.subject ? SUBJECT_MAP[qData.subject] || qData.subject : "অনির্দিষ্ট বিষয়";
@@ -67,35 +58,13 @@ export async function sendReportNotificationTelegram(
       `<pre>${escapeHtml(truncate(qText))}</pre>`,
     ].join("\n");
 
-    const payload = {
-      chat_id: chatId,
+    return sendTelegramMessage({
       text,
-      parse_mode: "HTML",
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "🛠 এডমিন প্যানেলে দেখুন",
-              url: "https://question-hub-bd.vercel.app/admin/reports",
-            },
-          ],
-        ],
+      button: {
+        text: "🛠 এডমিন প্যানেলে দেখুন",
+        url: "https://question-hub-bd.vercel.app/admin/reports",
       },
-    };
-
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
     });
-
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.error("[Telegram Report Dispatcher Error]", res.status, errBody);
-      return false;
-    }
-
-    return true;
   } catch (err) {
     console.error("[Telegram Report Dispatcher Exception]", err);
     return false;
