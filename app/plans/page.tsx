@@ -4,6 +4,7 @@ import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { PricingTabs } from "@/components/site/PricingTabs";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getMyPendingOrder } from "@/lib/payments/queries";
 import { getPaymentNumbers } from "@/lib/payments/server";
 import { getI18n } from "@/lib/i18n/server";
 
@@ -25,7 +26,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function PlansPage() {
-  const [{ tr }, user] = await Promise.all([getI18n(), getCurrentUser()]);
+  const [{ tr }, user, pendingOrder] = await Promise.all([
+    getI18n(),
+    getCurrentUser(),
+    getMyPendingOrder(),
+  ]);
   const paymentNumbers = getPaymentNumbers();
 
   return (
@@ -49,6 +54,7 @@ export default async function PlansPage() {
             defaultAudience="student"
             signedIn={Boolean(user)}
             paymentNumbers={paymentNumbers}
+            pendingOrder={pendingOrder}
           />
         </section>
       </main>

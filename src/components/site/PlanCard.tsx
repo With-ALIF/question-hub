@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/client";
 import type { PaymentNumbers } from "@/lib/payments/config";
+import type { Order } from "@/lib/payments/types";
 import type { LocalizedText, Plan } from "@/data/plans";
 import { PlanPaymentDialog } from "./PlanPaymentDialog";
 
@@ -14,9 +15,10 @@ type PlanCardProps = {
   plan: Plan;
   signedIn: boolean;
   paymentNumbers: PaymentNumbers;
+  pendingOrder?: Order | null | undefined;
 };
 
-export function PlanCard({ plan, signedIn, paymentNumbers }: PlanCardProps) {
+export function PlanCard({ plan, signedIn, paymentNumbers, pendingOrder }: PlanCardProps) {
   const { lang, tr } = useI18n();
   const pick = (value: LocalizedText) => value[lang];
   const isFree = plan.amountBdt <= 0;
@@ -62,6 +64,7 @@ export function PlanCard({ plan, signedIn, paymentNumbers }: PlanCardProps) {
             label={pick(plan.cta)}
             highlighted={plan.highlighted}
             paymentNumbers={paymentNumbers}
+            pendingOrder={pendingOrder}
           />
         ) : (
           <Button

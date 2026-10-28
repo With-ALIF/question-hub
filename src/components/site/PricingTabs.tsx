@@ -1,17 +1,21 @@
 "use client";
 
-import { GraduationCap, Presentation, type LucideIcon } from "lucide-react";
+import { Clock, GraduationCap, Presentation, type LucideIcon } from "lucide-react";
+import Link from "next/link";
 
 import { PlanCard } from "@/components/site/PlanCard";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { plansByAudience, type PlanAudience } from "@/data/plans";
 import { useI18n } from "@/lib/i18n/client";
 import type { PaymentNumbers } from "@/lib/payments/config";
+import type { Order } from "@/lib/payments/types";
 
 type PricingTabsProps = {
-  defaultAudience?: PlanAudience;
-  signedIn?: boolean;
+  defaultAudience?: PlanAudience | undefined;
+  signedIn?: boolean | undefined;
   paymentNumbers: PaymentNumbers;
+  pendingOrder?: Order | null | undefined;
 };
 
 const AUDIENCES: {
@@ -44,6 +48,7 @@ export function PricingTabs({
   defaultAudience = "student",
   signedIn = false,
   paymentNumbers,
+  pendingOrder,
 }: PricingTabsProps) {
   const { tr } = useI18n();
 
@@ -68,6 +73,44 @@ export function PricingTabs({
         ))}
       </TabsList>
 
+      {pendingOrder && (
+        <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-left">
+          <div className="flex items-start gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+              <Clock className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-bold text-foreground">
+                  {tr("You have a pending order", "আপনার একটি অর্ডার পেন্ডিং আছে")}
+                </h4>
+                <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                  {pendingOrder.order_code}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {tr(
+                  "You already ordered a plan. You cannot order another plan until this order is verified or rejected by an admin.",
+                  "আপনি ইতোমধ্যে একটি অর্ডার করেছেন যা বর্তমানে পেন্ডিং আছে। সেটি যাচাই বা বাতিল না হওয়া পর্যন্ত অন্য কোনো প্ল্যান অর্ডার করা যাবে না।",
+                )}
+              </p>
+              <div className="mt-2.5">
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="h-7 border-amber-500/30 text-xs hover:bg-amber-500/20"
+                >
+                  <Link href="/dashboard">
+                    {tr("View in dashboard", "ড্যাশবোর্ডে দেখুন")}
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {AUDIENCES.map(({ value, description }) => (
         <TabsContent
           key={value}
@@ -83,6 +126,7 @@ export function PricingTabs({
                 plan={plan}
                 signedIn={signedIn}
                 paymentNumbers={paymentNumbers}
+                pendingOrder={pendingOrder}
               />
             ))}
           </div>

@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { PlanAudience } from "@/data/plans";
+import { sendBrevoEmail } from "@/lib/notifications/brevo";
 import { sendTelegramMessage } from "@/lib/notifications/telegram";
 import type { PaymentMethod } from "@/lib/supabase/types";
 
@@ -139,10 +140,9 @@ async function sendPaymentTelegram(
 async function sendCustomerPaymentEmail(
   input: PaymentNotificationInput,
 ): Promise<boolean> {
-  const apiKey = process.env["RESEND_API_KEY"];
   const toEmail = input.customerEmail;
 
-  if (!apiKey || !toEmail) {
+  if (!toEmail) {
     return false;
   }
 
@@ -256,31 +256,53 @@ async function sendCustomerPaymentEmail(
 </body>
 </html>`;
 
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+  // Deliver customer receipt via Brevo first
+  if (process.env["BREVO_API_KEY"]) {
+    const brevoOk = await sendBrevoEmail({
+      to: {
+        email: toEmail,
+        name: input.customerName ?? undefined,
       },
-      body: JSON.stringify({
-        from: fromAddress("QuestionBank"),
-        to: [toEmail],
-        subject: `[QuestionBank] পেমেন্ট জমা হয়েছে · ${input.orderCode}`,
-        html,
-      }),
+      subject: `[QuestionBank] পেমেন্ট জমা হয়েছে · ${input.orderCode}`,
+      htmlContent: html,
     });
 
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.error("[email] Customer payment email failed:", res.status, errBody);
+    if (brevoOk) {
+      return true;
     }
-
-    return res.ok;
-  } catch (err) {
-    console.error("[email] Error sending customer payment email:", err);
-    return false;
   }
+
+  // Fallback to Resend if configured
+  const resendApiKey = process.env["RESEND_API_KEY"];
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: fromAddress("QuestionBank"),
+          to: [toEmail],
+          subject: `[QuestionBank] পেমেন্ট জমা হয়েছে · ${input.orderCode}`,
+          html,
+        }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error("[email] Customer payment email failed via Resend:", res.status, errBody);
+      }
+
+      return res.ok;
+    } catch (err) {
+      console.error("[email] Error sending customer payment email:", err);
+      return false;
+    }
+  }
+
+  return false;
 }
 
 async function sendAdminPaymentEmail(
@@ -288,10 +310,6 @@ async function sendAdminPaymentEmail(
 ): Promise<boolean> {
   const apiKey = process.env["RESEND_API_KEY"];
   const toEmail = process.env["ADMIN_NOTIFICATION_EMAIL"] ?? DEFAULT_ADMIN_EMAIL;
-
-  if (!apiKey) {
-    return false;
-  }
 
   const method = PAYMENT_METHODS[input.method].name;
   const audience = input.audience === "teacher" ? "শিক্ষক" : "শিক্ষার্থী";
@@ -392,41 +410,203 @@ ${detailRows}
 </html>`;
 
   try {
-    const payload = {
-      from: fromAddress("QuestionBank Payments"),
-      to: [toEmail],
-      subject: `[নতুন পেমেন্ট] ${input.orderCode} · ৳${input.amountBdt} · ${method}`,
-      html,
-    };
+    if (apiKey) {
+      const payload = {
+        from: fromAddress("QuestionBank Payments"),
+        to: [toEmail],
+        subject: `[নতুন পেমেন্ট] ${input.orderCode} · ৳${input.amountBdt} · ${method}`,
+        html,
+      };
 
-    let res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok && res.status === 403 && toEmail !== FALLBACK_ADMIN_EMAIL) {
-      res = await fetch("https://api.resend.com/emails", {
+      let res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ...payload, to: [FALLBACK_ADMIN_EMAIL] }),
+        body: JSON.stringify(payload),
       });
-    }
 
-    if (!res.ok) {
+      if (!res.ok && res.status === 403 && toEmail !== FALLBACK_ADMIN_EMAIL) {
+        res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ ...payload, to: [FALLBACK_ADMIN_EMAIL] }),
+        });
+      }
+
+      if (res.ok) {
+        return true;
+      }
+
       const errBody = await res.text();
-      console.error("[email] Admin payment email failed:", res.status, errBody);
+      console.error("[email] Admin payment email failed via Resend:", res.status, errBody);
     }
 
-    return res.ok;
+    // Fallback to Brevo for admin notification if Resend is unavailable or fails
+    if (process.env["BREVO_API_KEY"]) {
+      const brevoOk = await sendBrevoEmail({
+        to: { email: toEmail },
+        subject: `[নতুন পেমেন্ট] ${input.orderCode} · ৳${input.amountBdt} · ${method}`,
+        htmlContent: html,
+      });
+
+      if (brevoOk) {
+        return true;
+      }
+    }
+
+    return false;
   } catch (err) {
     console.error("[email] Error sending payment notification:", err);
     return false;
   }
+}
+
+export type SubscriptionApprovedNotificationInput = {
+  customerEmail: string;
+  customerName?: string | null;
+  orderCode: string;
+  planName: string;
+  amountBdt: number;
+  durationDays: number;
+};
+
+/**
+ * Sends a confirmation email to the student when an admin approves their plan order.
+ */
+export async function sendSubscriptionApprovedEmail(
+  input: SubscriptionApprovedNotificationInput,
+): Promise<boolean> {
+  const toEmail = input.customerEmail;
+  if (!toEmail) return false;
+
+  const safe = {
+    orderCode: escapeHtml(input.orderCode),
+    planName: escapeHtml(input.planName),
+    amount: input.amountBdt,
+    duration: input.durationDays,
+    customerName: input.customerName ? escapeHtml(input.customerName) : "",
+    time: escapeHtml(formatDhakaTime()),
+  };
+
+  const html = `
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>সাবস্ক্রিপশন সক্রিয় হয়েছে</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9;">
+  <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">
+    ${safe.orderCode} · আপনার প্ল্যান সক্রিয় হয়েছে
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f1f5f9; padding: 24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Bengali', Arial, sans-serif;">
+          <tr>
+            <td style="background-color: #064e3b; background-image: linear-gradient(135deg, #064e3b 0%, #047857 100%); padding: 24px;">
+              <span style="display: inline-block; padding: 4px 12px; background-color: #022c22; border: 1px solid #10b981; color: #a7f3d0; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border-radius: 9999px;">সক্রিয় (Active)</span>
+              <h1 style="margin: 10px 0 0; font-size: 20px; line-height: 1.4; font-weight: 700; color: #f8fafc;">অভিনন্দন! আপনার সাবস্ক্রিপশন সক্রিয় হয়েছে</h1>
+              <p style="margin: 4px 0 0; font-size: 12px; color: #a7f3d0;">${safe.planName} · ${safe.duration} দিন মেয়াদ</p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 24px;">
+              <p style="margin: 0 0 16px; font-size: 14px; color: #334155; line-height: 1.6;">
+                ${safe.customerName ? `প্রিয় <strong>${safe.customerName}</strong>, ` : ""}আপনার পেমেন্টটি সফলভাবে অনুমোদিত হয়েছে। এখন আপনি QuestionBank-এর সকল প্রিমিয়াম ফিচার ব্যবহার করতে পারবেন।
+              </p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px; font-size: 13px; border-top: 1px solid #e2e8f0;">
+                <tr>
+                  <td style="padding: 7px 0; color: #64748b; width: 110px;">অর্ডার কোড</td>
+                  <td style="padding: 7px 0; font-family: 'SFMono-Regular', Consolas, monospace; font-weight: 700; color: #2563eb;">${safe.orderCode}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 7px 0; color: #64748b;">প্ল্যান</td>
+                  <td style="padding: 7px 0; color: #0f172a;"><strong>${safe.planName}</strong></td>
+                </tr>
+                <tr>
+                  <td style="padding: 7px 0; color: #64748b;">মেয়াদ</td>
+                  <td style="padding: 7px 0; color: #334155;">${safe.duration} দিন</td>
+                </tr>
+                <tr>
+                  <td style="padding: 7px 0; color: #64748b;">পরিশোধিত</td>
+                  <td style="padding: 7px 0; color: #0f172a;"><strong>৳${safe.amount}</strong></td>
+                </tr>
+                <tr>
+                  <td style="padding: 7px 0; color: #64748b;">সময়</td>
+                  <td style="padding: 7px 0; color: #334155;">${safe.time} (BD)</td>
+                </tr>
+              </table>
+
+              <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="background-color: #059669; border-radius: 8px;">
+                    <a href="https://question-hub-bd.vercel.app/dashboard" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 11px 24px; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 600;">ড্যাশবোর্ডে প্রবেশ করুন</a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 18px 0 0; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                যেকোনো প্রশ্ন বা সহায়তার জন্য সরাসরি এই ইমেইলে রিপ্লাই দিতে পারেন।
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color: #f8fafc; padding: 14px; text-align: center; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8;">
+              QuestionBank · আপনার প্রস্তুতির বিশ্বস্ত সঙ্গী
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  // Brevo delivers directly to the student
+  if (process.env["BREVO_API_KEY"]) {
+    const sent = await sendBrevoEmail({
+      to: {
+        email: toEmail,
+        name: input.customerName ?? undefined,
+      },
+      subject: `[QuestionBank] আপনার সাবস্ক্রিপশন সক্রিয় হয়েছে · ${input.orderCode}`,
+      htmlContent: html,
+    });
+    if (sent) return true;
+  }
+
+  const resendApiKey = process.env["RESEND_API_KEY"];
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: fromAddress("QuestionBank"),
+          to: [toEmail],
+          subject: `[QuestionBank] আপনার সাবস্ক্রিপশন সক্রিয় হয়েছে · ${input.orderCode}`,
+          html,
+        }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
 }

@@ -81,6 +81,18 @@ export async function createManualOrderAction(
       return { ok: false, error: "rate_limited" };
     }
 
+    const { data: existingPendingOrder } = await supabase
+      .from("qb_orders")
+      .select("id, order_code")
+      .eq("user_id", user.id)
+      .eq("status", "pending")
+      .limit(1)
+      .maybeSingle();
+
+    if (existingPendingOrder) {
+      return { ok: false, error: "pending_order_exists" };
+    }
+
     const { data: duplicate } = await supabase
       .from("qb_orders")
       .select("id")

@@ -6,6 +6,7 @@ export type PaymentErrorCode =
   | "invalid_plan"
   | "duplicate_trx"
   | "rate_limited"
+  | "pending_order_exists"
   | "failed";
 
 export type CreateOrderResult =
