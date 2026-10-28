@@ -1,25 +1,16 @@
-const DEFAULT_BOT_TOKEN = "8829533636:AAEUOBgy7AnpwhV8ES1675UZKk7olXvsXSY";
-const DEFAULT_CHAT_ID = "-1004445399445";
-
 export type TelegramMessageInput = {
   text: string;
-  /** Optional single inline button shown under the message. */
   button?: {
     text: string;
     url: string;
   };
 };
 
-/**
- * Sends one HTML-formatted Telegram message to the configured admin chat.
- * Credentials come from env, with the project's existing admin bot as fallback
- * so notifications keep working in deployments without extra configuration.
- */
 export async function sendTelegramMessage(
   input: TelegramMessageInput,
 ): Promise<boolean> {
-  const token = process.env["TELEGRAM_BOT_TOKEN"] ?? DEFAULT_BOT_TOKEN;
-  const chatId = process.env["TELEGRAM_CHAT_ID"] ?? DEFAULT_CHAT_ID;
+  const token = process.env["TELEGRAM_BOT_TOKEN"];
+  const chatId = process.env["TELEGRAM_CHAT_ID"];
 
   if (!token || !chatId) {
     return false;
