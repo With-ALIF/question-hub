@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, GraduationCap, Presentation, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Clock, GraduationCap, Presentation, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 
 import { PlanCard } from "@/components/site/PlanCard";
@@ -9,14 +9,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { plansByAudience, type PlanAudience } from "@/data/plans";
 import { useI18n } from "@/lib/i18n/client";
 import type { PaymentNumbers } from "@/lib/payments/config";
-import type { Order } from "@/lib/payments/types";
+import type { Order, Subscription } from "@/lib/payments/types";
 
 type PricingTabsProps = {
   defaultAudience?: PlanAudience | undefined;
   signedIn?: boolean | undefined;
   paymentNumbers: PaymentNumbers;
   pendingOrder?: Order | null | undefined;
+  activeSubscription?: Subscription | null | undefined;
 };
+
+function formatExpiryDate(iso: string) {
+  try {
+    const d = new Date(iso);
+    return new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(d);
+  } catch {
+    return iso;
+  }
+}
 
 const AUDIENCES: {
   value: PlanAudience;
@@ -49,6 +63,7 @@ export function PricingTabs({
   signedIn = false,
   paymentNumbers,
   pendingOrder,
+  activeSubscription,
 }: PricingTabsProps) {
   const { tr } = useI18n();
 
@@ -73,7 +88,7 @@ export function PricingTabs({
         ))}
       </TabsList>
 
-      {pendingOrder && (
+      {pendingOrder ? (
         <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-left">
           <div className="flex items-start gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
@@ -109,7 +124,44 @@ export function PricingTabs({
             </div>
           </div>
         </div>
-      )}
+      ) : activeSubscription ? (
+        <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-left">
+          <div className="flex items-start gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+              <BadgeCheck className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-bold text-foreground">
+                  {tr("You have an active plan", "আপনার একটি সক্রিয় প্ল্যান রয়েছে")}
+                </h4>
+                <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                  {activeSubscription.plan_name}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {tr(
+                  "You cannot purchase another paid plan while you have an active plan. Expiration date: ",
+                  "আপনার একটি প্ল্যান ইতিমধ্যে সক্রিয় রয়েছে। সেটির মেয়াদ শেষ না হওয়া পর্যন্ত নতুন কোনো পেইড প্ল্যান কেনা যাবে না। মেয়াদ শেষ হবে: ",
+                )}
+                <strong className="text-foreground">{formatExpiryDate(activeSubscription.expires_at)}</strong>
+              </p>
+              <div className="mt-2.5">
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="h-7 border-emerald-500/30 text-xs hover:bg-emerald-500/20"
+                >
+                  <Link href="/dashboard">
+                    {tr("Go to dashboard", "ড্যাশবোর্ডে দেখুন")}
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {AUDIENCES.map(({ value, description }) => (
         <TabsContent
@@ -127,6 +179,7 @@ export function PricingTabs({
                 signedIn={signedIn}
                 paymentNumbers={paymentNumbers}
                 pendingOrder={pendingOrder}
+                activeSubscription={activeSubscription}
               />
             ))}
           </div>

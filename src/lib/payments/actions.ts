@@ -93,6 +93,19 @@ export async function createManualOrderAction(
       return { ok: false, error: "pending_order_exists" };
     }
 
+    const { data: activeSub } = await supabase
+      .from("qb_subscriptions")
+      .select("id, plan_name, expires_at")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .gt("expires_at", new Date().toISOString())
+      .limit(1)
+      .maybeSingle();
+
+    if (activeSub) {
+      return { ok: false, error: "active_subscription_exists" };
+    }
+
     const { data: duplicate } = await supabase
       .from("qb_orders")
       .select("id")

@@ -3,7 +3,7 @@
 import { useId, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, CheckCircle2, Clock, Copy, Loader2, ShieldCheck } from "lucide-react";
+import { Check, CheckCircle2, Clock, Copy, Loader2, ShieldCheck, BadgeCheck } from "lucide-react";
 
 import type { Plan } from "@/data/plans";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ import {
   TRX_PATTERN,
   type PaymentNumbers,
 } from "@/lib/payments/config";
-import type { Order, PaymentErrorCode } from "@/lib/payments/types";
+import type { Order, PaymentErrorCode, Subscription } from "@/lib/payments/types";
 import type { PaymentMethod } from "@/lib/supabase/types";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +36,21 @@ type PlanPaymentDialogProps = {
   highlighted?: boolean | undefined;
   paymentNumbers: PaymentNumbers;
   pendingOrder?: Order | null | undefined;
+  activeSubscription?: Subscription | null | undefined;
 };
+
+function formatExpiryDate(iso: string) {
+  try {
+    const d = new Date(iso);
+    return new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(d);
+  } catch {
+    return iso;
+  }
+}
 
 export function PlanPaymentDialog({
   plan,
@@ -44,6 +58,7 @@ export function PlanPaymentDialog({
   highlighted,
   paymentNumbers,
   pendingOrder,
+  activeSubscription,
 }: PlanPaymentDialogProps) {
   const router = useRouter();
   const { tr, num, lang } = useI18n();
@@ -72,6 +87,11 @@ export function PlanPaymentDialog({
         return tr(
           "You already have a pending order. You cannot order another plan until it is verified or rejected.",
           "আপনি ইতোমধ্যে একটি অর্ডার করেছেন যা পেন্ডিং আছে। সেটি যাচাই বা বাতিল না হওয়া পর্যন্ত নতুন অর্ডার করা যাবে না।",
+        );
+      case "active_subscription_exists":
+        return tr(
+          "You already have an active subscription. You cannot purchase another paid plan until your current plan expires.",
+          "আপনার ইতোমধ্যে একটি প্ল্যান কেনা রয়েছে। সেটির মেয়াদ শেষ না হওয়া পর্যন্ত নতুন কোনো পেইড প্ল্যান কেনা যাবে না।",
         );
       case "invalid_input":
         return tr(
@@ -145,6 +165,11 @@ export function PlanPaymentDialog({
 
     if (pendingOrder) {
       setError(errorText("pending_order_exists"));
+      return;
+    }
+
+    if (activeSubscription) {
+      setError(errorText("active_subscription_exists"));
       return;
     }
 
@@ -239,6 +264,81 @@ export function PlanPaymentDialog({
                 <Button asChild className="w-full">
                   <Link href="/dashboard">
                     {tr("View in dashboard", "ড্যাশবোর্ডে দেখুন")}
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setOpen(false)}
+                >
+                  {tr("Close", "বন্ধ করুন")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (activeSubscription) {
+    return (
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button variant={highlighted ? "default" : "outline"} className="w-full">
+            {label}
+          </Button>
+        </DialogTrigger>
+
+        <DialogContent className="max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_1.5rem)] max-w-md gap-0 overflow-y-auto p-0 sm:w-full">
+          <DialogHeader className="border-b bg-emerald-500/10 p-5 pr-12 text-left">
+            <DialogTitle className="flex items-center gap-2 font-display text-lg font-bold text-emerald-700 dark:text-emerald-400">
+              <BadgeCheck className="size-5 shrink-0" />
+              {tr("Active Plan Exists", "প্ল্যান ইতিমধ্যে সক্রিয় আছে")}
+            </DialogTitle>
+            <DialogDescription className="text-emerald-800/80 dark:text-emerald-300/80">
+              {tr("You already have an active subscription", "আপনার একটি সাবস্ক্রিপশন চালু রয়েছে")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-5">
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5 text-center">
+              <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                <BadgeCheck className="size-7" aria-hidden="true" />
+              </span>
+              <h3 className="mt-3 font-display text-base font-bold text-foreground">
+                {tr(
+                  "You already have an active paid plan",
+                  "আপনার ইতোমধ্যে একটি প্ল্যান কেনা রয়েছে",
+                )}
+              </h3>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                {tr(
+                  "You cannot purchase another paid plan while your current subscription is active. Please wait until your plan expires.",
+                  "আপনার বর্তমানে একটি পেইড সাবস্ক্রিপশন চালু আছে। সেটির মেয়াদ শেষ না হওয়া পর্যন্ত নতুন কোনো পেইড প্ল্যান কেনা যাবে না।",
+                )}
+              </p>
+
+              <div className="mt-4 rounded-xl border border-dashed border-border bg-background px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {tr("Active Plan", "বর্তমান সক্রিয় প্ল্যান")}
+                </p>
+                <p className="mt-0.5 font-display text-base font-bold text-foreground">
+                  {activeSubscription.plan_name}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {tr("Expires on: ", "মেয়াদ শেষ হবে: ")}
+                  <strong className="text-foreground">
+                    {formatExpiryDate(activeSubscription.expires_at)}
+                  </strong>
+                </p>
+              </div>
+
+              <div className="mt-5 flex flex-col gap-2">
+                <Button asChild className="w-full">
+                  <Link href="/dashboard">
+                    {tr("Go to dashboard", "ড্যাশবোর্ডে যান")}
                   </Link>
                 </Button>
                 <Button

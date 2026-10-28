@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/client";
 import type { PaymentNumbers } from "@/lib/payments/config";
-import type { Order } from "@/lib/payments/types";
+import type { Order, Subscription } from "@/lib/payments/types";
 import type { LocalizedText, Plan } from "@/data/plans";
 import { PlanPaymentDialog } from "./PlanPaymentDialog";
 
@@ -16,9 +16,16 @@ type PlanCardProps = {
   signedIn: boolean;
   paymentNumbers: PaymentNumbers;
   pendingOrder?: Order | null | undefined;
+  activeSubscription?: Subscription | null | undefined;
 };
 
-export function PlanCard({ plan, signedIn, paymentNumbers, pendingOrder }: PlanCardProps) {
+export function PlanCard({
+  plan,
+  signedIn,
+  paymentNumbers,
+  pendingOrder,
+  activeSubscription,
+}: PlanCardProps) {
   const { lang, tr } = useI18n();
   const pick = (value: LocalizedText) => value[lang];
   const isFree = plan.amountBdt <= 0;
@@ -65,6 +72,7 @@ export function PlanCard({ plan, signedIn, paymentNumbers, pendingOrder }: PlanC
             highlighted={plan.highlighted}
             paymentNumbers={paymentNumbers}
             pendingOrder={pendingOrder}
+            activeSubscription={activeSubscription}
           />
         ) : (
           <Button

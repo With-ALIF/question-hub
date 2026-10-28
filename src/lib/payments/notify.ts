@@ -610,3 +610,317 @@ export async function sendSubscriptionApprovedEmail(
 
   return false;
 }
+
+export type OrderRejectedNotificationInput = {
+  customerEmail: string;
+  customerName?: string | null | undefined;
+  orderCode: string;
+  planName: string;
+  amountBdt: number;
+  reason?: string | null | undefined;
+};
+
+/**
+ * Sends a notification email to the student when an admin rejects their plan order.
+ */
+export async function sendOrderRejectedEmail(
+  input: OrderRejectedNotificationInput,
+): Promise<boolean> {
+  const toEmail = input.customerEmail;
+  if (!toEmail) return false;
+
+  const safe = {
+    orderCode: escapeHtml(input.orderCode),
+    planName: escapeHtml(input.planName),
+    amount: input.amountBdt,
+    customerName: input.customerName ? escapeHtml(input.customerName) : "",
+    reason: input.reason ? escapeHtml(input.reason) : "",
+    time: escapeHtml(formatDhakaTime()),
+  };
+
+  const html = `
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>অর্ডার বাতিল হয়েছে</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9;">
+  <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">
+    ${safe.orderCode} · আপনার পেমেন্ট অর্ডারটি বাতিল করা হয়েছে
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f1f5f9; padding: 24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Bengali', Arial, sans-serif;">
+          <tr>
+            <td style="background-color: #881337; background-image: linear-gradient(135deg, #881337 0%, #be123c 100%); padding: 24px;">
+              <span style="display: inline-block; padding: 4px 12px; background-color: #4c0519; border: 1px solid #f43f5e; color: #fecdd3; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border-radius: 9999px;">বাতিল (Rejected)</span>
+              <h1 style="margin: 10px 0 0; font-size: 20px; line-height: 1.4; font-weight: 700; color: #f8fafc;">পেমেন্ট অর্ডারটি বাতিল করা হয়েছে</h1>
+              <p style="margin: 4px 0 0; font-size: 12px; color: #fecdd3;">${safe.planName} · ৳${safe.amount}</p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 24px;">
+              <p style="margin: 0 0 16px; font-size: 14px; color: #334155; line-height: 1.6;">
+                ${safe.customerName ? `প্রিয় <strong>${safe.customerName}</strong>, ` : ""}আপনার সাবমিট করা পেমেন্ট অর্ডারটি যাচাই করার পর অনুমোদন করা সম্ভব হয়নি।
+              </p>
+
+              ${
+                safe.reason
+                  ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 18px;">
+                <tr>
+                  <td style="padding: 12px 14px; background-color: #fff1f2; border-left: 4px solid #e11d48; border-radius: 6px;">
+                    <p style="margin: 0; font-size: 12px; color: #9f1239; line-height: 1.6;">
+                      <strong>বাতিলের কারণ:</strong> ${safe.reason}
+                    </p>
+                  </td>
+                </tr>
+              </table>`
+                  : ""
+              }
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px; font-size: 13px; border-top: 1px solid #e2e8f0;">
+                <tr>
+                  <td style="padding: 7px 0; color: #64748b; width: 110px;">অর্ডার কোড</td>
+                  <td style="padding: 7px 0; font-family: 'SFMono-Regular', Consolas, monospace; font-weight: 700; color: #e11d48;">${safe.orderCode}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 7px 0; color: #64748b;">প্ল্যান</td>
+                  <td style="padding: 7px 0; color: #0f172a;"><strong>${safe.planName}</strong></td>
+                </tr>
+                <tr>
+                  <td style="padding: 7px 0; color: #64748b;">পরিমাণ</td>
+                  <td style="padding: 7px 0; color: #0f172a;"><strong>৳${safe.amount}</strong></td>
+                </tr>
+                <tr>
+                  <td style="padding: 7px 0; color: #64748b;">সময়</td>
+                  <td style="padding: 7px 0; color: #334155;">${safe.time} (BD)</td>
+                </tr>
+              </table>
+
+              <p style="margin: 0 0 20px; font-size: 13px; color: #475569; line-height: 1.6;">
+                যদি কোনো ভুল তথ্য (যেমন TrxID বা প্রেরক নম্বর) দিয়ে থাকেন, আপনি তথ্য সংশোধন করে পুনরায় নতুন অর্ডার করতে পারেন।
+              </p>
+
+              <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="background-color: #0f172a; border-radius: 8px;">
+                    <a href="https://question-hub-bd.vercel.app/plans" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 11px 24px; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 600;">পুনরায় প্ল্যান অর্ডার করুন</a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 18px 0 0; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                কোনো প্রশ্ন থাকলে সরাসরি এই ইমেইলে রিপ্লাই দিন অথবা সাপোর্টে যোগাযোগ করুন।
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color: #f8fafc; padding: 14px; text-align: center; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8;">
+              QuestionBank · আপনার প্রস্তুতির বিশ্বস্ত সঙ্গী
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  if (process.env["BREVO_API_KEY"]) {
+    const sent = await sendBrevoEmail({
+      to: {
+        email: toEmail,
+        name: input.customerName ?? undefined,
+      },
+      subject: `[QuestionBank] আপনার পেমেন্ট অর্ডারটি বাতিল হয়েছে · ${input.orderCode}`,
+      htmlContent: html,
+    });
+    if (sent) return true;
+  }
+
+  const resendApiKey = process.env["RESEND_API_KEY"];
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: fromAddress("QuestionBank"),
+          to: [toEmail],
+          subject: `[QuestionBank] আপনার পেমেন্ট অর্ডারটি বাতিল হয়েছে · ${input.orderCode}`,
+          html,
+        }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
+export type SubscriptionCancelledNotificationInput = {
+  customerEmail: string;
+  customerName?: string | null | undefined;
+  planName: string;
+  amountBdt?: number | null | undefined;
+  reason?: string | null | undefined;
+};
+
+/**
+ * Sends a notification email to the student when an admin cancels/removes their active plan.
+ */
+export async function sendSubscriptionCancelledEmail(
+  input: SubscriptionCancelledNotificationInput,
+): Promise<boolean> {
+  const toEmail = input.customerEmail;
+  if (!toEmail) return false;
+
+  const safe = {
+    planName: escapeHtml(input.planName),
+    amount: input.amountBdt != null ? input.amountBdt : null,
+    customerName: input.customerName ? escapeHtml(input.customerName) : "",
+    reason: input.reason ? escapeHtml(input.reason) : "",
+    time: escapeHtml(formatDhakaTime()),
+  };
+
+  const html = `
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>প্ল্যান বাতিল করা হয়েছে</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9;">
+  <div style="display: none; max-height: 0; overflow: hidden; opacity: 0;">
+    আপনার সাবস্ক্রিপশন প্ল্যান (${safe.planName}) বাতিল করা হয়েছে
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f1f5f9; padding: 24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Bengali', Arial, sans-serif;">
+          <tr>
+            <td style="background-color: #881337; background-image: linear-gradient(135deg, #881337 0%, #be123c 100%); padding: 24px;">
+              <span style="display: inline-block; padding: 4px 12px; background-color: #4c0519; border: 1px solid #f43f5e; color: #fecdd3; font-weight: 700; font-size: 11px; letter-spacing: 0.5px; border-radius: 9999px;">প্ল্যান বাতিল (Cancelled)</span>
+              <h1 style="margin: 10px 0 0; font-size: 20px; line-height: 1.4; font-weight: 700; color: #f8fafc;">আপনার সক্রিয় প্ল্যান বাতিল করা হয়েছে</h1>
+              <p style="margin: 4px 0 0; font-size: 12px; color: #fecdd3;">${safe.planName}${safe.amount ? ` · ৳${safe.amount}` : ""}</p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 24px;">
+              <p style="margin: 0 0 16px; font-size: 14px; color: #334155; line-height: 1.6;">
+                ${safe.customerName ? `প্রিয় <strong>${safe.customerName}</strong>, ` : ""}আপনার একাউন্টে সক্রিয় থাকা <strong>${safe.planName}</strong> প্ল্যানটি অ্যাডমিন কর্তৃক বাতিল/রিমুভ করা হয়েছে।
+              </p>
+
+              ${
+                safe.reason
+                  ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 18px;">
+                <tr>
+                  <td style="padding: 12px 14px; background-color: #fff1f2; border-left: 4px solid #e11d48; border-radius: 6px;">
+                    <p style="margin: 0; font-size: 12px; color: #9f1239; line-height: 1.6;">
+                      <strong>বাতিলের কারণ:</strong> ${safe.reason}
+                    </p>
+                  </td>
+                </tr>
+              </table>`
+                  : ""
+              }
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px; font-size: 13px; border-top: 1px solid #e2e8f0;">
+                <tr>
+                  <td style="padding: 7px 0; color: #64748b; width: 110px;">প্ল্যান</td>
+                  <td style="padding: 7px 0; color: #0f172a;"><strong>${safe.planName}</strong></td>
+                </tr>
+                ${
+                  safe.amount
+                    ? `<tr>
+                  <td style="padding: 7px 0; color: #64748b;">পরিমাণ</td>
+                  <td style="padding: 7px 0; color: #0f172a;"><strong>৳${safe.amount}</strong></td>
+                </tr>`
+                    : ""
+                }
+                <tr>
+                  <td style="padding: 7px 0; color: #64748b;">বাতিলের সময়</td>
+                  <td style="padding: 7px 0; color: #334155;">${safe.time} (BD)</td>
+                </tr>
+              </table>
+
+              <p style="margin: 0 0 20px; font-size: 13px; color: #475569; line-height: 1.6;">
+                আপনার যদি এই বিষয়ে কোনো প্রশ্ন থাকে বা পুনরায় সাবস্ক্রিপশন নিতে চান, তবে আমাদের প্রাইসিং পেজ দেখতে পারেন অথবা সরাসরি সাপোর্টে যোগাযোগ করতে পারেন।
+              </p>
+
+              <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="background-color: #0f172a; border-radius: 8px;">
+                    <a href="https://question-hub-bd.vercel.app/plans" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 11px 24px; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 600;">প্ল্যানসমূহ দেখুন</a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 18px 0 0; font-size: 11px; color: #94a3b8; line-height: 1.6;">
+                সাপোর্টের সাথে যোগাযোগের জন্য এই ইমেইলে রিপ্লাই দিতে পারেন।
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color: #f8fafc; padding: 14px; text-align: center; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8;">
+              QuestionBank · আপনার প্রস্তুতির বিশ্বস্ত সঙ্গী
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  if (process.env["BREVO_API_KEY"]) {
+    const sent = await sendBrevoEmail({
+      to: {
+        email: toEmail,
+        name: input.customerName ?? undefined,
+      },
+      subject: `[QuestionBank] আপনার সক্রিয় প্ল্যানটি বাতিল করা হয়েছে · ${safe.planName}`,
+      htmlContent: html,
+    });
+    if (sent) return true;
+  }
+
+  const resendApiKey = process.env["RESEND_API_KEY"];
+  if (resendApiKey) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: fromAddress("QuestionBank"),
+          to: [toEmail],
+          subject: `[QuestionBank] আপনার সক্রিয় প্ল্যানটি বাতিল করা হয়েছে · ${safe.planName}`,
+          html,
+        }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}

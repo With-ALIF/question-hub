@@ -48,6 +48,12 @@ const navigationItems = [
     icon: Wallet,
   },
   {
+    href: "/admin/subscriptions",
+    label: "Subscriptions",
+    labelBn: "সক্রিয় সাবস্ক্রিপশন",
+    icon: ShieldCheck,
+  },
+  {
     href: "/admin/home-slider",
     label: "Home Slider",
     labelBn: "হোম স্লাইডার",
@@ -65,6 +71,7 @@ export function AdminSidebar({
   const isQuestionsActive = currentPath.startsWith("/admin/questions");
   const isReportsActive = currentPath.startsWith("/admin/reports");
   const isOrdersActive = currentPath.startsWith("/admin/orders");
+  const isSubscriptionsActive = currentPath.startsWith("/admin/subscriptions");
   const isHomeSliderActive = currentPath.startsWith("/admin/home-slider");
 
   return (
@@ -284,6 +291,27 @@ export function AdminSidebar({
               <Wallet className="size-4.5" aria-hidden="true" />
             </span>
             <span className="text-[10px] tracking-tight">পেমেন্ট</span>
+          </Link>
+
+          {/* Subscriptions */}
+          <Link
+            href="/admin/subscriptions"
+            className={cn(
+              "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors relative",
+              isSubscriptionsActive
+                ? "font-semibold text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <span
+              className={cn(
+                "flex size-7 items-center justify-center rounded-lg transition-colors",
+                isSubscriptionsActive && "bg-primary/10 text-primary"
+              )}
+            >
+              <ShieldCheck className="size-4.5" aria-hidden="true" />
+            </span>
+            <span className="text-[10px] tracking-tight">প্ল্যান</span>
           </Link>
 
           {/* Slider */}

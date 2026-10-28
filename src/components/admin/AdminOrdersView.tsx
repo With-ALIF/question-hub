@@ -13,6 +13,14 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
   approveOrderAction,
@@ -84,6 +92,7 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
   const [orders, setOrders] = useState<AdminOrder[]>(initialOrders);
   const [filter, setFilter] = useState<Filter>("pending");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [approvingOrder, setApprovingOrder] = useState<AdminOrder | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -111,13 +120,9 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
     [filter, orders],
   );
 
-  const handleApprove = async (order: AdminOrder) => {
-    const confirmed = window.confirm(
-      `অর্ডার ${order.order_code} (৳${order.amount_bdt}) অ্যাপ্রুভ করবেন?\n\n` +
-        `${order.customerEmail ?? order.user_id}\n${order.plan_name} · TrxID: ${order.trx_id}`,
-    );
-
-    if (!confirmed) return;
+  const handleConfirmApprove = async () => {
+    if (!approvingOrder) return;
+    const order = approvingOrder;
 
     setError(null);
     setBusyId(order.id);
@@ -136,6 +141,7 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
           : item,
       ),
     );
+    setApprovingOrder(null);
   };
 
   const handleReject = async (order: AdminOrder) => {
@@ -405,14 +411,13 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
                           type="button"
                           size="sm"
                           disabled={isBusy}
-                          onClick={() => void handleApprove(order)}
+                          onClick={() => {
+                            setError(null);
+                            setApprovingOrder(order);
+                          }}
                           className="h-8 gap-1.5 bg-emerald-600 text-xs text-white hover:bg-emerald-700"
                         >
-                          {isBusy ? (
-                            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-                          ) : (
-                            <BadgeCheck className="size-3.5" aria-hidden="true" />
-                          )}
+                          <BadgeCheck className="size-3.5" aria-hidden="true" />
                           অ্যাপ্রুভ করুন
                         </Button>
                         <Button
@@ -439,6 +444,129 @@ export function AdminOrdersView({ initialOrders }: { initialOrders: AdminOrder[]
           })}
         </div>
       )}
+
+      <Dialog
+        open={Boolean(approvingOrder)}
+        onOpenChange={(open) => {
+          if (!open && !busyId) {
+            setApprovingOrder(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
+          <DialogHeader className="border-b bg-emerald-500/10 p-5 text-left">
+            <div className="flex items-center gap-2.5">
+              <span className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="size-5" />
+              </span>
+              <div>
+                <DialogTitle className="font-display text-base font-bold text-foreground">
+                  অর্ডার অনুমোদন (Approve) করবেন?
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  অনুমোদন করলে সাবস্ক্রিপশন চালু হবে এবং শিক্ষার্থীকে ইমেইল পাঠানো হবে।
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {approvingOrder && (
+            <div className="space-y-4 p-5 text-sm">
+              <div className="rounded-xl border border-border bg-card p-3.5">
+                <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+                  <span className="text-xs text-muted-foreground">অর্ডার কোড</span>
+                  <span className="font-mono text-sm font-bold text-primary">
+                    {approvingOrder.order_code}
+                  </span>
+                </div>
+
+                <div className="divide-y divide-border/40 text-xs">
+                  <div className="flex justify-between py-2">
+                    <span className="text-muted-foreground">প্ল্যান</span>
+                    <span className="font-semibold text-foreground">
+                      {approvingOrder.plan_name} ({approvingOrder.duration_days} দিন)
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <span className="text-muted-foreground">পরিমাণ</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      ৳{approvingOrder.amount_bdt}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <span className="text-muted-foreground">পেমেন্ট মাধ্যম</span>
+                    <span className="font-semibold uppercase text-foreground">
+                      {approvingOrder.payment_method}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <span className="text-muted-foreground">TrxID</span>
+                    <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+                      {approvingOrder.trx_id}
+                    </span>
+                  </div>
+                  {approvingOrder.sender_number && (
+                    <div className="flex justify-between py-2">
+                      <span className="text-muted-foreground">প্রেরক নম্বর</span>
+                      <span className="font-mono text-foreground">
+                        {approvingOrder.sender_number}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between py-2">
+                    <span className="text-muted-foreground">গ্রাহক</span>
+                    <span className="max-w-[200px] truncate text-right text-foreground">
+                      {approvingOrder.customerName || "নাম নেই"}{" "}
+                      <span className="text-muted-foreground">
+                        ({approvingOrder.customerEmail || "ইমেইল নেই"})
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-muted/60 p-3 text-xs leading-relaxed text-muted-foreground">
+                <p>
+                  ✅ TrxID মিলিয়ে নিশ্চিত হয়ে অনুমোদন করুন। অনুমোদনের সাথে সাথে শিক্ষার্থী ইমেইলে কনফার্মেশন পেয়ে যাবে।
+                </p>
+              </div>
+
+              {error && (
+                <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs font-medium text-destructive">
+                  {error}
+                </p>
+              )}
+
+              <DialogFooter className="gap-2 pt-2 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={busyId === approvingOrder.id}
+                  onClick={() => setApprovingOrder(null)}
+                  className="h-9 text-xs"
+                >
+                  বাতিল
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busyId === approvingOrder.id}
+                  onClick={handleConfirmApprove}
+                  className="h-9 gap-1.5 bg-emerald-600 text-xs text-white hover:bg-emerald-700"
+                >
+                  {busyId === approvingOrder.id ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <BadgeCheck className="size-3.5" />
+                  )}
+                  অনুমোদন নিশ্চিত করুন
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

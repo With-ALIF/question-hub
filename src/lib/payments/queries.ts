@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-import type { AdminOrder, Order, Subscription } from "./types";
+import type { AdminOrder, AdminSubscription, Order, Subscription } from "./types";
 
 /** Latest active subscription for the signed-in user (RLS: own rows only). */
 export async function getMySubscription(): Promise<Subscription | null> {
@@ -87,6 +87,58 @@ export async function getAdminOrders(): Promise<AdminOrder[]> {
         ...order,
         customerEmail: profile?.email ?? null,
         customerName: profile?.full_name ?? null,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+/** Admin queue: active subscriptions with basic customer info. */
+export async function getAdminSubscriptions(): Promise<AdminSubscription[]> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data: subs, error } = await supabase
+      .from("qb_subscriptions")
+      .select("*")
+      .eq("status", "active")
+      .gt("expires_at", new Date().toISOString())
+      .order("expires_at", { ascending: true });
+
+    if (error || !subs || subs.length === 0) {
+      return [];
+    }
+
+    const userIds = Array.from(new Set(subs.map((sub) => sub.user_id)));
+    const orderIds = Array.from(
+      new Set(subs.map((sub) => sub.order_id).filter(Boolean)),
+    );
+
+    const [{ data: profiles }, { data: orders }] = await Promise.all([
+      supabase
+        .from("qb_profiles")
+        .select("id, email, full_name")
+        .in("id", userIds),
+      orderIds.length > 0
+        ? supabase.from("qb_orders").select("id, amount_bdt").in("id", orderIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const profileById = new Map(
+      (profiles ?? []).map((profile) => [profile.id, profile]),
+    );
+    const orderById = new Map(
+      (orders ?? []).map((order) => [order.id, order]),
+    );
+
+    return subs.map((sub) => {
+      const profile = profileById.get(sub.user_id);
+      const order = orderById.get(sub.order_id);
+      return {
+        ...sub,
+        customerEmail: profile?.email ?? null,
+        customerName: profile?.full_name ?? null,
+        amountBdt: order?.amount_bdt ?? null,
       };
     });
   } catch {

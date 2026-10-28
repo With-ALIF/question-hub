@@ -7,6 +7,7 @@ export type PaymentErrorCode =
   | "duplicate_trx"
   | "rate_limited"
   | "pending_order_exists"
+  | "active_subscription_exists"
   | "failed";
 
 export type CreateOrderResult =
@@ -27,5 +28,15 @@ export type AdminOrder = Order & {
   customerEmail: string | null;
   customerName: string | null;
 };
+
+export type AdminSubscription = Subscription & {
+  customerEmail: string | null;
+  customerName: string | null;
+  amountBdt: number | null;
+};
+
+export type AdminSubscriptionResult =
+  | { ok: true }
+  | { ok: false; error: AdminOrderErrorCode };
 
 export type { Order, Subscription };
