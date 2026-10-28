@@ -10,6 +10,7 @@ import { PricingTabs } from "@/components/site/PricingTabs";
 import { CountUp } from "@/components/site/CountUp";
 import { HeroCarousel } from "@/components/site/HeroCarousel";
 import { HomeFaqSection } from "@/components/site/HomeFaqSection";
+import { HomeClosingCta } from "@/components/site/HomeClosingCta";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/client";
 import type { Subject } from "@/data/subjects";
@@ -284,6 +285,8 @@ export function HomePage({
 
         {/* FAQ Section */}
         <HomeFaqSection />
+
+        <HomeClosingCta />
       </main>
 
       <Footer />
