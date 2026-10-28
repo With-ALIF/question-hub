@@ -11,6 +11,7 @@ import { CountUp } from "@/components/site/CountUp";
 import { HeroCarousel } from "@/components/site/HeroCarousel";
 import { HomeFaqSection } from "@/components/site/HomeFaqSection";
 import { HomeClosingCta } from "@/components/site/HomeClosingCta";
+import { PaperCreationGuide } from "@/components/site/PaperCreationGuide";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/client";
 import type { Subject } from "@/data/subjects";
@@ -281,6 +282,13 @@ export function HomePage({
               </Link>
             </Button>
           </div>
+        </section>
+
+        <section
+          aria-label={tr("How to create a question paper", "সহজ ৩ ধাপে প্রশ্নপত্র তৈরি")}
+          className="mx-auto max-w-6xl px-4 pt-4 sm:px-6 lg:pt-6"
+        >
+          <PaperCreationGuide />
         </section>
 
         {/* FAQ Section */}

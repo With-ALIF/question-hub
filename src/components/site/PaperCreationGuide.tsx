@@ -50,7 +50,7 @@ function StepCard({
   );
 }
 
-export function ExamPaperQuickGuide() {
+export function PaperCreationGuide() {
   const { tr } = useI18n();
   const [open, setOpen] = useState(true);
 

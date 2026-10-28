@@ -39,7 +39,6 @@ import {
 } from "@/lib/exam-paper/store";
 import { getSavedQuestions } from "@/lib/saved-questions";
 import { QuestionFiltersForm } from "@/components/questions/QuestionFiltersForm";
-import { ExamPaperQuickGuide } from "@/components/exam-paper/ExamPaperQuickGuide";
 import type { QuestionSubject, QuestionType, StorageQuestion } from "@/lib/questions/storage";
 import type { QuestionFilterOptions, QuestionFilters } from "@/lib/questions/filters";
 import { useI18n } from "@/lib/i18n/client";
@@ -298,8 +297,6 @@ export function ExamPaperBuilderView({
 
       {activeTab === "browse" && (
         <div className="space-y-5">
-          <ExamPaperQuickGuide />
-
           <QuestionFiltersForm
             subjects={subjects}
             selectedSubject={currentSubject?.slug ?? "physics"}
