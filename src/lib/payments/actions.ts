@@ -70,6 +70,18 @@ export async function createManualOrderAction(
   try {
     const supabase = createSupabaseAdminClient();
 
+    // A plan disabled by an admin cannot be purchased even though its static
+    // price/duration catalogue entry still exists.
+    const { data: planConfig } = await supabase
+      .from("qb_plans")
+      .select("is_active")
+      .eq("plan_id", match.plan.id)
+      .maybeSingle();
+
+    if (planConfig && planConfig.is_active === false) {
+      return { ok: false, error: "invalid_plan" };
+    }
+
     const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
     const { count } = await supabase
       .from("qb_orders")

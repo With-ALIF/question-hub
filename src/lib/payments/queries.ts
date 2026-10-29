@@ -4,7 +4,13 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-import type { AdminOrder, AdminSubscription, Order, Subscription } from "./types";
+import type {
+  AdminOrder,
+  AdminPlanConfig,
+  AdminSubscription,
+  Order,
+  Subscription,
+} from "./types";
 
 /** Latest active subscription for the signed-in user (RLS: own rows only). */
 export async function getMySubscription(): Promise<Subscription | null> {
@@ -94,16 +100,15 @@ export async function getAdminOrders(): Promise<AdminOrder[]> {
   }
 }
 
-/** Admin queue: active subscriptions with basic customer info. */
+/** Admin queue: every subscription with a computed effective status. */
 export async function getAdminSubscriptions(): Promise<AdminSubscription[]> {
   try {
     const supabase = createSupabaseAdminClient();
     const { data: subs, error } = await supabase
       .from("qb_subscriptions")
       .select("*")
-      .eq("status", "active")
-      .gt("expires_at", new Date().toISOString())
-      .order("expires_at", { ascending: true });
+      .order("created_at", { ascending: false })
+      .limit(500);
 
     if (error || !subs || subs.length === 0) {
       return [];
@@ -111,36 +116,66 @@ export async function getAdminSubscriptions(): Promise<AdminSubscription[]> {
 
     const userIds = Array.from(new Set(subs.map((sub) => sub.user_id)));
     const orderIds = Array.from(
-      new Set(subs.map((sub) => sub.order_id).filter(Boolean)),
+      new Set(subs.map((sub) => sub.order_id).filter((id): id is string => Boolean(id))),
     );
 
-    const [{ data: profiles }, { data: orders }] = await Promise.all([
-      supabase
-        .from("qb_profiles")
-        .select("id, email, full_name")
-        .in("id", userIds),
+    const profilesResult = await supabase
+      .from("qb_profiles")
+      .select("id, email, full_name")
+      .in("id", userIds);
+
+    const ordersResult =
       orderIds.length > 0
-        ? supabase.from("qb_orders").select("id, amount_bdt").in("id", orderIds)
-        : Promise.resolve({ data: [] }),
-    ]);
+        ? await supabase.from("qb_orders").select("id, amount_bdt").in("id", orderIds)
+        : { data: [] as { id: string; amount_bdt: number }[] };
+
+    const profiles = profilesResult.data ?? [];
+    const orders = ordersResult.data ?? [];
 
     const profileById = new Map(
-      (profiles ?? []).map((profile) => [profile.id, profile]),
+      profiles.map((profile) => [profile.id, profile]),
     );
-    const orderById = new Map(
-      (orders ?? []).map((order) => [order.id, order]),
-    );
+    const orderById = new Map(orders.map((order) => [order.id, order]));
+    const now = Date.now();
 
     return subs.map((sub) => {
       const profile = profileById.get(sub.user_id);
-      const order = orderById.get(sub.order_id);
+      const order = sub.order_id ? orderById.get(sub.order_id) : undefined;
+      const expiry = new Date(sub.expires_at).getTime();
+      const effectiveStatus: AdminSubscription["effectiveStatus"] =
+        sub.status === "cancelled"
+          ? "cancelled"
+          : sub.status === "expired" || !Number.isFinite(expiry) || expiry <= now
+            ? "expired"
+            : "active";
+
       return {
         ...sub,
         customerEmail: profile?.email ?? null,
         customerName: profile?.full_name ?? null,
         amountBdt: order?.amount_bdt ?? null,
+        effectiveStatus,
+        remainingDays:
+          Number.isFinite(expiry) && expiry > now
+            ? Math.ceil((expiry - now) / (1000 * 60 * 60 * 24))
+            : 0,
       };
     });
+  } catch {
+    return [];
+  }
+}
+
+/** Admin plan/limit catalogue, ordered for display. */
+export async function getAdminPlanConfigs(): Promise<AdminPlanConfig[]> {
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("qb_plans")
+      .select("*")
+      .order("sort_order", { ascending: true });
+
+    return error ? [] : (data ?? []);
   } catch {
     return [];
   }

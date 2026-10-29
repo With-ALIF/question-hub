@@ -7,6 +7,7 @@ import { Navbar } from "@/components/site/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getEntitlement } from "@/lib/access";
 import { getI18n } from "@/lib/i18n/server";
 import { SavedQuestionsView } from "@/components/saved/SavedQuestionsView";
 
@@ -24,6 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function SavedQuestionsPage() {
   const user = await getCurrentUser();
   const { tr } = await getI18n();
+  const entitlement = user ? await getEntitlement(user.id) : null;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -65,7 +67,11 @@ export default async function SavedQuestionsPage() {
               </Card>
             </div>
           ) : (
-            <SavedQuestionsView />
+            <SavedQuestionsView
+              canRevealAnswer={entitlement?.features.allowAnswer ?? false}
+              canViewExplanation={entitlement?.features.allowExplanation ?? false}
+              savedLimit={entitlement?.limits.savedQuestions ?? 0}
+            />
           )}
         </section>
       </main>

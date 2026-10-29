@@ -55,6 +55,8 @@ type Props = {
   total: number;
   filters: QuestionFilterOptions | null;
   activeFilters: QuestionFilters;
+  canRevealAnswer?: boolean;
+  canViewExplanation?: boolean;
 };
 
 export function ExamPaperBuilderView({
@@ -68,6 +70,8 @@ export function ExamPaperBuilderView({
   total,
   filters,
   activeFilters,
+  canRevealAnswer = true,
+  canViewExplanation = true,
 }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -109,14 +113,23 @@ export function ExamPaperBuilderView({
     currentType !== "all"
   );
 
+  const sanitizeQuestion = (q: QuestionListItem): QuestionListItem => ({
+    ...q,
+    answer: canRevealAnswer ? q.answer : null,
+    explanation: canViewExplanation ? q.explanation : null,
+    explanation_html: canViewExplanation ? (q.explanation_html ?? null) : null,
+    correct_option: canRevealAnswer ? q.correct_option : null,
+  });
+
   const syncStore = () => {
-    const list = getExamQuestions();
+    const list = getExamQuestions().map(sanitizeQuestion);
     setSelectedQuestions(list);
     setSelectedIds(new Set(list.map((item) => item.id)));
     setSavedQuestionsCount(getSavedQuestions().length);
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only hydration gate
     setIsMounted(true);
     syncStore();
     const handleUpdate = () => syncStore();
@@ -128,13 +141,15 @@ export function ExamPaperBuilderView({
     if (selectedIds.has(q.id)) {
       removeExamQuestion(q.id);
     } else {
-      addExamQuestion(q as unknown as QuestionListItem);
+      addExamQuestion(sanitizeQuestion(q as unknown as QuestionListItem));
     }
     syncStore();
   };
 
   const handleSelectAllOnPage = () => {
-    addManyExamQuestions(questions as unknown as QuestionListItem[]);
+    addManyExamQuestions(
+      questions.map((q) => sanitizeQuestion(q as unknown as QuestionListItem)),
+    );
     syncStore();
   };
 
@@ -146,7 +161,7 @@ export function ExamPaperBuilderView({
   };
 
   const handleImportSaved = () => {
-    const saved = getSavedQuestions();
+    const saved = getSavedQuestions().map(sanitizeQuestion);
     addManyExamQuestions(saved);
     syncStore();
   };
@@ -357,6 +372,8 @@ export function ExamPaperBuilderView({
                       <QuestionCard
                         question={q as unknown as QuestionListItem}
                         index={(page - 1) * pageSize + idx + 1}
+                        canRevealAnswer={canRevealAnswer}
+                        canViewExplanation={canViewExplanation}
                       />
                     </div>
                   </div>
@@ -458,7 +475,12 @@ export function ExamPaperBuilderView({
                     </Button>
                   </div>
                   <div className="p-1">
-                    <QuestionCard question={q} index={idx + 1} />
+                    <QuestionCard
+                      question={q}
+                      index={idx + 1}
+                      canRevealAnswer={canRevealAnswer}
+                      canViewExplanation={canViewExplanation}
+                    />
                   </div>
                 </div>
               ))}

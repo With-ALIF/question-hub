@@ -1,4 +1,4 @@
-import type { Order, Subscription } from "@/lib/supabase/types";
+import type { Order, PlanConfig, Subscription } from "@/lib/supabase/types";
 
 export type PaymentErrorCode =
   | "auth"
@@ -33,7 +33,12 @@ export type AdminSubscription = Subscription & {
   customerEmail: string | null;
   customerName: string | null;
   amountBdt: number | null;
+  /** Computed from expires_at so stale "active" rows display correctly. */
+  effectiveStatus: "active" | "expired" | "cancelled";
+  remainingDays: number | null;
 };
+
+export type AdminPlanConfig = PlanConfig;
 
 export type AdminSubscriptionResult =
   | { ok: true }

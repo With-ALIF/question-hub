@@ -10,6 +10,7 @@ import {
   ListChecks,
   LogOut,
   ShieldCheck,
+  SlidersHorizontal,
   Wallet,
 } from "lucide-react";
 import { adminSignOutAction } from "@/lib/auth/actions";
@@ -54,6 +55,12 @@ const navigationItems = [
     icon: ShieldCheck,
   },
   {
+    href: "/admin/plans",
+    label: "Plans & Limits",
+    labelBn: "প্ল্যান ও সীমা",
+    icon: SlidersHorizontal,
+  },
+  {
     href: "/admin/home-slider",
     label: "Home Slider",
     labelBn: "হোম স্লাইডার",
@@ -72,6 +79,7 @@ export function AdminSidebar({
   const isReportsActive = currentPath.startsWith("/admin/reports");
   const isOrdersActive = currentPath.startsWith("/admin/orders");
   const isSubscriptionsActive = currentPath.startsWith("/admin/subscriptions");
+  const isPlansActive = currentPath.startsWith("/admin/plans");
   const isHomeSliderActive = currentPath.startsWith("/admin/home-slider");
 
   return (
@@ -312,6 +320,27 @@ export function AdminSidebar({
               <ShieldCheck className="size-4.5" aria-hidden="true" />
             </span>
             <span className="text-[10px] tracking-tight">প্ল্যান</span>
+          </Link>
+
+          {/* Plans & Limits */}
+          <Link
+            href="/admin/plans"
+            className={cn(
+              "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors relative",
+              isPlansActive
+                ? "font-semibold text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <span
+              className={cn(
+                "flex size-7 items-center justify-center rounded-lg transition-colors",
+                isPlansActive && "bg-primary/10 text-primary"
+              )}
+            >
+              <SlidersHorizontal className="size-4.5" aria-hidden="true" />
+            </span>
+            <span className="text-[10px] tracking-tight">লিমিট</span>
           </Link>
 
           {/* Slider */}

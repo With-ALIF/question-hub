@@ -1,15 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bookmark, FileText } from "lucide-react";
+import { Bookmark, FileText, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  claimSavedQuestionSlotAction,
+  releaseSavedQuestionSlotAction,
+} from "@/lib/access/saved-actions";
 import type { QuestionOption } from "@/lib/supabase/types";
 import { formatChapterLabel } from "@/data/chapters";
 import { renderMathInContent } from "@/lib/math";
-import { isQuestionSaved, toggleSaveQuestion, SAVED_QUESTIONS_EVENT } from "@/lib/saved-questions";
+import {
+  isQuestionSaved,
+  removeSavedQuestion,
+  saveQuestion,
+  SAVED_QUESTIONS_EVENT,
+} from "@/lib/saved-questions";
 import { isQuestionInExam, toggleExamQuestion, EXAM_PAPER_EVENT } from "@/lib/exam-paper/store";
 import { ReportButton } from "@/components/report/ReportButton";
 import { useI18n } from "@/lib/i18n/client";
@@ -37,6 +46,8 @@ export type QuestionListItem = {
 type QuestionCardProps = {
   question: QuestionListItem;
   index: number;
+  canRevealAnswer?: boolean;
+  canViewExplanation?: boolean;
 };
 
 function plainText(value: string | null | undefined) {
@@ -90,11 +101,18 @@ function RichText({
   );
 }
 
-export function QuestionCard({ question, index }: QuestionCardProps) {
+export function QuestionCard({
+  question,
+  index,
+  canRevealAnswer = true,
+  canViewExplanation = true,
+}: QuestionCardProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isInExam, setIsInExam] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const { tr } = useI18n();
 
   useEffect(() => {
@@ -128,14 +146,53 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
   const options = Array.isArray(question.options) ? question.options : [];
   const hasOptions = question.is_mcq && options.length > 0;
   const correctIndex =
-    question.correct_option !== null && question.correct_option > 0
+    canRevealAnswer &&
+    question.correct_option !== null &&
+    question.correct_option > 0
       ? question.correct_option - 1
       : -1;
-  const isCorrect = selected !== null && selected === correctIndex;
+  const isCorrect = canRevealAnswer && selected !== null && selected === correctIndex;
 
   const reset = () => {
     setSelected(null);
     setRevealed(false);
+  };
+
+  const handleToggleSave = async () => {
+    if (saveBusy) return;
+    setSaveError(null);
+
+    if (isSaved) {
+      removeSavedQuestion(question.id);
+      setIsSaved(false);
+      void releaseSavedQuestionSlotAction(question.id);
+      return;
+    }
+
+    setSaveBusy(true);
+    const result = await claimSavedQuestionSlotAction(
+      question.id,
+      question.subject ?? undefined,
+    );
+    setSaveBusy(false);
+
+    if (!result.ok) {
+      setSaveError(
+        result.error === "limit_reached"
+          ? tr(
+              "Your saved-question limit is full. Remove an old bookmark or upgrade your plan.",
+              "আপনার সেভ করা প্রশ্নের সীমা শেষ। পুরোনো বুকমার্ক মুছুন অথবা প্ল্যান আপগ্রেড করুন।",
+            )
+          : tr(
+              "Could not save this question. Please try again.",
+              "প্রশ্নটি সেভ করা যায়নি। আবার চেষ্টা করুন।",
+            ),
+      );
+      return;
+    }
+
+    saveQuestion(question);
+    setIsSaved(true);
   };
 
   return (
@@ -169,17 +226,19 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
               type="button"
               variant={isSaved ? "secondary" : "ghost"}
               size="sm"
-              onClick={() => {
-                const nextSaved = toggleSaveQuestion(question);
-                setIsSaved(nextSaved);
-              }}
+              disabled={saveBusy}
+              onClick={() => void handleToggleSave()}
               className={cn(
                 "h-7 px-2 text-xs gap-1 transition-colors cursor-pointer",
                 isSaved && "text-primary font-medium bg-primary/10 hover:bg-primary/20",
               )}
               title={isSaved ? tr("Remove from saved list", "সেভ তালিকা থেকে মুছুন") : tr("Save question", "প্রশ্নটি সেভ করুন")}
             >
-              <Bookmark className={cn("size-3.5 transition-transform", isSaved && "fill-primary text-primary scale-110")} />
+              {saveBusy ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Bookmark className={cn("size-3.5 transition-transform", isSaved && "fill-primary text-primary scale-110")} />
+              )}
               <span>{isSaved ? tr("Saved", "সেভ করা") : tr("Save", "সেভ")}</span>
             </Button>
 
@@ -202,6 +261,12 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
             </Button>
           </div>
         </div>
+
+        {saveError ? (
+          <p className="border-b border-destructive/20 bg-destructive/5 px-5 py-2 text-xs text-destructive">
+            {saveError}
+          </p>
+        ) : null}
 
         <div className="space-y-5 p-5 sm:p-6">
           <RichText
@@ -278,7 +343,7 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
                   : tr("Show answer", "উত্তর দেখুন")}
             </Button>
 
-            {revealed && selected !== null && (
+            {revealed && selected !== null && canRevealAnswer && (
               <Badge variant={isCorrect ? "default" : "destructive"}>
                 {isCorrect ? tr("Correct", "সঠিক") : tr("Not quite", "সঠিক নয়")}
               </Badge>
@@ -293,29 +358,55 @@ export function QuestionCard({ question, index }: QuestionCardProps) {
 
           {revealed && (
             <div className="space-y-3 rounded-lg border border-border bg-secondary/20 p-4 text-sm">
-              {question.answer && (
-                <p>
-                  <span className="font-semibold text-foreground">{tr("Answer:", "উত্তর:")} </span>
-                  <span
-                    className="text-muted-foreground"
-                    dangerouslySetInnerHTML={{ __html: renderMathInContent(question.answer) }}
-                  />
-                </p>
-              )}
-              {(question.explanation || question.explanation_html) && (
-                <div className="space-y-1.5">
-                  <p className="font-semibold text-foreground">{tr("Explanation:", "ব্যাখ্যা:")}</p>
-                  <RichText
-                    html={question.explanation_html}
-                    text={question.explanation}
-                    className="text-muted-foreground"
-                  />
-                </div>
-              )}
-              {!question.answer && !question.explanation && !question.explanation_html && (
+              {!canRevealAnswer && !canViewExplanation ? (
                 <p className="text-muted-foreground">
-                  {tr("No answer or explanation is available.", "কোনো উত্তর বা ব্যাখ্যা পাওয়া যায়নি।")}
+                  {tr(
+                    "Answers and explanations are available on a paid plan. Renew or upgrade to unlock them.",
+                    "উত্তর ও ব্যাখ্যা পেইড প্ল্যানে পাওয়া যায়। আনলক করতে রিনিউ বা আপগ্রেড করুন।",
+                  )}
                 </p>
+              ) : (
+                <>
+                  {canRevealAnswer && question.answer && (
+                    <p>
+                      <span className="font-semibold text-foreground">{tr("Answer:", "উত্তর:")} </span>
+                      <span
+                        className="text-muted-foreground"
+                        dangerouslySetInnerHTML={{ __html: renderMathInContent(question.answer) }}
+                      />
+                    </p>
+                  )}
+                  {canViewExplanation && (question.explanation || question.explanation_html) && (
+                    <div className="space-y-1.5">
+                      <p className="font-semibold text-foreground">{tr("Explanation:", "ব্যাখ্যা:")}</p>
+                      <RichText
+                        html={question.explanation_html}
+                        text={question.explanation}
+                        className="text-muted-foreground"
+                      />
+                    </div>
+                  )}
+                  {!canViewExplanation && (
+                    <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                      {tr(
+                        "Detailed explanations are a premium feature. Upgrade your plan to view them.",
+                        "বিস্তারিত ব্যাখ্যা একটি প্রিমিয়াম ফিচার। দেখতে প্ল্যান আপগ্রেড করুন।",
+                      )}
+                    </p>
+                  )}
+                  {canRevealAnswer &&
+                    canViewExplanation &&
+                    !question.answer &&
+                    !question.explanation &&
+                    !question.explanation_html && (
+                      <p className="text-muted-foreground">
+                        {tr(
+                          "No answer or explanation is available.",
+                          "কোনো উত্তর বা ব্যাখ্যা পাওয়া যায়নি।",
+                        )}
+                      </p>
+                    )}
+                </>
               )}
             </div>
           )}

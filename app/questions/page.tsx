@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
+  canAccessChapter,
+  canAccessDatabase,
+  canAccessSubject,
+  consumeUsage,
+  getEntitlement,
+} from "@/lib/access";
+import {
   QUESTION_FILTER_KEYS,
   hasActiveFilters,
   sanitizeFilters,
@@ -20,6 +27,7 @@ import {
   getQuestionPage,
   isQuestionType,
   QUESTION_PAGE_SIZE,
+  type QuestionPageResult,
   type QuestionType,
 } from "@/lib/questions/storage";
 import { formatChapterLabel } from "@/data/chapters";
@@ -108,16 +116,99 @@ export default async function QuestionsPage({
   const type: QuestionType = isQuestionType(requestedType) ? requestedType : "all";
   const requestedFilters = sanitizeFilters(params);
 
-  const result = await getQuestionPage({
-    subject: requestedSubject || "physics",
-    page,
-    type,
-    filters: requestedFilters,
-  });
+  const entitlement = user ? await getEntitlement(user.id) : null;
+  const entitlementUnavailable = !entitlement || entitlement.status === "unavailable";
+  const allowedSubjectSlugs = entitlement?.access.subjects ?? null;
+  const databaseCodes = entitlement?.access.databaseCodes ?? null;
+  const noDatabaseAccess =
+    Boolean(entitlement) && databaseCodes !== null && databaseCodes.length === 0;
+  const noSubjectAccess =
+    Boolean(entitlement) &&
+    allowedSubjectSlugs !== null &&
+    allowedSubjectSlugs.length === 0;
+  const requestedSubjectSlug = requestedSubject || "physics";
+  const subjectBlocked =
+    Boolean(entitlement) &&
+    !noSubjectAccess &&
+    requestedSubjectSlug !== "all" &&
+    !canAccessSubject(entitlement!, requestedSubjectSlug);
+  const effectiveSubject = subjectBlocked
+    ? (allowedSubjectSlugs?.[0] ?? "all")
+    : requestedSubjectSlug;
 
+  const restrictedResult: QuestionPageResult = {
+    manifest: null,
+    subjects: [],
+    subject: null,
+    type,
+    questions: [],
+    page: 1,
+    pageSize: QUESTION_PAGE_SIZE,
+    totalPages: 1,
+    total: 0,
+    error: null,
+    filters: null,
+    activeFilters: requestedFilters,
+  };
+
+  const result =
+    entitlementUnavailable || noSubjectAccess || noDatabaseAccess
+      ? restrictedResult
+      : await getQuestionPage({
+          subject: effectiveSubject,
+          page,
+          type,
+          filters: requestedFilters,
+        });
+
+  if (!entitlementUnavailable && allowedSubjectSlugs !== null) {
+    const allowed = new Set(allowedSubjectSlugs);
+    result.subjects = result.subjects.filter((item) => allowed.has(item.slug));
+    result.questions = result.questions.filter(
+      (question) => !question.subject || allowed.has(question.subject),
+    );
+  }
+
+  if (entitlement && entitlement.access.chapters !== null) {
+    result.questions = result.questions.filter((question) =>
+      canAccessChapter(entitlement, question.topic_code),
+    );
+  }
+
+  if (entitlement && entitlement.access.databaseCodes !== null) {
+    result.questions = result.questions.filter((question) =>
+      canAccessDatabase(entitlement, question.source_db),
+    );
+  }
+
+  const mcqIds = result.questions.filter((question) => question.is_mcq).map((question) => question.id);
+  const usage =
+    !entitlementUnavailable && user && mcqIds.length > 0
+      ? await consumeUsage(user.id, "mcq", mcqIds)
+      : null;
+
+  if (usage) {
+    const allowedMcqIds = new Set(usage.allowed);
+    result.questions = result.questions.filter(
+      (question) => !question.is_mcq || allowedMcqIds.has(question.id),
+    );
+  }
+
+  const canRevealAnswer = entitlement?.features.allowAnswer ?? false;
+  const canViewExplanation = entitlement?.features.allowExplanation ?? false;
+
+  const pageQuestions = result.questions.map((question) => ({
+    ...question,
+    answer: canRevealAnswer ? question.answer : null,
+    explanation: canViewExplanation ? question.explanation : null,
+    explanation_html: canViewExplanation ? question.explanation_html : null,
+    correct_option: canRevealAnswer ? question.correct_option : null,
+  }));
+
+  const subjectsForForm = result.subjects;
   const subject = result.subject;
   const displaySubjectName = subject ? subjectName(subject.slug, subject.name) : "";
-  const currentSubjectSlug = subject?.slug ?? (requestedSubject || "physics");
+  const currentSubjectSlug = subject?.slug ?? (effectiveSubject || "physics");
   const facetFilters = result.filters;
   const activeFilters = result.activeFilters;
   const filtering = hasActiveFilters(activeFilters);
@@ -174,6 +265,86 @@ export default async function QuestionsPage({
                 </CardContent>
               </Card>
             </div>
+          ) : entitlementUnavailable ? (
+            <Card className="mx-auto mt-4 max-w-lg border-amber-500/30 bg-amber-500/5">
+              <CardContent className="space-y-3 p-6 text-center">
+                <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600">
+                  <Lock className="size-6" aria-hidden="true" />
+                </span>
+                <h2 className="font-display text-lg font-bold text-foreground">
+                  {tr("Access verification unavailable", "অ্যাক্সেস যাচাই করা যাচ্ছে না")}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {tr(
+                    "We could not verify your plan right now, so paid question data is temporarily locked. Please try again shortly.",
+                    "এই মুহূর্তে আপনার প্ল্যান যাচাই করা যাচ্ছে না, তাই পেইড প্রশ্ন ডেটা সাময়িকভাবে লক করা আছে। কিছুক্ষণ পরে আবার চেষ্টা করুন।",
+                  )}
+                </p>
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/dashboard">{tr("Go to dashboard", "ড্যাশবোর্ডে যান")}</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : noSubjectAccess ? (
+            <Card className="mx-auto mt-4 max-w-lg border-primary/30 bg-primary/5">
+              <CardContent className="space-y-3 p-6 text-center">
+                <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Lock className="size-6" aria-hidden="true" />
+                </span>
+                <h2 className="font-display text-lg font-bold text-foreground">
+                  {tr("No subject access in your plan", "আপনার প্ল্যানে কোনো বিষয়ের অ্যাক্সেস নেই")}
+                </h2>
+                {entitlement && entitlement.subjectSelectionLimit > 0 ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      {tr(
+                        "Your free plan includes one subject. Choose the subject you want to practise from your dashboard.",
+                        "আপনার ফ্রি প্ল্যানে একটি বিষয় অন্তর্ভুক্ত। ড্যাশবোর্ড থেকে অনুশীলনের জন্য বিষয়টি বেছে নিন।",
+                      )}
+                    </p>
+                    <Button asChild size="sm">
+                      <Link href="/dashboard">
+                        {tr("Choose your subject", "আপনার বিষয় বেছে নিন")}
+                      </Link>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      {tr(
+                        "Your current plan does not include any subject. Renew or upgrade to start practising.",
+                        "আপনার বর্তমান প্ল্যানে কোনো বিষয় অন্তর্ভুক্ত নেই। অনুশীলন শুরু করতে রিনিউ বা আপগ্রেড করুন।",
+                      )}
+                    </p>
+                    <Button asChild size="sm">
+                      <Link href="/plans">{tr("View plans", "প্ল্যান দেখুন")}</Link>
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          ) : noDatabaseAccess ? (
+            <Card className="mx-auto mt-4 max-w-lg border-primary/30 bg-primary/5">
+              <CardContent className="space-y-3 p-6 text-center">
+                <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Lock className="size-6" aria-hidden="true" />
+                </span>
+                <h2 className="font-display text-lg font-bold text-foreground">
+                  {tr("No database selected", "কোনো ডেটাবেস নির্বাচন করা হয়নি")}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {tr(
+                    "Your plan includes one database. Choose HSC, Admission or Job Preparation from your dashboard to unlock its questions.",
+                    "আপনার প্ল্যানে একটি ডেটাবেস অন্তর্ভুক্ত। প্রশ্ন আনলক করতে ড্যাশবোর্ড থেকে HSC, Admission বা Job Preparation বেছে নিন।",
+                  )}
+                </p>
+                <Button asChild size="sm">
+                  <Link href="/dashboard">
+                    {tr("Choose your database", "আপনার ডেটাবেস বেছে নিন")}
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
           ) : (
             <>
               <div className="space-y-3">
@@ -182,8 +353,36 @@ export default async function QuestionsPage({
                 </h1>
               </div>
 
+              {subjectBlocked && (
+                <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+                  {tr(
+                    "Your plan does not include the requested subject. Showing an accessible subject instead.",
+                    "আপনার প্ল্যানে অনুরোধ করা বিষয়টি অন্তর্ভুক্ত নেই। এর পরিবর্তে অ্যাক্সেসযোগ্য একটি বিষয় দেখানো হচ্ছে।",
+                  )}
+                </div>
+              )}
+
+              {usage && usage.blocked > 0 && (
+                <div className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
+                  <p className="font-semibold">
+                    {usage.remaining === 0
+                      ? tr("Daily MCQ limit reached", "দৈনিক MCQ সীমা শেষ")
+                      : tr("Daily MCQ limit partially reached", "দৈনিক MCQ সীমা আংশিক শেষ")}
+                  </p>
+                  <p className="mt-1 text-muted-foreground">
+                    {tr(
+                      `Used ${num(usage.used)} of ${usage.limit === null ? "unlimited" : num(usage.limit)} MCQs today. Some questions on this page are locked until your limit resets at midnight (Asia/Dhaka) or you upgrade.`,
+                      `আজ ${usage.limit === null ? "আনলিমিটেড" : num(usage.limit)}টির মধ্যে ${num(usage.used)}টি MCQ ব্যবহার হয়েছে। সীমা মধ্যরাতে (Asia/Dhaka) রিসেট হওয়ার আগে বা আপগ্রেড করার পরে এই পেজের কিছু প্রশ্ন লক থাকবে।`,
+                    )}
+                  </p>
+                  <Button asChild size="sm" variant="outline" className="mt-2 h-7 text-xs">
+                    <Link href="/plans">{tr("Upgrade plan", "প্ল্যান আপগ্রেড")}</Link>
+                  </Button>
+                </div>
+              )}
+
               <QuestionFiltersForm
-                subjects={result.subjects}
+                subjects={subjectsForForm}
                 selectedSubject={currentSubjectSlug}
                 type={type}
                 facetFilters={facetFilters}
@@ -245,13 +444,13 @@ export default async function QuestionsPage({
                 <p className="text-sm text-muted-foreground">
                   {result.error
                     ? tr("Could not load questions from storage.", "স্টোরেজ থেকে প্রশ্ন লোড করা যায়নি।")
-                    : result.questions.length === 0
+                    : pageQuestions.length === 0
                       ? filtering
                         ? tr("No questions match these filters.", "এই ফিল্টারে কোনো প্রশ্ন মেলেনি।")
-                        : tr("No questions", "কোনো প্রশ্ন নেই")
+                        : tr("No questions available", "কোনো প্রশ্ন উপলব্ধ নেই")
                       : tr(
-                          `Showing ${num(from + 1)}–${num(from + result.questions.length)} of ${num(result.total)}`,
-                          `${num(result.total)}টির মধ্যে ${num(from + 1)}–${num(from + result.questions.length)} দেখানো হচ্ছে`,
+                          `Showing ${num(from + 1)}–${num(from + pageQuestions.length)} of ${num(result.total)}`,
+                          `${num(result.total)}টির মধ্যে ${num(from + 1)}–${num(from + pageQuestions.length)} দেখানো হচ্ছে`,
                         )}
                   {!result.error && subject && (
                     <span className="text-muted-foreground/70">
@@ -305,7 +504,7 @@ export default async function QuestionsPage({
                     <p className="break-words font-mono text-xs text-destructive">{result.error}</p>
                   </CardContent>
                 </Card>
-              ) : result.questions.length === 0 ? (
+              ) : pageQuestions.length === 0 ? (
                 <Card className="mt-4 border-dashed">
                   <CardContent className="space-y-3 p-8 text-center text-sm text-muted-foreground">
                     <p>
@@ -330,8 +529,14 @@ export default async function QuestionsPage({
                 </Card>
               ) : (
                 <div className="mt-4 space-y-4">
-                  {result.questions.map((question, index) => (
-                    <QuestionCard key={question.id} question={question} index={from + index + 1} />
+                  {pageQuestions.map((question, index) => (
+                    <QuestionCard
+                      key={question.id}
+                      question={question}
+                      index={from + index + 1}
+                      canRevealAnswer={canRevealAnswer}
+                      canViewExplanation={canViewExplanation}
+                    />
                   ))}
                 </div>
               )}

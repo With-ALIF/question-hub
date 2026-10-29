@@ -31,6 +31,7 @@ import {
   type RepaginateContext,
 } from "@/lib/exam-paper/print-engine";
 import { getSavedQuestions, saveQuestion } from "@/lib/saved-questions";
+import { recordExamPaperAction } from "@/lib/access/exam-actions";
 import {
   getExamPaperSettings,
   saveExamPaperSettings,
@@ -135,6 +136,7 @@ export function ExamPaperPdfModal({
         );
       }
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync saved count from localStorage
     setSavedCount(getSavedQuestions().length);
   }, [questions.length, isOpen, tr, num]);
 
@@ -248,9 +250,22 @@ export function ExamPaperPdfModal({
   const [generationMode, setGenerationMode] = useState<"download" | "print" | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [displayPercent, setDisplayPercent] = useState(10);
+  const [examQuotaError, setExamQuotaError] = useState<string | null>(null);
+  const examQuotaKeyRef = useRef<string | null>(null);
+  const examQuotaConsumedRef = useRef(false);
+
+  // A new dialog session represents a new paper. Exporting the same paper more
+  // than once (preview -> print -> download) stays idempotent.
+  useEffect(() => {
+    if (!isOpen) {
+      examQuotaKeyRef.current = null;
+      examQuotaConsumedRef.current = false;
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!progressStatus) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset UI when generation stops
       setElapsedSeconds(0);
       setDisplayPercent(10);
       return;
@@ -265,6 +280,7 @@ export function ExamPaperPdfModal({
   // Continuous percentage updater so numbers never freeze during heavy operations
   useEffect(() => {
     if (!progressStatus) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset progress when generation stops
       setDisplayPercent(10);
       return;
     }
@@ -295,8 +311,56 @@ export function ExamPaperPdfModal({
     setShowPreviewModal(true);
   };
 
+  const ensureExamPaperQuota = async (): Promise<boolean> => {
+    if (examQuotaConsumedRef.current) return true;
+
+    setExamQuotaError(null);
+
+    const key =
+      examQuotaKeyRef.current ??
+      (typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `paper-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+    examQuotaKeyRef.current = key;
+
+    try {
+      const result = await recordExamPaperAction(key);
+
+      if (!result.ok) {
+        setExamQuotaError(
+          result.reason === "limit_reached"
+            ? tr(
+                "Your exam paper quota is finished. Upgrade your plan to create another paper.",
+                "আপনার পরীক্ষাপত্রের কোটা শেষ হয়েছে। আরও পরীক্ষাপত্র তৈরি করতে প্ল্যান আপগ্রেড করুন।",
+              )
+            : result.error === "auth"
+              ? tr("Please log in again.", "আবার লগইন করুন।")
+              : tr(
+                  "Could not verify your exam paper quota. Please try again.",
+                  "পরীক্ষাপত্রের কোটা যাচাই করা যায়নি। আবার চেষ্টা করুন।",
+                ),
+        );
+        return false;
+      }
+
+      examQuotaConsumedRef.current = true;
+      return true;
+    } catch {
+      setExamQuotaError(
+        tr(
+          "Could not verify your exam paper quota. Please try again.",
+          "পরীক্ষাপত্রের কোটা যাচাই করা যায়নি। আবার চেষ্টা করুন।",
+        ),
+      );
+      return false;
+    }
+  };
+
   const handleDownloadPdf = async () => {
     try {
+      if (!(await ensureExamPaperQuota())) return;
+
       setIsDownloading(true);
       setGenerationMode("download");
       setProgressStatus({
@@ -332,6 +396,8 @@ export function ExamPaperPdfModal({
 
   const handleDirectPrint = async () => {
     try {
+      if (!(await ensureExamPaperQuota())) return;
+
       setIsDownloading(true);
       setGenerationMode("print");
       setProgressStatus({
@@ -715,6 +781,14 @@ export function ExamPaperPdfModal({
           </div>
 
           <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-card/95 backdrop-blur-sm p-4">
+            {examQuotaError && (
+              <p
+                role="alert"
+                className="w-full rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive"
+              >
+                {examQuotaError}
+              </p>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -781,6 +855,15 @@ export function ExamPaperPdfModal({
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                {examQuotaError && (
+                  <span
+                    role="alert"
+                    className="hidden max-w-64 truncate text-[11px] font-medium text-destructive sm:block"
+                    title={examQuotaError}
+                  >
+                    {examQuotaError}
+                  </span>
+                )}
                 <Button
                   size="sm"
                   variant="outline"

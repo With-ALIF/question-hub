@@ -15,12 +15,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FreeSubjectPicker } from "@/components/dashboard/FreeSubjectPicker";
+import { DatabasePicker } from "@/components/dashboard/DatabasePicker";
 import { Navbar } from "@/components/site/Navbar";
 import { signOutAction } from "@/lib/auth/actions";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth/session";
 import { isAdminRole } from "@/lib/auth/roles";
+import { getEntitlement } from "@/lib/access";
+import { getActiveDatabases } from "@/lib/access/databases";
 import { getQuestionManifest } from "@/lib/questions/storage";
-import { getMyPendingOrder, getMySubscription } from "@/lib/payments/queries";
+import { getMyPendingOrder } from "@/lib/payments/queries";
 import { localeForLanguage } from "@/lib/i18n/config";
 import { getI18n } from "@/lib/i18n/server";
 
@@ -59,11 +63,12 @@ export default async function UserDashboard(props: DashboardPageProps) {
     redirect("/login");
   }
 
-  const [profile, manifest, subscription, pendingOrder] = await Promise.all([
+  const [profile, manifest, entitlement, pendingOrder, databases] = await Promise.all([
     getCurrentProfile(),
     getQuestionManifest().catch(() => null),
-    getMySubscription(),
+    getEntitlement(user.id),
     getMyPendingOrder(),
+    getActiveDatabases(),
   ]);
 
   if (isAdminRole(profile?.role)) {
@@ -73,42 +78,68 @@ export default async function UserDashboard(props: DashboardPageProps) {
   const locale = localeForLanguage(lang);
 
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
-  const rawRole = profile?.role ?? "user";
-
   const displayName =
     profile?.full_name?.trim() ||
     (typeof meta["full_name"] === "string" ? meta["full_name"] : "") ||
     user.email?.split("@")[0] ||
     tr("Student", "শিক্ষার্থী");
 
-  const metaPlanName =
-    (typeof meta["plan_name"] === "string" && meta["plan_name"]) ||
-    (typeof meta["plan"] === "string" && meta["plan"]) ||
-    null;
-
+  const isPaid = entitlement.paidAccess && entitlement.status === "active";
+  const freePlanName = tr("Starter (Free)", "Starter (ফ্রি)");
   const planName =
-    subscription?.plan_name ||
-    metaPlanName ||
-    tr("Starter (Free)", "Starter (ফ্রি)");
+    entitlement.status === "unavailable"
+      ? tr("Verification unavailable", "যাচাই করা যাচ্ছে না")
+      : isPaid
+        ? entitlement.planName ?? freePlanName
+        : entitlement.status === "cancelled"
+          ? freePlanName
+          : entitlement.lastPlanName ?? entitlement.planName ?? freePlanName;
 
-  const expiresAt =
-    subscription?.expires_at ||
-    (typeof meta["access_expires_at"] === "string" && meta["access_expires_at"]) ||
-    (typeof meta["subscription_expires_at"] === "string" && meta["subscription_expires_at"]) ||
-    null;
+  const accessStatus =
+    entitlement.status === "active"
+      ? {
+          label: tr("Access active", "অ্যাক্সেস সক্রিয়"),
+          className: "text-emerald-600 dark:text-emerald-400",
+        }
+      : entitlement.status === "expired"
+        ? {
+            label: tr("Expired — renew to continue", "মেয়াদ শেষ — চালিয়ে যেতে রিনিউ করুন"),
+            className: "text-amber-600 dark:text-amber-400",
+          }
+        : entitlement.status === "cancelled"
+          ? {
+              label: tr("Free plan (subscription cancelled)", "ফ্রি প্ল্যান (সাবস্ক্রিপশন বাতিল)"),
+              className: "text-amber-600 dark:text-amber-400",
+            }
+          : entitlement.status === "unavailable"
+            ? {
+                label: tr("Could not verify access", "অ্যাক্সেস যাচাই করা যায়নি"),
+                className: "text-amber-600 dark:text-amber-400",
+              }
+            : {
+                label: tr("Free plan", "ফ্রি প্ল্যান"),
+                className: "text-blue-600 dark:text-blue-400",
+              };
 
-  let remainingDaysText = tr(`${num(30)} days left`, `${num(30)} দিন বাকি`);
+  const expiresAt = entitlement.expiresAt;
+  const remainingDays = entitlement.remainingDays;
+
+  let remainingDaysText: string;
+  if (entitlement.status === "cancelled") {
+    remainingDaysText = tr("No paid expiry", "পেইড মেয়াদ নেই");
+  } else if (expiresAt && remainingDays !== null) {
+    remainingDaysText =
+      remainingDays > 0
+        ? tr(`${num(remainingDays)} days left`, `${num(remainingDays)} দিন বাকি`)
+        : tr("Expired", "মেয়াদ উত্তীর্ণ");
+  } else {
+    remainingDaysText = tr("No paid expiry", "পেইড মেয়াদ নেই");
+  }
+
   let expiryDateFormatted = "";
-
-  if (expiresAt) {
+  if (expiresAt && entitlement.status !== "cancelled") {
     const expDate = new Date(expiresAt);
     if (!Number.isNaN(expDate.getTime())) {
-      const diffMs = expDate.getTime() - Date.now();
-      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      remainingDaysText =
-        diffDays > 0
-          ? tr(`${num(diffDays)} days left`, `${num(diffDays)} দিন বাকি`)
-          : tr("Expired", "মেয়াদ উত্তীর্ণ");
       expiryDateFormatted = expDate.toLocaleDateString(locale, {
         day: "numeric",
         month: "short",
@@ -117,19 +148,38 @@ export default async function UserDashboard(props: DashboardPageProps) {
     }
   }
 
-  const allowedSubjectSlugs: string[] | null = Array.isArray(meta["accessible_subjects"])
-    ? (meta["accessible_subjects"] as string[])
-    : Array.isArray(meta["allowed_subjects"])
-      ? (meta["allowed_subjects"] as string[])
-      : null;
-
+  const allowedSubjectSlugs = entitlement.access.subjects;
   const allSubjects = manifest?.subjects ?? [];
-  const accessibleSubjects = allowedSubjectSlugs
-    ? allSubjects.filter((s) => allowedSubjectSlugs.includes(s.slug))
-    : allSubjects;
+  const accessibleSubjects =
+    allowedSubjectSlugs === null
+      ? allSubjects
+      : allSubjects.filter((subject) => allowedSubjectSlugs.includes(subject.slug));
 
-  const totalAccessibleMcq = accessibleSubjects.reduce((sum, s) => sum + (s.mcq ?? 0), 0);
-  const accessibleNames = accessibleSubjects.map((s) => subjectName(s.slug, s.name));
+  const totalAccessibleMcq = accessibleSubjects.reduce((sum, subject) => sum + (subject.mcq ?? 0), 0);
+  const accessibleNames = accessibleSubjects.map((subject) => subjectName(subject.slug, subject.name));
+  const subjectSelectionLimit = entitlement.subjectSelectionLimit;
+  const selectedSubject = allowedSubjectSlugs?.[0] ?? null;
+  const subjectOptions = allSubjects.map((subject) => ({
+    slug: subject.slug,
+    name: subjectName(subject.slug, subject.name),
+  }));
+  const databaseSelectionLimit = entitlement.databaseSelectionLimit;
+  const selectedDatabase = entitlement.access.databases?.[0] ?? null;
+  const allowedDatabaseSlugs = entitlement.access.allowedDatabases;
+  const selectableDatabases =
+    allowedDatabaseSlugs === null
+      ? databases
+      : databases.filter((database) => allowedDatabaseSlugs.includes(database.slug));
+
+  const limitLabel = (limit: number | null) =>
+    limit === null ? tr("Unlimited", "আনলিমিটেড") : num(limit);
+  const remainingLabel = (remaining: number | null) =>
+    remaining === null ? tr("Unlimited", "আনলিমিটেড") : num(remaining);
+  const usagePercent = (used: number, limit: number | null) => {
+    if (limit === null) return 0;
+    if (limit <= 0) return 100;
+    return Math.min(100, Math.round((used / limit) * 100));
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-background font-sans">
@@ -207,10 +257,19 @@ export default async function UserDashboard(props: DashboardPageProps) {
                   <h3 className="font-display text-lg font-bold text-foreground">
                     {planName}
                   </h3>
-                  <div className="mt-1 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                  <div className={`mt-1 flex items-center gap-1.5 text-xs font-medium ${accessStatus.className}`}>
                     <CheckCircle2 className="size-3.5" aria-hidden="true" />
-                    <span>{tr("Access active", "অ্যাক্সেস সক্রিয়")}</span>
+                    <span>{accessStatus.label}</span>
                   </div>
+                  {!isPaid && (
+                    <Button asChild size="sm" className="mt-3 h-7 text-xs">
+                      <Link href="/plans">
+                        {entitlement.status === "expired"
+                          ? tr("Renew plan", "প্ল্যান রিনিউ")
+                          : tr("Upgrade plan", "প্ল্যান আপগ্রেড")}
+                      </Link>
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -232,7 +291,7 @@ export default async function UserDashboard(props: DashboardPageProps) {
                   <p className="mt-1 text-xs text-muted-foreground">
                     {expiryDateFormatted
                       ? tr(`Expiry: ${expiryDateFormatted}`, `মেয়াদ: ${expiryDateFormatted}`)
-                      : tr("Unlimited or active term", "সীমাহীন বা সক্রিয় মেয়াদ")}
+                      : tr("No paid subscription term", "কোনো পেইড সাবস্ক্রিপশন মেয়াদ নেই")}
                   </p>
                 </div>
               </CardContent>
@@ -287,6 +346,130 @@ export default async function UserDashboard(props: DashboardPageProps) {
               </CardContent>
             </Card>
           </div>
+
+          <Card className="mt-4 border-border/70 bg-card/60 shadow-sm">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {tr("Usage summary", "ব্যবহারের সারসংক্ষেপ")}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {tr("Daily counters reset at midnight", "দৈনিক গণনা মধ্যরাতে রিসেট হবে")} · {entitlement.usageDate}
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                {[
+                  {
+                    key: "mcq",
+                    label: tr("MCQ practice", "MCQ অনুশীলন"),
+                    used: entitlement.usage.mcq,
+                    limit: entitlement.limits.dailyMcq,
+                    remaining: entitlement.remaining.mcq,
+                  },
+                  {
+                    key: "model",
+                    label: tr("Model tests (today)", "মডেল টেস্ট (আজ)"),
+                    used: entitlement.usage.modelTest,
+                    limit: entitlement.limits.dailyModelTest,
+                    remaining: entitlement.remaining.modelTest,
+                  },
+                  ...(entitlement.limits.totalModelTest !== null
+                    ? [
+                        {
+                          key: "model-total",
+                          label: tr("Model tests (total)", "মডেল টেস্ট (মোট)"),
+                          used: entitlement.usage.modelTestTotal,
+                          limit: entitlement.limits.totalModelTest,
+                          remaining: entitlement.remaining.modelTestTotal,
+                        },
+                      ]
+                    : []),
+                  {
+                    key: "saved",
+                    label: tr("Saved questions", "সেভ করা প্রশ্ন"),
+                    used: entitlement.usage.savedQuestions,
+                    limit: entitlement.limits.savedQuestions,
+                    remaining: entitlement.remaining.savedQuestions,
+                  },
+                  ...(entitlement.limits.examPapers !== null ||
+                  entitlement.usage.examPapers > 0
+                    ? [
+                        {
+                          key: "exam-papers",
+                          label: tr("Exam papers", "পরীক্ষাপত্র"),
+                          used: entitlement.usage.examPapers,
+                          limit: entitlement.limits.examPapers,
+                          remaining: entitlement.remaining.examPapers,
+                        },
+                      ]
+                    : []),
+                ].map((row) => {
+                  const percent = usagePercent(row.used, row.limit);
+                  return (
+                    <div key={row.key} className="rounded-lg border border-border/70 bg-background/60 p-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-foreground">{row.label}</span>
+                        <span className="text-muted-foreground">
+                          {num(row.used)} / {limitLabel(row.limit)}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
+                        <div
+                          className={`h-full rounded-full ${
+                            percent >= 100 ? "bg-destructive" : "bg-primary"
+                          }`}
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-muted-foreground">
+                        {tr("Remaining:", "বাকি:")} {remainingLabel(row.remaining)}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {(!isPaid || entitlement.status === "cancelled") && (
+                <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                  {entitlement.status === "cancelled"
+                    ? tr(
+                        "Your subscription was cancelled. Paid explanations and model tests are locked.",
+                        "আপনার সাবস্ক্রিপশন বাতিল হয়েছে। পেইড ব্যাখ্যা ও মডেল টেস্ট লক করা আছে।",
+                      )
+                    : entitlement.status === "expired"
+                      ? tr(
+                          "Your paid access has expired automatically. Renew your plan to restore it.",
+                          "আপনার পেইড অ্যাক্সেস স্বয়ংক্রিয়ভাবে শেষ হয়েছে। ফিরে পেতে প্ল্যান রিনিউ করুন।",
+                        )
+                      : tr(
+                          "You are on the free plan. Explanations, more model tests and database access require an upgrade.",
+                          "আপনি ফ্রি প্ল্যানে আছেন। ব্যাখ্যা, বেশি মডেল টেস্ট ও ডেটাবেস অ্যাক্সেসের জন্য আপগ্রেড করুন।",
+                        )}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {databaseSelectionLimit > 0 && (
+            <DatabasePicker
+              databases={selectableDatabases.map((database) => ({
+                slug: database.slug,
+                name: database.name,
+                name_bn: database.name_bn,
+                description: database.description,
+              }))}
+              selected={selectedDatabase}
+            />
+          )}
+
+          {subjectSelectionLimit > 0 && (
+            <FreeSubjectPicker
+              subjects={subjectOptions}
+              selected={selectedSubject}
+              limit={subjectSelectionLimit}
+            />
+          )}
 
           <Card className="mt-4 border-border/70 bg-card/60 shadow-sm">
             <CardContent className="p-4 sm:p-5">

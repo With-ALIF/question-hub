@@ -11,6 +11,8 @@ export type QuestionDifficulty = "easy" | "medium" | "hard";
 export type PaymentMethod = "bkash" | "nagad";
 export type OrderStatus = "pending" | "approved" | "rejected" | "cancelled";
 export type SubscriptionStatus = "active" | "expired" | "cancelled";
+export type SubscriptionSource = "payment" | "custom";
+export type UsageFeature = "mcq" | "model_test";
 
 export type QuestionOption = {
   n: number;
@@ -29,6 +31,8 @@ export type Database = {
           full_name: string | null;
           avatar_url: string | null;
           role: UserRole;
+          selected_subjects: string[] | null;
+          selected_databases: string[] | null;
           created_at: string;
           updated_at: string;
         };
@@ -38,6 +42,8 @@ export type Database = {
           full_name?: string | null;
           avatar_url?: string | null;
           role?: UserRole;
+          selected_subjects?: string[] | null;
+          selected_databases?: string[] | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -47,8 +53,166 @@ export type Database = {
           full_name?: string | null;
           avatar_url?: string | null;
           role?: UserRole;
+          selected_subjects?: string[] | null;
+          selected_databases?: string[] | null;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      qb_plans: {
+        Row: {
+          plan_id: string;
+          name: string;
+          audience: "student" | "teacher";
+          duration_days: number | null;
+          daily_mcq_limit: number | null;
+          daily_model_test_limit: number | null;
+          saved_questions_limit: number | null;
+          allow_answer: boolean;
+          allow_explanation: boolean;
+          allowed_subjects: string[] | null;
+          allowed_chapters: string[] | null;
+          allowed_databases: string[] | null;
+          subject_selection_limit: number;
+          database_selection_limit: number;
+          total_model_test_limit: number | null;
+          exam_paper_limit: number | null;
+          is_active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          plan_id: string;
+          name: string;
+          audience?: "student" | "teacher";
+          duration_days?: number | null;
+          daily_mcq_limit?: number | null;
+          daily_model_test_limit?: number | null;
+          saved_questions_limit?: number | null;
+          allow_answer?: boolean;
+          allow_explanation?: boolean;
+          allowed_subjects?: string[] | null;
+          allowed_chapters?: string[] | null;
+          allowed_databases?: string[] | null;
+          subject_selection_limit?: number;
+          database_selection_limit?: number;
+          total_model_test_limit?: number | null;
+          exam_paper_limit?: number | null;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          plan_id?: string;
+          name?: string;
+          audience?: "student" | "teacher";
+          duration_days?: number | null;
+          daily_mcq_limit?: number | null;
+          daily_model_test_limit?: number | null;
+          saved_questions_limit?: number | null;
+          allow_answer?: boolean;
+          allow_explanation?: boolean;
+          allowed_subjects?: string[] | null;
+          allowed_chapters?: string[] | null;
+          allowed_databases?: string[] | null;
+          subject_selection_limit?: number;
+          database_selection_limit?: number;
+          total_model_test_limit?: number | null;
+          exam_paper_limit?: number | null;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      qb_usage_events: {
+        Row: {
+          id: number;
+          user_id: string;
+          usage_date: string;
+          feature: UsageFeature;
+          event_key: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          user_id: string;
+          usage_date?: string;
+          feature: UsageFeature;
+          event_key: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          user_id?: string;
+          usage_date?: string;
+          feature?: UsageFeature;
+          event_key?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      qb_databases: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          name_bn: string | null;
+          description: string | null;
+          source_codes: string[];
+          sort_order: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          name_bn?: string | null;
+          description?: string | null;
+          source_codes?: string[];
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          name?: string;
+          name_bn?: string | null;
+          description?: string | null;
+          source_codes?: string[];
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      qb_exam_paper_events: {
+        Row: {
+          id: number;
+          user_id: string;
+          event_key: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          user_id: string;
+          event_key: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          user_id?: string;
+          event_key?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -364,39 +528,48 @@ export type Database = {
         Row: {
           id: string;
           user_id: string;
-          order_id: string;
+          order_id: string | null;
           plan_id: string;
           plan_name: string;
           audience: "student" | "teacher";
           status: SubscriptionStatus;
           starts_at: string;
           expires_at: string;
+          source: SubscriptionSource;
+          granted_by: string | null;
+          notes: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          order_id: string;
+          order_id?: string | null;
           plan_id: string;
           plan_name: string;
           audience: "student" | "teacher";
           status?: SubscriptionStatus;
           starts_at?: string;
           expires_at: string;
+          source?: SubscriptionSource;
+          granted_by?: string | null;
+          notes?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
-          order_id?: string;
+          order_id?: string | null;
           plan_id?: string;
           plan_name?: string;
           audience?: "student" | "teacher";
           status?: SubscriptionStatus;
           starts_at?: string;
           expires_at?: string;
+          source?: SubscriptionSource;
+          granted_by?: string | null;
+          notes?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -440,6 +613,40 @@ export type Database = {
         Args: { p_order_id: string; p_admin_id?: string; p_note?: string };
         Returns: boolean;
       };
+      qb_get_entitlement: {
+        Args: { p_user_id: string };
+        Returns: Json;
+      };
+      qb_consume_usage: {
+        Args: { p_user_id: string; p_feature: UsageFeature; p_event_keys: string[] };
+        Returns: Json;
+      };
+      qb_consume_exam_paper: {
+        Args: { p_user_id: string; p_event_key: string };
+        Returns: Json;
+      };
+      qb_claim_saved_question: {
+        Args: { p_user_id: string; p_question_id: string; p_subject?: string };
+        Returns: Json;
+      };
+      qb_release_saved_question: {
+        Args: { p_user_id: string; p_question_id: string };
+        Returns: boolean;
+      };
+      qb_grant_custom_access: {
+        Args: {
+          p_user_id: string;
+          p_plan_id: string;
+          p_days: number;
+          p_note?: string | null;
+          p_admin_id?: string | null;
+        };
+        Returns: Json;
+      };
+      qb_expire_subscriptions: {
+        Args: Record<PropertyKey, never>;
+        Returns: number;
+      };
     };
     Enums: {
       question_difficulty: QuestionDifficulty;
@@ -458,3 +665,5 @@ export type Question = Database["public"]["Tables"]["qb_questions"]["Row"];
 export type Feature = Database["public"]["Tables"]["qb_features"]["Row"];
 export type Order = Database["public"]["Tables"]["qb_orders"]["Row"];
 export type Subscription = Database["public"]["Tables"]["qb_subscriptions"]["Row"];
+export type PlanConfig = Database["public"]["Tables"]["qb_plans"]["Row"];
+export type UsageEvent = Database["public"]["Tables"]["qb_usage_events"]["Row"];

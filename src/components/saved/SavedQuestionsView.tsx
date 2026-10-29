@@ -23,6 +23,7 @@ import {
   SAVED_QUESTIONS_EVENT,
   type SavedQuestionItem,
 } from "@/lib/saved-questions";
+import { syncSavedQuestionSlotsAction } from "@/lib/access/saved-actions";
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +40,15 @@ function inferSubject(question: SavedQuestionItem): string {
   return "other";
 }
 
-export function SavedQuestionsView() {
+export function SavedQuestionsView({
+  canRevealAnswer = true,
+  canViewExplanation = true,
+  savedLimit = null,
+}: {
+  canRevealAnswer?: boolean;
+  canViewExplanation?: boolean;
+  savedLimit?: number | null;
+}) {
   const [questions, setQuestions] = useState<SavedQuestionItem[]>([]);
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
@@ -49,8 +58,17 @@ export function SavedQuestionsView() {
   const { tr, num, subjectName } = useI18n();
 
   useEffect(() => {
-    setQuestions(getSavedQuestions());
+    const initial = getSavedQuestions();
+    setQuestions(initial);
     setMounted(true);
+
+    // Keep the server-side saved-question counter in sync with older bookmarks
+    // that were created before the limit system existed.
+    if (initial.length > 0) {
+      void syncSavedQuestionSlotsAction(
+        initial.map((item) => ({ id: item.id, subject: item.subject ?? null })),
+      );
+    }
 
     const handleUpdate = () => {
       setQuestions(getSavedQuestions());
@@ -170,6 +188,9 @@ export function SavedQuestionsView() {
           <Badge variant="secondary" className="gap-1.5 font-normal">
             <span>{tr("Total saved:", "মোট সংরক্ষিত:")}</span>
             <strong className="text-foreground">{num(questions.length)}</strong>
+            <span className="text-muted-foreground">
+              / {savedLimit === null ? tr("unlimited", "আনলিমিটেড") : num(savedLimit)}
+            </span>
           </Badge>
           <Badge variant="outline" className="gap-1.5 font-normal">
             <span>MCQ:</span>
@@ -406,6 +427,8 @@ export function SavedQuestionsView() {
                 key={question.id}
                 question={question}
                 index={index + 1}
+                canRevealAnswer={canRevealAnswer}
+                canViewExplanation={canViewExplanation}
               />
             ))}
           </div>

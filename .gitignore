@@ -65,6 +65,8 @@ scripts/
 # Supabase
 # supabase/
 *.sql
+migrations
 
 # Data
 raw/
+.temp

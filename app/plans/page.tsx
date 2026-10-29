@@ -45,8 +45,8 @@ export default async function PlansPage() {
             </h1>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground sm:text-base">
               {tr(
-                "Choose the Student or Teacher tab. Every plan unlocks the full question bank structure — upgrade or cancel anytime.",
-                "Student বা Teacher ট্যাব বেছে নিন। প্রতিটি প্ল্যানে পুরো প্রশ্ন ব্যাংক স্ট্রাকচার unlocked — যেকোনো সময় আপগ্রেড বা বাতিল করুন।",
+                "Choose the Student or Teacher tab. Student plans cover one database; teacher plans unlock every database. Upgrade or cancel anytime.",
+                "Student বা Teacher ট্যাব বেছে নিন। Student প্ল্যানে একটি ডেটাবেস; Teacher প্ল্যানে সব ডেটাবেস unlocked। যেকোনো সময় আপগ্রেড বা বাতিল করুন।",
               )}
             </p>
           </div>

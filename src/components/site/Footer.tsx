@@ -103,7 +103,7 @@ export function Footer({ initialUser }: { initialUser?: SupabaseUser | null }) {
 
       <div className="border-t border-border py-5">
         <p className="text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} QuestionBank.
+          © {new Date().getFullYear()} QuestionBank
         </p>
       </div>
     </footer>
