@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  AlertCircle,
   ArrowRight,
   BookOpen,
   BookmarkCheck,
@@ -87,39 +88,49 @@ export default async function UserDashboard(props: DashboardPageProps) {
 
   const isPaid = entitlement.paidAccess && entitlement.status === "active";
   const freePlanName = tr("Starter (Free)", "Starter (ফ্রি)");
+  // Paid users see their paid plan; cancelled, expired, or non-paying users automatically see the Free Plan
   const planName =
     entitlement.status === "unavailable"
       ? tr("Verification unavailable", "যাচাই করা যাচ্ছে না")
       : isPaid
         ? entitlement.planName ?? freePlanName
-        : entitlement.status === "cancelled"
-          ? freePlanName
-          : entitlement.lastPlanName ?? entitlement.planName ?? freePlanName;
+        : freePlanName;
 
   const accessStatus =
     entitlement.status === "active"
       ? {
           label: tr("Access active", "অ্যাক্সেস সক্রিয়"),
           className: "text-emerald-600 dark:text-emerald-400",
+          icon: "check" as const,
         }
       : entitlement.status === "expired"
         ? {
-            label: tr("Expired — renew to continue", "মেয়াদ শেষ — চালিয়ে যেতে রিনিউ করুন"),
+            label: tr(
+              `Free plan (term expired${entitlement.lastPlanName ? ` · ${entitlement.lastPlanName}` : ""})`,
+              `ফ্রি প্ল্যান (মেয়াদ শেষ${entitlement.lastPlanName ? ` · ${entitlement.lastPlanName}` : ""})`,
+            ),
             className: "text-amber-600 dark:text-amber-400",
+            icon: "clock" as const,
           }
         : entitlement.status === "cancelled"
           ? {
-              label: tr("Free plan (subscription cancelled)", "ফ্রি প্ল্যান (সাবস্ক্রিপশন বাতিল)"),
-              className: "text-amber-600 dark:text-amber-400",
+              label: tr(
+                `Free plan (subscription cancelled${entitlement.lastPlanName ? ` · ${entitlement.lastPlanName}` : ""})`,
+                `ফ্রি প্ল্যান (সাবস্ক্রিপশন বাতিল${entitlement.lastPlanName ? ` · ${entitlement.lastPlanName}` : ""})`,
+              ),
+              className: "text-rose-600 dark:text-rose-400",
+              icon: "alert" as const,
             }
           : entitlement.status === "unavailable"
             ? {
                 label: tr("Could not verify access", "অ্যাক্সেস যাচাই করা যায়নি"),
                 className: "text-amber-600 dark:text-amber-400",
+                icon: "alert" as const,
               }
             : {
-                label: tr("Free plan", "ফ্রি প্ল্যান"),
+                label: tr("Free plan active", "ফ্রি প্ল্যান সক্রিয়"),
                 className: "text-blue-600 dark:text-blue-400",
+                icon: "check" as const,
               };
 
   const expiresAt = entitlement.expiresAt;
@@ -259,7 +270,13 @@ export default async function UserDashboard(props: DashboardPageProps) {
                     {planName}
                   </h3>
                   <div className={`mt-1 flex items-center gap-1.5 text-xs font-medium ${accessStatus.className}`}>
-                    <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                    {accessStatus.icon === "alert" ? (
+                      <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
+                    ) : accessStatus.icon === "clock" ? (
+                      <CalendarClock className="size-3.5 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <CheckCircle2 className="size-3.5 shrink-0" aria-hidden="true" />
+                    )}
                     <span>{accessStatus.label}</span>
                   </div>
                   {!isPaid && (

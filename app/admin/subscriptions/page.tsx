@@ -9,8 +9,8 @@ import { getAdminOrders, getAdminSubscriptions } from "@/lib/payments/queries";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Subscriptions — Admin QuestionBank",
-  description: "Manage and cancel active student subscriptions.",
+  title: "Paid Subscriptions — Admin QuestionBank",
+  description: "View and manage all paid subscriber plans, running status and cancellations.",
 };
 
 export default async function AdminSubscriptionsPage() {

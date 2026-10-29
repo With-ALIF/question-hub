@@ -11,6 +11,7 @@ import {
   LogOut,
   ShieldCheck,
   SlidersHorizontal,
+  Users,
   Wallet,
 } from "lucide-react";
 import { adminSignOutAction } from "@/lib/auth/actions";
@@ -49,9 +50,15 @@ const navigationItems = [
     icon: Wallet,
   },
   {
+    href: "/admin/users",
+    label: "All Users",
+    labelBn: "সকল ব্যবহারকারী",
+    icon: Users,
+  },
+  {
     href: "/admin/subscriptions",
-    label: "Subscriptions",
-    labelBn: "সক্রিয় সাবস্ক্রিপশন",
+    label: "Paid Subscriptions",
+    labelBn: "পেইড সাবস্ক্রিপশন",
     icon: ShieldCheck,
   },
   {
