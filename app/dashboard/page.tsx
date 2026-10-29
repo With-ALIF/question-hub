@@ -7,6 +7,7 @@ import {
   BookmarkCheck,
   CalendarClock,
   CheckCircle2,
+  FileText,
   Layers,
   Sparkles,
   Timer,
@@ -183,7 +184,7 @@ export default async function UserDashboard(props: DashboardPageProps) {
 
   return (
     <div className="flex min-h-screen flex-col bg-background font-sans">
-      <Navbar initialUser={user} />
+      <Navbar initialUser={user} audience={entitlement.audience} />
 
       <main className="flex-1">
         <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
@@ -367,22 +368,26 @@ export default async function UserDashboard(props: DashboardPageProps) {
                     limit: entitlement.limits.dailyMcq,
                     remaining: entitlement.remaining.mcq,
                   },
-                  {
-                    key: "model",
-                    label: tr("Model tests (today)", "মডেল টেস্ট (আজ)"),
-                    used: entitlement.usage.modelTest,
-                    limit: entitlement.limits.dailyModelTest,
-                    remaining: entitlement.remaining.modelTest,
-                  },
-                  ...(entitlement.limits.totalModelTest !== null
+                  ...(entitlement.audience === "student"
                     ? [
                         {
-                          key: "model-total",
-                          label: tr("Model tests (total)", "মডেল টেস্ট (মোট)"),
-                          used: entitlement.usage.modelTestTotal,
-                          limit: entitlement.limits.totalModelTest,
-                          remaining: entitlement.remaining.modelTestTotal,
+                          key: "model",
+                          label: tr("Model tests (today)", "মডেল টেস্ট (আজ)"),
+                          used: entitlement.usage.modelTest,
+                          limit: entitlement.limits.dailyModelTest,
+                          remaining: entitlement.remaining.modelTest,
                         },
+                        ...(entitlement.limits.totalModelTest !== null
+                          ? [
+                              {
+                                key: "model-total",
+                                label: tr("Model tests (total)", "মডেল টেস্ট (মোট)"),
+                                used: entitlement.usage.modelTestTotal,
+                                limit: entitlement.limits.totalModelTest,
+                                remaining: entitlement.remaining.modelTestTotal,
+                              },
+                            ]
+                          : []),
                       ]
                     : []),
                   {
@@ -392,8 +397,9 @@ export default async function UserDashboard(props: DashboardPageProps) {
                     limit: entitlement.limits.savedQuestions,
                     remaining: entitlement.remaining.savedQuestions,
                   },
-                  ...(entitlement.limits.examPapers !== null ||
-                  entitlement.usage.examPapers > 0
+                  ...(entitlement.audience === "teacher" &&
+                  (entitlement.limits.examPapers !== null ||
+                    entitlement.usage.examPapers > 0)
                     ? [
                         {
                           key: "exam-papers",
@@ -550,34 +556,65 @@ export default async function UserDashboard(props: DashboardPageProps) {
                 </div>
               </Link>
 
-              <Link
-                href="/model-test"
-                className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-amber-500/50 hover:shadow-md"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex size-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 transition-colors group-hover:bg-amber-500 group-hover:text-white">
-                      <Timer className="size-6" aria-hidden="true" />
-                    </span>
-                    <Badge variant="outline" className="border-amber-500/30 text-[11px] font-normal text-amber-600 dark:text-amber-400">
-                      {tr("Timer", "টাইমার")}
-                    </Badge>
+              {entitlement.audience === "teacher" ? (
+                <Link
+                  href="/exam-paper"
+                  className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-emerald-500/50 hover:shadow-md"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="flex size-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
+                        <FileText className="size-6" aria-hidden="true" />
+                      </span>
+                      <Badge variant="outline" className="border-emerald-500/30 text-[11px] font-normal text-emerald-600 dark:text-emerald-400">
+                        {tr("Teacher", "শিক্ষক")}
+                      </Badge>
+                    </div>
+                    <h3 className="mt-4 font-display text-base font-semibold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                      {tr("Exam paper builder", "পরীক্ষাপত্র তৈরি")}
+                    </h3>
+                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                      {tr(
+                        "Select questions to build custom 4-set question sheets and downloadable PDFs.",
+                        "কাস্টম ৪-সেট প্রশ্নপত্র ও সমাধান প্রিন্টযোগ্য PDF তৈরি করতে প্রশ্ন নির্বাচন করুন।",
+                      )}
+                    </p>
                   </div>
-                  <h3 className="mt-4 font-display text-base font-semibold text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400">
-                    {tr("Model test", "মডেল টেস্ট")}
-                  </h3>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    {tr(
-                      "Take timed tests to prepare yourself and learn proper time management.",
-                      "নির্দিষ্ট সময়ে পরীক্ষা দিয়ে নিজেকে প্রস্তুত করুন এবং সঠিক টাইম ম্যানেজমেন্ট শিখুন।",
-                    )}
-                  </p>
-                </div>
-                <div className="mt-5 flex items-center text-xs font-semibold text-amber-600 dark:text-amber-400">
-                  <span>{tr("Take a test", "পরীক্ষা দিন")}</span>
-                  <ArrowRight className="ml-1.5 size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
-                </div>
-              </Link>
+                  <div className="mt-5 flex items-center text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                    <span>{tr("Build exam paper", "পরীক্ষাপত্র বানান")}</span>
+                    <ArrowRight className="ml-1.5 size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                  </div>
+                </Link>
+              ) : (
+                <Link
+                  href="/model-test"
+                  className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-amber-500/50 hover:shadow-md"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="flex size-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 transition-colors group-hover:bg-amber-500 group-hover:text-white">
+                        <Timer className="size-6" aria-hidden="true" />
+                      </span>
+                      <Badge variant="outline" className="border-amber-500/30 text-[11px] font-normal text-amber-600 dark:text-amber-400">
+                        {tr("Timer", "টাইমার")}
+                      </Badge>
+                    </div>
+                    <h3 className="mt-4 font-display text-base font-semibold text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400">
+                      {tr("Model test", "মডেল টেস্ট")}
+                    </h3>
+                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                      {tr(
+                        "Take timed tests to prepare yourself and learn proper time management.",
+                        "নির্দিষ্ট সময়ে পরীক্ষা দিয়ে নিজেকে প্রস্তুত করুন এবং সঠিক টাইম ম্যানেজমেন্ট শিখুন।",
+                      )}
+                    </p>
+                  </div>
+                  <div className="mt-5 flex items-center text-xs font-semibold text-amber-600 dark:text-amber-400">
+                    <span>{tr("Take a test", "পরীক্ষা দিন")}</span>
+                    <ArrowRight className="ml-1.5 size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                  </div>
+                </Link>
+              )}
 
               <Link
                 href="/saved"

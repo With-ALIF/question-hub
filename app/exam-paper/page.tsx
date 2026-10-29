@@ -113,6 +113,7 @@ export default async function ExamPaperPage({
   const requestedFilters = sanitizeFilters(params);
 
   const entitlement = await getEntitlement(user.id);
+  const isStudent = entitlement.audience === "student";
   const entitlementUnavailable = entitlement.status === "unavailable";
   const allowedSubjects = entitlement.access.subjects;
   const databaseCodes = entitlement.access.databaseCodes;
@@ -127,10 +128,12 @@ export default async function ExamPaperPage({
     ? (allowedSubjects?.[0] ?? "all")
     : requestedSubjectSlug;
   const hasExamPaperAccess =
-    entitlement.limits.examPapers === null
+    !isStudent &&
+    (entitlement.limits.examPapers === null
       ? entitlement.paidAccess
-      : (entitlement.remaining.examPapers ?? 0) > 0;
+      : (entitlement.remaining.examPapers ?? 0) > 0);
   const canUseBuilder =
+    !isStudent &&
     !entitlementUnavailable &&
     hasExamPaperAccess &&
     !noSubjectAccess &&
@@ -177,7 +180,7 @@ export default async function ExamPaperPage({
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <Navbar initialUser={user} />
+      <Navbar initialUser={user} audience={entitlement.audience} />
       <main className="flex-1">
         <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
           {entitlementUnavailable ? (
@@ -195,6 +198,35 @@ export default async function ExamPaperPage({
                     "এই মুহূর্তে আপনার প্ল্যান যাচাই করা যাচ্ছে না। কিছুক্ষণ পরে আবার চেষ্টা করুন।",
                   )}
                 </p>
+              </CardContent>
+            </Card>
+          ) : isStudent ? (
+            <Card className="mx-auto max-w-lg border-primary/30 bg-primary/5">
+              <CardContent className="space-y-3 p-6 text-center">
+                <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Lock className="size-6" aria-hidden="true" />
+                </span>
+                <h2 className="font-display text-lg font-bold text-foreground">
+                  {tr("Teachers only feature", "শুধুমাত্র শিক্ষকদের জন্য")}
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {tr(
+                    "Exam Paper Builder is available for teacher plans only. Student plans do not include exam paper generation. Upgrade to a teacher plan to access this feature.",
+                    "পরীক্ষাপত্র তৈরির (Exam Paper Builder) ফিচারটি শুধুমাত্র শিক্ষকদের জন্য (Teacher Plan)। স্টুডেন্ট প্ল্যানে এই সুবিধাটি নেই। এই ফিচারটি ব্যবহার করতে টিচার প্ল্যানে আপগ্রেড করুন।",
+                  )}
+                </p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  <Button asChild size="sm">
+                    <Link href="/plans">
+                      {tr("View teacher plans", "টিচার প্ল্যান দেখুন")}
+                    </Link>
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <Link href="/dashboard">
+                      {tr("Back to dashboard", "ড্যাশবোর্ডে ফিরে যান")}
+                    </Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : !hasExamPaperAccess ? (

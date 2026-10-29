@@ -4,6 +4,7 @@ import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { PricingTabs } from "@/components/site/PricingTabs";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getEntitlement } from "@/lib/access";
 import { getMyPendingOrder, getMySubscription } from "@/lib/payments/queries";
 import { getPaymentNumbers } from "@/lib/payments/server";
 import { getI18n } from "@/lib/i18n/server";
@@ -32,11 +33,12 @@ export default async function PlansPage() {
     getMyPendingOrder(),
     getMySubscription(),
   ]);
+  const entitlement = user ? await getEntitlement(user.id) : null;
   const paymentNumbers = getPaymentNumbers();
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <Navbar />
+      <Navbar initialUser={user} audience={entitlement?.audience} />
       <main className="flex-1">
         <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
           <div className="text-center">

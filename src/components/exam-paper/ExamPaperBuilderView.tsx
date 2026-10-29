@@ -374,6 +374,7 @@ export function ExamPaperBuilderView({
                         index={(page - 1) * pageSize + idx + 1}
                         canRevealAnswer={canRevealAnswer}
                         canViewExplanation={canViewExplanation}
+                        canAddToExam={true}
                       />
                     </div>
                   </div>

@@ -6,6 +6,7 @@ import { StorageSubjectCard } from "@/components/site/StorageSubjectCard";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getEntitlement } from "@/lib/access";
 import { getI18n } from "@/lib/i18n/server";
 import { getQuestionManifest, type QuestionManifest } from "@/lib/questions/storage";
 
@@ -28,6 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function SubjectsPage() {
   const user = await getCurrentUser();
   const { tr, num } = await getI18n();
+  const entitlement = user ? await getEntitlement(user.id) : null;
   let manifest: QuestionManifest | null = null;
   let error: string | null = null;
 
@@ -45,7 +47,7 @@ export default async function SubjectsPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background font-sans">
-      <Navbar initialUser={user} />
+      <Navbar initialUser={user} audience={entitlement?.audience} />
       <main className="flex-1">
         <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
           <div className="flex flex-wrap items-end justify-between gap-3">

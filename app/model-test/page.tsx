@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, BookOpen, Clock, Sparkles, Timer, Trophy } from "lucide-react";
+import { ArrowLeft, BookOpen, Clock, FileText, Lock, Sparkles, Timer, Trophy } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getEntitlement } from "@/lib/access";
 import { getI18n } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -24,10 +25,55 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ModelTestPage() {
   const user = await getCurrentUser();
   const { tr } = await getI18n();
+  const entitlement = user ? await getEntitlement(user.id) : null;
+  const isTeacher = entitlement?.audience === "teacher";
+
+  if (isTeacher) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background font-sans">
+        <Navbar initialUser={user} audience="teacher" />
+        <main className="flex-1 flex items-center justify-center px-4 py-12 sm:px-6">
+          <div className="mx-auto max-w-xl text-center">
+            <Card className="relative overflow-hidden border-border/80 bg-card/80 p-8 sm:p-12 shadow-lg backdrop-blur">
+              <CardContent className="p-0 flex flex-col items-center">
+                <span className="mb-4 flex size-16 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <Lock className="size-8" aria-hidden="true" />
+                </span>
+                <h2 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                  {tr("Students only feature", "শুধুমাত্র শিক্ষার্থীদের জন্য")}
+                </h2>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base max-w-md">
+                  {tr(
+                    "Model Test is designed for students preparing for exams. Teacher plans do not include student model tests. If you want to create exam papers, please use the Exam Paper Builder.",
+                    "মডেল টেস্ট ফিচারটি শুধুমাত্র পরীক্ষার্থী শিক্ষার্থীদের অনুশীলনের জন্য। টিচার প্ল্যানে মডেল টেস্টের সুবিধা অন্তর্ভুক্ত নয়। প্রশ্নপত্র তৈরি করতে 'পরীক্ষাপত্র' (Exam Paper Builder) ব্যবহার করুন।",
+                  )}
+                </p>
+                <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                  <Button asChild className="gap-2">
+                    <Link href="/exam-paper">
+                      <FileText className="size-4" aria-hidden="true" />
+                      {tr("Go to Exam Paper", "পরীক্ষাপত্রে যান")}
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/dashboard">
+                      <ArrowLeft className="size-4" aria-hidden="true" />
+                      {tr("Dashboard", "ড্যাশবোর্ড")}
+                    </Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+        <Footer initialUser={user} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background font-sans">
-      <Navbar initialUser={user} />
+      <Navbar initialUser={user} audience={entitlement?.audience} />
 
       <main className="flex-1 flex items-center justify-center px-4 py-12 sm:px-6">
         <div className="mx-auto max-w-xl text-center">

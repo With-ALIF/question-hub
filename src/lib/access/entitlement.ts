@@ -51,6 +51,7 @@ export function unavailableEntitlement(message?: string): Entitlement {
   return {
     status: "unavailable",
     paidAccess: false,
+    audience: "student",
     serverTime: new Date().toISOString(),
     usageDate: new Date().toISOString().slice(0, 10),
     planId: null,
@@ -88,14 +89,25 @@ function normalize(value: Json): Entitlement {
     return unavailableEntitlement("Entitlement response had an unknown status.");
   }
 
+  const planId = text(raw["planId"]);
+  const lastPlanId = text(raw["lastPlanId"]);
+  const rawAudience = text(raw["audience"]);
+  const audience: "student" | "teacher" =
+    rawAudience === "teacher" ||
+    planId?.startsWith("teacher") ||
+    lastPlanId?.startsWith("teacher")
+      ? "teacher"
+      : "student";
+
   return {
     status,
     paidAccess: bool(raw["paidAccess"]),
+    audience,
     serverTime: text(raw["serverTime"]) ?? new Date().toISOString(),
     usageDate: text(raw["usageDate"]) ?? new Date().toISOString().slice(0, 10),
-    planId: text(raw["planId"]),
+    planId,
     planName: text(raw["planName"]),
-    lastPlanId: text(raw["lastPlanId"]),
+    lastPlanId,
     lastPlanName: text(raw["lastPlanName"]),
     subscriptionId: text(raw["subscriptionId"]),
     subscriptionStatus: text(raw["subscriptionStatus"]),

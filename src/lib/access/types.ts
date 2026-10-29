@@ -36,6 +36,8 @@ export type Entitlement = {
   status: EntitlementStatus;
   /** True only when an unexpired subscription exists and its plan is active. */
   paidAccess: boolean;
+  /** Plan audience: "student" for learner plans, "teacher" for educator plans. */
+  audience: "student" | "teacher";
   /** Database server time (ISO string). Never trust the browser clock for expiry. */
   serverTime: string;
   usageDate: string;

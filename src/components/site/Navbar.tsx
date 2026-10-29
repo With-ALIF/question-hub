@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -72,7 +72,13 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
+export function Navbar({
+  initialUser,
+  audience,
+}: {
+  initialUser?: SupabaseUser | null | undefined;
+  audience?: "student" | "teacher" | null | undefined;
+}) {
   const [user, setUser] = useState<SupabaseUser | null>(initialUser ?? null);
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
@@ -133,8 +139,23 @@ export function Navbar({ initialUser }: { initialUser?: SupabaseUser | null }) {
     };
   }, [menuOpen]);
 
-  const navLinks = user ? loggedInNavLinks : baseNavLinks;
-  const mobileNavItems = user ? loggedInMobileLinks : loggedOutMobileLinks;
+  const navLinks = useMemo(() => {
+    if (!user) return baseNavLinks;
+    return loggedInNavLinks.filter((item) => {
+      if (audience === "student" && item.href === "/exam-paper") return false;
+      if (audience === "teacher" && item.href === "/model-test") return false;
+      return true;
+    });
+  }, [user, audience]);
+
+  const mobileNavItems = useMemo(() => {
+    if (!user) return loggedOutMobileLinks;
+    return loggedInMobileLinks.filter((item) => {
+      if (audience === "student" && item.href === "/exam-paper") return false;
+      if (audience === "teacher" && item.href === "/model-test") return false;
+      return true;
+    });
+  }, [user, audience]);
 
   const handleSignOut = () => {
     try {

@@ -232,7 +232,7 @@ export default async function QuestionsPage({
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <Navbar initialUser={user} />
+      <Navbar initialUser={user} audience={entitlement?.audience} />
       <main className="flex-1">
         <section className="mx-auto max-w-4xl px-4 py-10 sm:px-6 sm:py-12">
           {!user ? (
@@ -536,6 +536,7 @@ export default async function QuestionsPage({
                       index={from + index + 1}
                       canRevealAnswer={canRevealAnswer}
                       canViewExplanation={canViewExplanation}
+                      canAddToExam={entitlement?.audience === "teacher"}
                     />
                   ))}
                 </div>

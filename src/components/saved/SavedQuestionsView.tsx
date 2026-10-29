@@ -44,10 +44,12 @@ export function SavedQuestionsView({
   canRevealAnswer = true,
   canViewExplanation = true,
   savedLimit = null,
+  canAddToExam = false,
 }: {
   canRevealAnswer?: boolean;
   canViewExplanation?: boolean;
   savedLimit?: number | null;
+  canAddToExam?: boolean;
 }) {
   const [questions, setQuestions] = useState<SavedQuestionItem[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -429,6 +431,7 @@ export function SavedQuestionsView({
                 index={index + 1}
                 canRevealAnswer={canRevealAnswer}
                 canViewExplanation={canViewExplanation}
+                canAddToExam={canAddToExam}
               />
             ))}
           </div>

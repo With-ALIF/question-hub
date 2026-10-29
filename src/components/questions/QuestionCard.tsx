@@ -48,6 +48,7 @@ type QuestionCardProps = {
   index: number;
   canRevealAnswer?: boolean;
   canViewExplanation?: boolean;
+  canAddToExam?: boolean;
 };
 
 function plainText(value: string | null | undefined) {
@@ -106,6 +107,7 @@ export function QuestionCard({
   index,
   canRevealAnswer = true,
   canViewExplanation = true,
+  canAddToExam = false,
 }: QuestionCardProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -242,23 +244,25 @@ export function QuestionCard({
               <span>{isSaved ? tr("Saved", "সেভ করা") : tr("Save", "সেভ")}</span>
             </Button>
 
-            <Button
-              type="button"
-              variant={isInExam ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => {
-                const next = toggleExamQuestion(question);
-                setIsInExam(next);
-              }}
-              className={cn(
-                "h-7 px-2 text-xs gap-1 transition-colors cursor-pointer",
-                isInExam && "text-primary font-medium bg-primary/10 hover:bg-primary/20",
-              )}
-              title={isInExam ? tr("Remove from exam paper", "পরীক্ষাপত্র থেকে মুছুন") : tr("Add to exam paper", "পরীক্ষাপত্রে যোগ করুন")}
-            >
-              <FileText className={cn("size-3.5 transition-transform", isInExam && "text-primary scale-110 font-bold")} />
-              <span>{isInExam ? tr("Added", "যোগ করা") : tr("Exam paper", "পরীক্ষাপত্রে")}</span>
-            </Button>
+            {canAddToExam && (
+              <Button
+                type="button"
+                variant={isInExam ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  const next = toggleExamQuestion(question);
+                  setIsInExam(next);
+                }}
+                className={cn(
+                  "h-7 px-2 text-xs gap-1 transition-colors cursor-pointer",
+                  isInExam && "text-primary font-medium bg-primary/10 hover:bg-primary/20",
+                )}
+                title={isInExam ? tr("Remove from exam paper", "পরীক্ষাপত্র থেকে মুছুন") : tr("Add to exam paper", "পরীক্ষাপত্রে যোগ করুন")}
+              >
+                <FileText className={cn("size-3.5 transition-transform", isInExam && "text-primary scale-110 font-bold")} />
+                <span>{isInExam ? tr("Added", "যোগ করা") : tr("Exam paper", "পরীক্ষাপত্রে")}</span>
+              </Button>
+            )}
           </div>
         </div>
 
