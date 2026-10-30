@@ -15,6 +15,7 @@ import { PaperCreationGuide } from "@/components/site/PaperCreationGuide";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/client";
 import type { Subject } from "@/data/subjects";
+import type { PlanAudience } from "@/data/plans";
 import type { PaymentNumbers } from "@/lib/payments/config";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,8 @@ type HomePageProps = {
   recentQuestions?: RecentQuestion[] | undefined;
   slides: string[];
   signedIn: boolean;
+  /** Chosen role of the signed-in account; locks the pricing list to that side. */
+  planAudience?: PlanAudience | null | undefined;
   paymentNumbers: PaymentNumbers;
 };
 
@@ -59,6 +62,7 @@ export function HomePage({
   recentQuestions = [],
   slides,
   signedIn,
+  planAudience = null,
   paymentNumbers,
 }: HomePageProps) {
   const { tr } = useI18n();
@@ -278,7 +282,11 @@ export function HomePage({
             </p>
           </div>
 
-          <PricingTabs signedIn={signedIn} paymentNumbers={paymentNumbers} />
+          <PricingTabs
+            signedIn={signedIn}
+            lockedAudience={planAudience}
+            paymentNumbers={paymentNumbers}
+          />
 
           <div className="mt-8 text-center">
             <Button variant="link" asChild>

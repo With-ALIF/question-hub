@@ -13,6 +13,11 @@ import type { Order, Subscription } from "@/lib/payments/types";
 
 type PricingTabsProps = {
   defaultAudience?: PlanAudience | undefined;
+  /**
+   * Set for signed-in accounts that already chose student or teacher: the
+   * switcher disappears and only that audience's plans are listed.
+   */
+  lockedAudience?: PlanAudience | null | undefined;
   signedIn?: boolean | undefined;
   paymentNumbers: PaymentNumbers;
   pendingOrder?: Order | null | undefined;
@@ -60,6 +65,7 @@ const AUDIENCES: {
 
 export function PricingTabs({
   defaultAudience = "student",
+  lockedAudience = null,
   signedIn = false,
   paymentNumbers,
   pendingOrder,
@@ -67,26 +73,40 @@ export function PricingTabs({
 }: PricingTabsProps) {
   const { tr } = useI18n();
 
+  const locked = lockedAudience
+    ? AUDIENCES.find((item) => item.value === lockedAudience) ?? null
+    : null;
+  const visibleAudiences = locked ? [locked] : AUDIENCES;
+
   return (
-    <Tabs defaultValue={defaultAudience} className="mt-8">
-      <TabsList
-        aria-label={tr("Choose pricing for students or teachers", "শিক্ষার্থী বা শিক্ষকের প্ল্যান বেছে নিন")}
-        className="mx-auto flex h-auto w-full max-w-md gap-1 rounded-xl p-1.5"
-      >
-        {AUDIENCES.map(({ value, label, icon: Icon }) => (
-          <TabsTrigger
-            key={value}
-            value={value}
-            className="group flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors hover:text-foreground"
-          >
-            <Icon
-              className="size-4 transition-transform duration-300 ease-out group-data-[state=active]:scale-110"
-              aria-hidden="true"
-            />
-            {tr(...label)}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+    <Tabs defaultValue={locked?.value ?? defaultAudience} className="mt-8">
+      {locked ? (
+        <div className="mx-auto flex w-fit items-center gap-2 rounded-full border border-border bg-secondary/60 px-4 py-2.5 text-sm font-semibold text-foreground">
+          <locked.icon className="size-4 text-primary" aria-hidden="true" />
+          <span>
+            {tr(`${locked.label[0]} plans only`, `${locked.label[1]} প্ল্যানই দেখানো হচ্ছে`)}
+          </span>
+        </div>
+      ) : (
+        <TabsList
+          aria-label={tr("Choose pricing for students or teachers", "শিক্ষার্থী বা শিক্ষকের প্ল্যান বেছে নিন")}
+          className="mx-auto flex h-auto w-full max-w-md gap-1 rounded-xl p-1.5"
+        >
+          {visibleAudiences.map(({ value, label, icon: Icon }) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="group flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors hover:text-foreground"
+            >
+              <Icon
+                className="size-4 transition-transform duration-300 ease-out group-data-[state=active]:scale-110"
+                aria-hidden="true"
+              />
+              {tr(...label)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      )}
 
       {pendingOrder ? (
         <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-left">
@@ -163,7 +183,7 @@ export function PricingTabs({
         </div>
       ) : null}
 
-      {AUDIENCES.map(({ value, description }) => (
+      {visibleAudiences.map(({ value, description }) => (
         <TabsContent
           key={value}
           value={value}

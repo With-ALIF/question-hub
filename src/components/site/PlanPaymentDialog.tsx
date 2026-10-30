@@ -110,6 +110,11 @@ export function PlanPaymentDialog({
           "Too many attempts. Please wait a few minutes and try again.",
           "অনেকবার চেষ্টা করা হয়েছে। কয়েক মিনিট পর আবার চেষ্টা করুন।",
         );
+      case "audience_mismatch":
+        return tr(
+          "Your account is registered as a student, so only student plans can be ordered (or the reverse). Ask the admin to change your role.",
+          "আপনার অ্যাকাউন্ট যেভাবে নিবন্ধিত (শিক্ষার্থী বা শিক্ষক), শুধু সেই প্ল্যান অর্ডার করা যাবে। ভূমিকা পরিবর্তনে অ্যাডমিনের সাথে যোগাযোগ করুন।",
+        );
       default:
         return tr(
           "Something went wrong. Please try again.",

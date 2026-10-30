@@ -8,6 +8,7 @@ export type PaymentErrorCode =
   | "rate_limited"
   | "pending_order_exists"
   | "active_subscription_exists"
+  | "audience_mismatch"
   | "failed";
 
 export type CreateOrderResult =

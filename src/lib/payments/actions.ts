@@ -82,6 +82,17 @@ export async function createManualOrderAction(
       return { ok: false, error: "invalid_plan" };
     }
 
+    // The one-time role choice fixes which plan family the account may buy.
+    const { data: roleChoice } = await supabase
+      .from("qb_user_audience")
+      .select("audience")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (roleChoice && roleChoice.audience !== match.audience) {
+      return { ok: false, error: "audience_mismatch" };
+    }
+
     const since = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
     const { count } = await supabase
       .from("qb_orders")

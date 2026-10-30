@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, GraduationCap, Loader2, Users } from "lucide-react";
 
@@ -41,12 +41,16 @@ const OPTIONS = [
 export function AudienceGate() {
   const { tr } = useI18n();
   const router = useRouter();
+  const [dismissed, setDismissed] = useState(false);
 
   const [state, formAction, isPending] = useActionState(
     async (previousState: AudienceChoiceState, formData: FormData) => {
       const nextState = await chooseAudienceAction(previousState, formData);
 
       if (nextState.ok || nextState.error === "locked") {
+        // The role is recorded (or was already recorded), so hide the gate at
+        // once instead of waiting for the refreshed server render.
+        setDismissed(true);
         router.refresh();
       }
 
@@ -54,6 +58,10 @@ export function AudienceGate() {
     },
     INITIAL_STATE,
   );
+
+  if (dismissed) {
+    return null;
+  }
 
   const errorText =
     state.error === "auth"

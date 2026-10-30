@@ -49,6 +49,7 @@ const loggedInNavLinks: NavItem[] = [
   { href: "/exam-paper", label: ["Exam Paper", "পরীক্ষাপত্র"], icon: FileText },
   { href: "/saved", label: ["Saved Questions", "সেভ করা প্রশ্ন"], icon: BookmarkCheck },
   { href: "/model-test", label: ["Model Test", "মডেল টেস্ট"], icon: Timer },
+  { href: "/plans", label: ["Plans", "প্ল্যান"], icon: Sparkles },
 ];
 
 const loggedOutMobileLinks: NavItem[] = [
@@ -65,6 +66,7 @@ const loggedInMobileLinks: NavItem[] = [
   { href: "/exam-paper", label: ["Exam", "পরীক্ষা"], icon: FileText },
   { href: "/saved", label: ["Saved", "সেভড"], icon: BookmarkCheck },
   { href: "/model-test", label: ["Model Test", "মডেল টেস্ট"], icon: Timer },
+  { href: "/plans", label: ["Plans", "প্ল্যান"], icon: Sparkles },
 ];
 
 function isActivePath(pathname: string, href: string) {

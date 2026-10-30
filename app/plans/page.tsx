@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { PricingTabs } from "@/components/site/PricingTabs";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentAudience, getCurrentUser } from "@/lib/auth/session";
 import { getEntitlement } from "@/lib/access";
 import { getMyPendingOrder, getMySubscription } from "@/lib/payments/queries";
 import { getPaymentNumbers } from "@/lib/payments/server";
@@ -27,14 +27,16 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function PlansPage() {
-  const [{ tr }, user, pendingOrder, activeSubscription] = await Promise.all([
+  const [{ tr }, user, pendingOrder, activeSubscription, chosenAudience] = await Promise.all([
     getI18n(),
     getCurrentUser(),
     getMyPendingOrder(),
     getMySubscription(),
+    getCurrentAudience(),
   ]);
   const entitlement = user ? await getEntitlement(user.id) : null;
   const paymentNumbers = getPaymentNumbers();
+  const lockedAudience = user ? chosenAudience : null;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -46,15 +48,23 @@ export default async function PlansPage() {
               {tr("Pick your plan", "আপনার প্ল্যান বেছে নিন")}
             </h1>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground sm:text-base">
-              {tr(
-                "Choose the Student or Teacher tab. Student plans cover one database; teacher plans unlock every database. Upgrade or cancel anytime.",
-                "Student বা Teacher ট্যাব বেছে নিন। Student প্ল্যানে একটি ডেটাবেস; Teacher প্ল্যানে সব ডেটাবেস unlocked। যেকোনো সময় আপগ্রেড বা বাতিল করুন।",
-              )}
+              {lockedAudience
+                ? tr(
+                    `You are registered as a ${lockedAudience}, so only ${lockedAudience} plans are listed. Ask the admin to change your role.`,
+                    `আপনি ${lockedAudience === "teacher" ? "শিক্ষক" : "শিক্ষার্থী"} হিসেবে নিবন্ধিত, তাই শুধু ${
+                      lockedAudience === "teacher" ? "শিক্ষক" : "শিক্ষার্থী"
+                    } প্ল্যান দেখানো হচ্ছে। ভূমিকা পরিবর্তনে অ্যাডমিনের সাথে যোগাযোগ করুন।`,
+                  )
+                : tr(
+                    "Choose the Student or Teacher tab. Student plans cover one database; teacher plans unlock every database. Upgrade or cancel anytime.",
+                    "Student বা Teacher ট্যাব বেছে নিন। Student প্ল্যানে একটি ডেটাবেস; Teacher প্ল্যানে সব ডেটাবেস unlocked। যেকোনো সময় আপগ্রেড বা বাতিল করুন।",
+                  )}
             </p>
           </div>
 
           <PricingTabs
-            defaultAudience="student"
+            defaultAudience={lockedAudience ?? "student"}
+            lockedAudience={lockedAudience}
             signedIn={Boolean(user)}
             paymentNumbers={paymentNumbers}
             pendingOrder={pendingOrder}
