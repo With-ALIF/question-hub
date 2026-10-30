@@ -3,7 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 
-import type { ConsumeExamPaperResult, ConsumeUsageResult, UsageFeature } from "./types";
+import type { ConsumeUsageResult, UsageFeature } from "./types";
 
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -131,62 +131,6 @@ export async function consumeUsage(
       remaining: 0,
       blocked: keys.length,
       usageDate: null,
-      error: error instanceof Error ? error.message : "Usage lookup failed.",
-    };
-  }
-}
-
-/**
- * Consumes one lifetime exam-paper slot. The event key makes retries and
- * repeated prints of the same paper idempotent.
- */
-export async function consumeExamPaper(
-  userId: string,
-  eventKey: string,
-): Promise<ConsumeExamPaperResult> {
-  const key = String(eventKey ?? "").trim();
-
-  if (!userId || !key) {
-    return {
-      ok: false,
-      used: 0,
-      limit: 0,
-      remaining: 0,
-      error: "invalid_input",
-    };
-  }
-
-  try {
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase.rpc("qb_consume_exam_paper", {
-      p_user_id: userId,
-      p_event_key: key,
-    });
-
-    if (error) {
-      return { ok: false, used: 0, limit: 0, remaining: 0, error: error.message };
-    }
-
-    const raw = record(data);
-
-    if (!raw) {
-      return { ok: false, used: 0, limit: 0, remaining: 0, error: "empty_response" };
-    }
-
-    return {
-      ok: raw["ok"] === true,
-      alreadyCounted: raw["alreadyCounted"] === true,
-      used: int(raw["used"]),
-      limit: nullableInt(raw["limit"]),
-      remaining: nullableInt(raw["remaining"]),
-      ...(raw["reason"] === "limit_reached" ? { reason: "limit_reached" as const } : {}),
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      used: 0,
-      limit: 0,
-      remaining: 0,
       error: error instanceof Error ? error.message : "Usage lookup failed.",
     };
   }

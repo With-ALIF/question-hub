@@ -1,5 +1,4 @@
 export {
-  canAccessChapter,
   canAccessDatabase,
   canAccessSubject,
   getEntitlement,
@@ -8,9 +7,7 @@ export {
   usageLimitLabel,
 } from "./entitlement";
 export { consumeUsage } from "./usage";
-export { consumeExamPaper } from "./usage";
 export type {
-  ConsumeExamPaperResult,
   ConsumeUsageResult,
   DatabaseChoiceState,
   Entitlement,
@@ -18,7 +15,6 @@ export type {
   EntitlementRemaining,
   EntitlementStatus,
   EntitlementUsage,
-  SavedSlotResult,
   SelectionChoiceState,
   SubjectChoiceState,
   UsageFeature,

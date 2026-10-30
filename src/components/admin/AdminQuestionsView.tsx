@@ -341,7 +341,7 @@ export function AdminQuestionsView({
         </header>
 
         {/* Content Body */}
-        <main className="flex-1 p-4 sm:p-6 pb-24 lg:pb-8 space-y-5 max-w-7xl">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-5 max-w-7xl">
           {/* Controls Bar: Type Selector + Search + Filters */}
           <Card className="border-border/80 bg-card shadow-xs">
             <CardContent className="p-4 space-y-3.5">

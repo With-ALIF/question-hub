@@ -23,7 +23,6 @@ import {
   SAVED_QUESTIONS_EVENT,
   type SavedQuestionItem,
 } from "@/lib/saved-questions";
-import { syncSavedQuestionSlotsAction } from "@/lib/access/saved-actions";
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
@@ -43,12 +42,10 @@ function inferSubject(question: SavedQuestionItem): string {
 export function SavedQuestionsView({
   canRevealAnswer = true,
   canViewExplanation = true,
-  savedLimit = null,
   canAddToExam = false,
 }: {
   canRevealAnswer?: boolean;
   canViewExplanation?: boolean;
-  savedLimit?: number | null;
   canAddToExam?: boolean;
 }) {
   const [questions, setQuestions] = useState<SavedQuestionItem[]>([]);
@@ -60,17 +57,9 @@ export function SavedQuestionsView({
   const { tr, num, subjectName } = useI18n();
 
   useEffect(() => {
-    const initial = getSavedQuestions();
-    setQuestions(initial);
+    const updated = getSavedQuestions();
+    setQuestions(updated);
     setMounted(true);
-
-    // Keep the server-side saved-question counter in sync with older bookmarks
-    // that were created before the limit system existed.
-    if (initial.length > 0) {
-      void syncSavedQuestionSlotsAction(
-        initial.map((item) => ({ id: item.id, subject: item.subject ?? null })),
-      );
-    }
 
     const handleUpdate = () => {
       setQuestions(getSavedQuestions());
@@ -190,9 +179,6 @@ export function SavedQuestionsView({
           <Badge variant="secondary" className="gap-1.5 font-normal">
             <span>{tr("Total saved:", "মোট সংরক্ষিত:")}</span>
             <strong className="text-foreground">{num(questions.length)}</strong>
-            <span className="text-muted-foreground">
-              / {savedLimit === null ? tr("unlimited", "আনলিমিটেড") : num(savedLimit)}
-            </span>
           </Badge>
           <Badge variant="outline" className="gap-1.5 font-normal">
             <span>MCQ:</span>

@@ -9,6 +9,7 @@ import type {
   AdminPlanConfig,
   AdminSubscriberUser,
   AdminSubscription,
+  GrantableUser,
   Order,
   Subscription,
 } from "./types";
@@ -365,6 +366,40 @@ export async function getAdminSubscriberUsers(): Promise<AdminSubscriberUser[]> 
     return result;
   } catch (err) {
     console.error("Failed to fetch admin subscriber users:", err);
+    return [];
+  }
+}
+
+/**
+ * Admin autocomplete: emails of every user who has signed in at least once,
+ * newest accounts first. Admin roles are excluded because the custom-access
+ * grant form targets student and teacher accounts.
+ */
+export async function getGrantableUsers(): Promise<GrantableUser[]> {
+  try {
+    const supabase = createSupabaseAdminClient();
+
+    const { data } = await supabase
+      .from("qb_profiles")
+      .select("email, full_name, role")
+      .eq("role", "user")
+      .not("email", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    const seen = new Set<string>();
+    const users: GrantableUser[] = [];
+
+    for (const profile of data ?? []) {
+      const email = profile.email?.trim().toLowerCase();
+      if (!email || seen.has(email)) continue;
+      seen.add(email);
+      users.push({ email, fullName: profile.full_name?.trim() || null });
+    }
+
+    return users;
+  } catch (err) {
+    console.error("Failed to fetch grantable users:", err);
     return [];
   }
 }

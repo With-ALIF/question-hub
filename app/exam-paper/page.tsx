@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
-  canAccessChapter,
   canAccessDatabase,
   canAccessSubject,
   getEntitlement,
@@ -127,15 +126,9 @@ export default async function ExamPaperPage({
   const effectiveSubject = subjectBlocked
     ? (allowedSubjects?.[0] ?? "all")
     : requestedSubjectSlug;
-  const hasExamPaperAccess =
-    !isStudent &&
-    (entitlement.limits.examPapers === null
-      ? entitlement.paidAccess
-      : (entitlement.remaining.examPapers ?? 0) > 0);
   const canUseBuilder =
     !isStudent &&
     !entitlementUnavailable &&
-    hasExamPaperAccess &&
     !noSubjectAccess &&
     !noDatabaseAccess;
 
@@ -153,12 +146,6 @@ export default async function ExamPaperPage({
     result.subjects = result.subjects.filter((item) => allowed.has(item.slug));
     result.questions = result.questions.filter(
       (question) => !question.subject || allowed.has(question.subject),
-    );
-  }
-
-  if (result && entitlement.access.chapters !== null) {
-    result.questions = result.questions.filter((question) =>
-      canAccessChapter(entitlement, question.topic_code),
     );
   }
 
@@ -227,41 +214,6 @@ export default async function ExamPaperPage({
                     </Link>
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          ) : !hasExamPaperAccess ? (
-            <Card className="mx-auto max-w-lg border-primary/30 bg-primary/5">
-              <CardContent className="space-y-3 p-6 text-center">
-                <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Lock className="size-6" aria-hidden="true" />
-                </span>
-                <h2 className="font-display text-lg font-bold text-foreground">
-                  {tr("Exam paper access required", "পরীক্ষাপত্র তৈরির অ্যাক্সেস প্রয়োজন")}
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {entitlement.status === "expired"
-                    ? tr(
-                        "Your subscription has expired. Renew to build and export exam papers again.",
-                        "আপনার সাবস্ক্রিপশনের মেয়াদ শেষ হয়েছে। আবার পরীক্ষাপত্র তৈরি ও এক্সপোর্ট করতে রিনিউ করুন।",
-                      )
-                    : entitlement.limits.examPapers !== null &&
-                        entitlement.limits.examPapers > 0
-                      ? tr(
-                          "You have used your exam paper quota. Upgrade your plan to create more papers.",
-                          "আপনার পরীক্ষাপত্রের কোটা শেষ হয়েছে। আরও পরীক্ষাপত্র তৈরি করতে প্ল্যান আপগ্রেড করুন।",
-                        )
-                      : tr(
-                          "Upgrade to a teacher plan to select questions and generate printable exam papers.",
-                          "প্রশ্ন সিলেক্ট করে প্রিন্টযোগ্য পরীক্ষাপত্র তৈরি করতে টিচার প্ল্যানে আপগ্রেড করুন।",
-                        )}
-                </p>
-                <Button asChild size="sm">
-                  <Link href="/plans">
-                    {entitlement.status === "expired"
-                      ? tr("Renew plan", "প্ল্যান রিনিউ")
-                      : tr("View plans", "প্ল্যান দেখুন")}
-                  </Link>
-                </Button>
               </CardContent>
             </Card>
           ) : noDatabaseAccess ? (

@@ -63,6 +63,11 @@ export type AdminSubscriberUser = {
 
 export type AdminPlanConfig = PlanConfig;
 
+export type GrantableUser = {
+  email: string;
+  fullName: string | null;
+};
+
 export type AdminSubscriptionResult =
   | { ok: true }
   | { ok: false; error: AdminOrderErrorCode };

@@ -20,16 +20,10 @@ export type AdminPlanActionResult =
 export type UpdatePlanConfigInput = {
   planId: string;
   name: string;
-  dailyMcqLimit: number | null;
   dailyModelTestLimit: number | null;
   totalModelTestLimit: number | null;
-  savedQuestionsLimit: number | null;
-  examPaperLimit: number | null;
   allowAnswer: boolean;
   allowExplanation: boolean;
-  allowedSubjects: string[] | null;
-  allowedChapters: string[] | null;
-  allowedDatabases: string[] | null;
   subjectSelectionLimit: number;
   databaseSelectionLimit: number;
   durationDays: number | null;
@@ -50,16 +44,6 @@ function cleanLimit(value: unknown): number | null | undefined {
   return Math.floor(number);
 }
 
-function cleanList(value: unknown): string[] | null | undefined {
-  if (value === null || value === undefined) return null;
-  if (!Array.isArray(value)) return undefined;
-  const items = value
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
-    .filter(Boolean);
-  return items.length > 0 ? Array.from(new Set(items)) : null;
-}
-
 export async function updatePlanConfigAction(
   input: UpdatePlanConfigInput,
 ): Promise<AdminPlanActionResult> {
@@ -76,28 +60,16 @@ export async function updatePlanConfigAction(
     return { ok: false, error: "invalid_input" };
   }
 
-  const dailyMcqLimit = cleanLimit(input.dailyMcqLimit);
   const dailyModelTestLimit = cleanLimit(input.dailyModelTestLimit);
   const totalModelTestLimit = cleanLimit(input.totalModelTestLimit);
-  const savedQuestionsLimit = cleanLimit(input.savedQuestionsLimit);
-  const examPaperLimit = cleanLimit(input.examPaperLimit);
   const durationDays = cleanLimit(input.durationDays);
-  const allowedSubjects = cleanList(input.allowedSubjects);
-  const allowedChapters = cleanList(input.allowedChapters);
-  const allowedDatabases = cleanList(input.allowedDatabases);
   const subjectSelectionLimit = cleanLimit(input.subjectSelectionLimit);
   const databaseSelectionLimit = cleanLimit(input.databaseSelectionLimit);
 
   if (
-    dailyMcqLimit === undefined ||
     dailyModelTestLimit === undefined ||
     totalModelTestLimit === undefined ||
-    savedQuestionsLimit === undefined ||
-    examPaperLimit === undefined ||
     durationDays === undefined ||
-    allowedSubjects === undefined ||
-    allowedChapters === undefined ||
-    allowedDatabases === undefined ||
     subjectSelectionLimit === undefined ||
     databaseSelectionLimit === undefined
   ) {
@@ -110,16 +82,10 @@ export async function updatePlanConfigAction(
       .from("qb_plans")
       .update({
         name,
-        daily_mcq_limit: dailyMcqLimit,
         daily_model_test_limit: dailyModelTestLimit,
         total_model_test_limit: totalModelTestLimit,
-        saved_questions_limit: savedQuestionsLimit,
-        exam_paper_limit: examPaperLimit,
         allow_answer: Boolean(input.allowAnswer),
         allow_explanation: Boolean(input.allowExplanation),
-        allowed_subjects: allowedSubjects,
-        allowed_chapters: allowedChapters,
-        allowed_databases: allowedDatabases,
         subject_selection_limit: subjectSelectionLimit ?? 0,
         database_selection_limit: databaseSelectionLimit ?? 0,
         duration_days: durationDays,

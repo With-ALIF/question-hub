@@ -31,6 +31,7 @@ export type Database = {
           full_name: string | null;
           avatar_url: string | null;
           role: UserRole;
+          audience: "student" | "teacher" | null;
           selected_subjects: string[] | null;
           selected_databases: string[] | null;
           created_at: string;
@@ -42,6 +43,7 @@ export type Database = {
           full_name?: string | null;
           avatar_url?: string | null;
           role?: UserRole;
+          audience?: "student" | "teacher" | null;
           selected_subjects?: string[] | null;
           selected_databases?: string[] | null;
           created_at?: string;
@@ -53,8 +55,30 @@ export type Database = {
           full_name?: string | null;
           avatar_url?: string | null;
           role?: UserRole;
+          audience?: "student" | "teacher" | null;
           selected_subjects?: string[] | null;
           selected_databases?: string[] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      qb_user_audience: {
+        Row: {
+          user_id: string;
+          audience: "student" | "teacher";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          audience: "student" | "teacher";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          audience?: "student" | "teacher";
           created_at?: string;
           updated_at?: string;
         };
@@ -66,18 +90,13 @@ export type Database = {
           name: string;
           audience: "student" | "teacher";
           duration_days: number | null;
-          daily_mcq_limit: number | null;
           daily_model_test_limit: number | null;
-          saved_questions_limit: number | null;
           allow_answer: boolean;
           allow_explanation: boolean;
-          allowed_subjects: string[] | null;
-          allowed_chapters: string[] | null;
           allowed_databases: string[] | null;
           subject_selection_limit: number;
           database_selection_limit: number;
           total_model_test_limit: number | null;
-          exam_paper_limit: number | null;
           is_active: boolean;
           sort_order: number;
           created_at: string;
@@ -88,18 +107,13 @@ export type Database = {
           name: string;
           audience?: "student" | "teacher";
           duration_days?: number | null;
-          daily_mcq_limit?: number | null;
           daily_model_test_limit?: number | null;
-          saved_questions_limit?: number | null;
           allow_answer?: boolean;
           allow_explanation?: boolean;
-          allowed_subjects?: string[] | null;
-          allowed_chapters?: string[] | null;
           allowed_databases?: string[] | null;
           subject_selection_limit?: number;
           database_selection_limit?: number;
           total_model_test_limit?: number | null;
-          exam_paper_limit?: number | null;
           is_active?: boolean;
           sort_order?: number;
           created_at?: string;
@@ -110,18 +124,13 @@ export type Database = {
           name?: string;
           audience?: "student" | "teacher";
           duration_days?: number | null;
-          daily_mcq_limit?: number | null;
           daily_model_test_limit?: number | null;
-          saved_questions_limit?: number | null;
           allow_answer?: boolean;
           allow_explanation?: boolean;
-          allowed_subjects?: string[] | null;
-          allowed_chapters?: string[] | null;
           allowed_databases?: string[] | null;
           subject_selection_limit?: number;
           database_selection_limit?: number;
           total_model_test_limit?: number | null;
-          exam_paper_limit?: number | null;
           is_active?: boolean;
           sort_order?: number;
           created_at?: string;
@@ -192,27 +201,6 @@ export type Database = {
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
-        };
-        Relationships: [];
-      };
-      qb_exam_paper_events: {
-        Row: {
-          id: number;
-          user_id: string;
-          event_key: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: number;
-          user_id: string;
-          event_key: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: number;
-          user_id?: string;
-          event_key?: string;
-          created_at?: string;
         };
         Relationships: [];
       };
@@ -620,18 +608,6 @@ export type Database = {
       qb_consume_usage: {
         Args: { p_user_id: string; p_feature: UsageFeature; p_event_keys: string[] };
         Returns: Json;
-      };
-      qb_consume_exam_paper: {
-        Args: { p_user_id: string; p_event_key: string };
-        Returns: Json;
-      };
-      qb_claim_saved_question: {
-        Args: { p_user_id: string; p_question_id: string; p_subject?: string };
-        Returns: Json;
-      };
-      qb_release_saved_question: {
-        Args: { p_user_id: string; p_question_id: string };
-        Returns: boolean;
       };
       qb_grant_custom_access: {
         Args: {

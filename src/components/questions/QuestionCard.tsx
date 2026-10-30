@@ -1,23 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bookmark, FileText, Loader2 } from "lucide-react";
+import { Bookmark, FileText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  claimSavedQuestionSlotAction,
-  releaseSavedQuestionSlotAction,
-} from "@/lib/access/saved-actions";
 import type { QuestionOption } from "@/lib/supabase/types";
 import { formatChapterLabel } from "@/data/chapters";
 import { renderMathInContent } from "@/lib/math";
 import {
   isQuestionSaved,
-  removeSavedQuestion,
-  saveQuestion,
   SAVED_QUESTIONS_EVENT,
+  toggleSaveQuestion,
 } from "@/lib/saved-questions";
 import { isQuestionInExam, toggleExamQuestion, EXAM_PAPER_EVENT } from "@/lib/exam-paper/store";
 import { ReportButton } from "@/components/report/ReportButton";
@@ -113,8 +108,6 @@ export function QuestionCard({
   const [revealed, setRevealed] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isInExam, setIsInExam] = useState(false);
-  const [saveBusy, setSaveBusy] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const { tr } = useI18n();
 
   useEffect(() => {
@@ -160,41 +153,8 @@ export function QuestionCard({
     setRevealed(false);
   };
 
-  const handleToggleSave = async () => {
-    if (saveBusy) return;
-    setSaveError(null);
-
-    if (isSaved) {
-      removeSavedQuestion(question.id);
-      setIsSaved(false);
-      void releaseSavedQuestionSlotAction(question.id);
-      return;
-    }
-
-    setSaveBusy(true);
-    const result = await claimSavedQuestionSlotAction(
-      question.id,
-      question.subject ?? undefined,
-    );
-    setSaveBusy(false);
-
-    if (!result.ok) {
-      setSaveError(
-        result.error === "limit_reached"
-          ? tr(
-              "Your saved-question limit is full. Remove an old bookmark or upgrade your plan.",
-              "আপনার সেভ করা প্রশ্নের সীমা শেষ। পুরোনো বুকমার্ক মুছুন অথবা প্ল্যান আপগ্রেড করুন।",
-            )
-          : tr(
-              "Could not save this question. Please try again.",
-              "প্রশ্নটি সেভ করা যায়নি। আবার চেষ্টা করুন।",
-            ),
-      );
-      return;
-    }
-
-    saveQuestion(question);
-    setIsSaved(true);
+  const handleToggleSave = () => {
+    setIsSaved(toggleSaveQuestion(question));
   };
 
   return (
@@ -228,19 +188,14 @@ export function QuestionCard({
               type="button"
               variant={isSaved ? "secondary" : "ghost"}
               size="sm"
-              disabled={saveBusy}
-              onClick={() => void handleToggleSave()}
+              onClick={handleToggleSave}
               className={cn(
                 "h-7 px-2 text-xs gap-1 transition-colors cursor-pointer",
                 isSaved && "text-primary font-medium bg-primary/10 hover:bg-primary/20",
               )}
               title={isSaved ? tr("Remove from saved list", "সেভ তালিকা থেকে মুছুন") : tr("Save question", "প্রশ্নটি সেভ করুন")}
             >
-              {saveBusy ? (
-                <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-              ) : (
-                <Bookmark className={cn("size-3.5 transition-transform", isSaved && "fill-primary text-primary scale-110")} />
-              )}
+              <Bookmark className={cn("size-3.5 transition-transform", isSaved && "fill-primary text-primary scale-110")} />
               <span>{isSaved ? tr("Saved", "সেভ করা") : tr("Save", "সেভ")}</span>
             </Button>
 
@@ -265,12 +220,6 @@ export function QuestionCard({
             )}
           </div>
         </div>
-
-        {saveError ? (
-          <p className="border-b border-destructive/20 bg-destructive/5 px-5 py-2 text-xs text-destructive">
-            {saveError}
-          </p>
-        ) : null}
 
         <div className="space-y-5 p-5 sm:p-6">
           <RichText

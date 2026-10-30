@@ -70,7 +70,6 @@ export default async function SavedQuestionsPage() {
             <SavedQuestionsView
               canRevealAnswer={entitlement?.features.allowAnswer ?? false}
               canViewExplanation={entitlement?.features.allowExplanation ?? false}
-              savedLimit={entitlement?.limits.savedQuestions ?? 0}
               canAddToExam={entitlement?.audience === "teacher"}
             />
           )}

@@ -151,7 +151,7 @@ export function AdminHomeSlider({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 pb-28 sm:px-6 lg:px-8 lg:pb-10">
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <form id="home-slides-form" onSubmit={handleSubmit}>
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
               <div className="space-y-4">

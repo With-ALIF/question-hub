@@ -24,18 +24,12 @@ import {
   updatePlanConfigAction,
   type AdminPlanErrorCode,
 } from "@/lib/access/admin-actions";
-import type { AdminPlanConfig } from "@/lib/payments/types";
+import type { AdminPlanConfig, GrantableUser } from "@/lib/payments/types";
 
 type Draft = {
   name: string;
-  dailyMcqLimit: string;
   dailyModelTestLimit: string;
   totalModelTestLimit: string;
-  savedQuestionsLimit: string;
-  examPaperLimit: string;
-  allowedSubjects: string;
-  allowedChapters: string;
-  allowedDatabases: string;
   subjectSelectionLimit: string;
   databaseSelectionLimit: string;
   durationDays: string;
@@ -47,18 +41,10 @@ type Draft = {
 function toDraft(plan: AdminPlanConfig): Draft {
   return {
     name: plan.name,
-    dailyMcqLimit: plan.daily_mcq_limit === null ? "" : String(plan.daily_mcq_limit),
     dailyModelTestLimit:
       plan.daily_model_test_limit === null ? "" : String(plan.daily_model_test_limit),
     totalModelTestLimit:
       plan.total_model_test_limit === null ? "" : String(plan.total_model_test_limit),
-    savedQuestionsLimit:
-      plan.saved_questions_limit === null ? "" : String(plan.saved_questions_limit),
-    examPaperLimit:
-      plan.exam_paper_limit === null ? "" : String(plan.exam_paper_limit),
-    allowedSubjects: (plan.allowed_subjects ?? []).join(", "),
-    allowedChapters: (plan.allowed_chapters ?? []).join(", "),
-    allowedDatabases: (plan.allowed_databases ?? []).join(", "),
     subjectSelectionLimit: String(plan.subject_selection_limit ?? 0),
     databaseSelectionLimit: String(plan.database_selection_limit ?? 0),
     durationDays: plan.duration_days === null ? "" : String(plan.duration_days),
@@ -73,14 +59,6 @@ function parseLimit(value: string): number | null {
   if (!trimmed) return null;
   const number = Number(trimmed);
   return Number.isFinite(number) && number >= 0 ? Math.floor(number) : null;
-}
-
-function parseList(value: string): string[] | null {
-  const items = value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-  return items.length > 0 ? items : null;
 }
 
 function errorText(code: AdminPlanErrorCode): string {
@@ -98,7 +76,13 @@ function errorText(code: AdminPlanErrorCode): string {
   }
 }
 
-export function AdminPlansView({ initialPlans }: { initialPlans: AdminPlanConfig[] }) {
+export function AdminPlansView({
+  initialPlans,
+  grantableUsers,
+}: {
+  initialPlans: AdminPlanConfig[];
+  grantableUsers: GrantableUser[];
+}) {
   const [plans] = useState<AdminPlanConfig[]>(initialPlans);
   const [drafts, setDrafts] = useState<Record<string, Draft>>(() =>
     Object.fromEntries(initialPlans.map((plan) => [plan.plan_id, toDraft(plan)])),
@@ -137,16 +121,10 @@ export function AdminPlansView({ initialPlans }: { initialPlans: AdminPlanConfig
     const result = await updatePlanConfigAction({
       planId: plan.plan_id,
       name: draft.name,
-      dailyMcqLimit: parseLimit(draft.dailyMcqLimit),
       dailyModelTestLimit: parseLimit(draft.dailyModelTestLimit),
       totalModelTestLimit: parseLimit(draft.totalModelTestLimit),
-      savedQuestionsLimit: parseLimit(draft.savedQuestionsLimit),
-      examPaperLimit: parseLimit(draft.examPaperLimit),
       allowAnswer: draft.allowAnswer,
       allowExplanation: draft.allowExplanation,
-      allowedSubjects: parseList(draft.allowedSubjects),
-      allowedChapters: parseList(draft.allowedChapters),
-      allowedDatabases: parseList(draft.allowedDatabases),
       subjectSelectionLimit: parseLimit(draft.subjectSelectionLimit) ?? 0,
       databaseSelectionLimit: parseLimit(draft.databaseSelectionLimit) ?? 0,
       durationDays: parseLimit(draft.durationDays),
@@ -210,7 +188,7 @@ export function AdminPlansView({ initialPlans }: { initialPlans: AdminPlanConfig
             Plans, features & usage limits
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            প্রতিটি প্ল্যানের বিষয়/অধ্যায় অ্যাক্সেস, দৈনিক MCQ ও মডেল টেস্ট সীমা এবং প্রিমিয়াম ফিচার নির্ধারণ করুন।
+            প্রতিটি প্ল্যানের মডেল টেস্ট সীমা, বিষয়/ডাটাবেজ নির্বাচন এবং প্রিমিয়াম ফিচার নির্ধারণ করুন।
           </p>
         </div>
         <Button
@@ -329,19 +307,6 @@ export function AdminPlansView({ initialPlans }: { initialPlans: AdminPlanConfig
 
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Daily MCQ limit</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={draft.dailyMcqLimit}
-                        onChange={(event) =>
-                          updateDraft(plan.plan_id, { dailyMcqLimit: event.target.value })
-                        }
-                        placeholder="blank = unlimited"
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
                       <Label className="text-xs">Daily model tests</Label>
                       <Input
                         type="number"
@@ -362,32 +327,6 @@ export function AdminPlansView({ initialPlans }: { initialPlans: AdminPlanConfig
                         value={draft.totalModelTestLimit}
                         onChange={(event) =>
                           updateDraft(plan.plan_id, { totalModelTestLimit: event.target.value })
-                        }
-                        placeholder="blank = unlimited"
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Exam papers (lifetime)</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={draft.examPaperLimit}
-                        onChange={(event) =>
-                          updateDraft(plan.plan_id, { examPaperLimit: event.target.value })
-                        }
-                        placeholder="blank = unlimited"
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Saved questions</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={draft.savedQuestionsLimit}
-                        onChange={(event) =>
-                          updateDraft(plan.plan_id, { savedQuestionsLimit: event.target.value })
                         }
                         placeholder="blank = unlimited"
                         className="h-8 text-xs"
@@ -420,42 +359,6 @@ export function AdminPlansView({ initialPlans }: { initialPlans: AdminPlanConfig
                           })
                         }
                         placeholder="0 = all databases"
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Allowed subjects (comma separated)</Label>
-                      <Input
-                        value={draft.allowedSubjects}
-                        onChange={(event) =>
-                          updateDraft(plan.plan_id, { allowedSubjects: event.target.value })
-                        }
-                        placeholder="blank = all subjects"
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Allowed chapters (topic codes)</Label>
-                      <Input
-                        value={draft.allowedChapters}
-                        onChange={(event) =>
-                          updateDraft(plan.plan_id, { allowedChapters: event.target.value })
-                        }
-                        placeholder="blank = all chapters"
-                        className="h-8 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Allowed databases (slugs)</Label>
-                      <Input
-                        value={draft.allowedDatabases}
-                        onChange={(event) =>
-                          updateDraft(plan.plan_id, { allowedDatabases: event.target.value })
-                        }
-                        placeholder="blank = all (hsc, admission, job)"
                         className="h-8 text-xs"
                       />
                     </div>
@@ -526,11 +429,24 @@ export function AdminPlansView({ initialPlans }: { initialPlans: AdminPlanConfig
               <Label className="text-xs">Student email</Label>
               <Input
                 type="email"
+                list="grant-email-options"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="student@example.com"
                 className="h-8 text-xs"
               />
+              <datalist id="grant-email-options">
+                {grantableUsers.map((user) => (
+                  <option key={user.email} value={user.email}>
+                    {user.fullName ?? ""}
+                  </option>
+                ))}
+              </datalist>
+              <p className="text-[11px] text-muted-foreground">
+                {grantableUsers.length > 0
+                  ? `তালিকা থেকে বেছে নিন বা টাইপ করে খুঁজুন (${grantableUsers.length} জন লগ-ইন করা ইউজার)`
+                  : "এখনো কোনো ইউজার লগ-ইন করেনি।"}
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Plan</Label>

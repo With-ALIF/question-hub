@@ -63,11 +63,11 @@ export function unavailableEntitlement(message?: string): Entitlement {
     startsAt: null,
     expiresAt: null,
     remainingDays: null,
-    limits: { dailyMcq: 0, dailyModelTest: 0, totalModelTest: 0, savedQuestions: 0, examPapers: 0 },
+    limits: { dailyModelTest: 0, totalModelTest: 0 },
     features: { allowAnswer: false, allowExplanation: false },
-    access: { subjects: [], chapters: [], databases: [], allowedDatabases: [], databaseCodes: [] },
-    usage: { mcq: 0, modelTest: 0, modelTestTotal: 0, savedQuestions: 0, examPapers: 0 },
-    remaining: { mcq: 0, modelTest: 0, modelTestTotal: 0, savedQuestions: 0, examPapers: 0 },
+    access: { subjects: [], databases: [], allowedDatabases: [], databaseCodes: [] },
+    usage: { modelTest: 0, modelTestTotal: 0 },
+    remaining: { modelTest: 0, totalModelTest: 0 },
     subjectSelectionLimit: 0,
     databaseSelectionLimit: 0,
     source: null,
@@ -115,11 +115,8 @@ function normalize(value: Json): Entitlement {
     expiresAt: text(raw["expiresAt"]),
     remainingDays: nullableInt(raw["remainingDays"]),
     limits: {
-      dailyMcq: nullableInt(raw["dailyMcqLimit"]),
       dailyModelTest: nullableInt(raw["dailyModelTestLimit"]),
       totalModelTest: nullableInt(raw["totalModelTestLimit"]),
-      savedQuestions: nullableInt(raw["savedQuestionsLimit"]),
-      examPapers: nullableInt(raw["examPaperLimit"]),
     },
     features: {
       allowAnswer: bool(raw["allowAnswer"]),
@@ -127,24 +124,17 @@ function normalize(value: Json): Entitlement {
     },
     access: {
       subjects: stringArray(raw["allowedSubjects"]),
-      chapters: stringArray(raw["allowedChapters"]),
       databases: stringArray(raw["selectedDatabases"]),
       allowedDatabases: stringArray(raw["allowedDatabases"]),
       databaseCodes: stringArray(raw["allowedDatabaseCodes"]),
     },
     usage: {
-      mcq: int(raw["usageMcq"]),
       modelTest: int(raw["usageModelTest"]),
       modelTestTotal: int(raw["modelTestsUsed"]),
-      savedQuestions: int(raw["savedQuestionsUsed"]),
-      examPapers: int(raw["examPapersUsed"]),
     },
     remaining: {
-      mcq: nullableInt(raw["remainingMcq"]),
       modelTest: nullableInt(raw["remainingModelTest"]),
-      modelTestTotal: nullableInt(raw["remainingTotalModelTest"]),
-      savedQuestions: nullableInt(raw["remainingSavedQuestions"]),
-      examPapers: nullableInt(raw["remainingExamPapers"]),
+      totalModelTest: nullableInt(raw["remainingTotalModelTest"]),
     },
     subjectSelectionLimit: int(raw["subjectSelectionLimit"]),
     databaseSelectionLimit: int(raw["databaseSelectionLimit"]),
@@ -196,16 +186,6 @@ export function canAccessDatabase(
   if (entitlement.access.databaseCodes === null) return true;
   if (!sourceDb) return false;
   return entitlement.access.databaseCodes.includes(sourceDb);
-}
-
-export function canAccessChapter(
-  entitlement: Entitlement,
-  chapterCode: string | null | undefined,
-): boolean {
-  if (entitlement.status === "unavailable") return false;
-  if (entitlement.access.chapters === null) return true;
-  if (!chapterCode) return false;
-  return entitlement.access.chapters.includes(chapterCode);
 }
 
 export function usageLimitLabel(limit: number | null): string {

@@ -10,10 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
-  canAccessChapter,
   canAccessDatabase,
   canAccessSubject,
-  consumeUsage,
   getEntitlement,
 } from "@/lib/access";
 import {
@@ -169,28 +167,9 @@ export default async function QuestionsPage({
     );
   }
 
-  if (entitlement && entitlement.access.chapters !== null) {
-    result.questions = result.questions.filter((question) =>
-      canAccessChapter(entitlement, question.topic_code),
-    );
-  }
-
   if (entitlement && entitlement.access.databaseCodes !== null) {
     result.questions = result.questions.filter((question) =>
       canAccessDatabase(entitlement, question.source_db),
-    );
-  }
-
-  const mcqIds = result.questions.filter((question) => question.is_mcq).map((question) => question.id);
-  const usage =
-    !entitlementUnavailable && user && mcqIds.length > 0
-      ? await consumeUsage(user.id, "mcq", mcqIds)
-      : null;
-
-  if (usage) {
-    const allowedMcqIds = new Set(usage.allowed);
-    result.questions = result.questions.filter(
-      (question) => !question.is_mcq || allowedMcqIds.has(question.id),
     );
   }
 
@@ -359,25 +338,6 @@ export default async function QuestionsPage({
                     "Your plan does not include the requested subject. Showing an accessible subject instead.",
                     "আপনার প্ল্যানে অনুরোধ করা বিষয়টি অন্তর্ভুক্ত নেই। এর পরিবর্তে অ্যাক্সেসযোগ্য একটি বিষয় দেখানো হচ্ছে।",
                   )}
-                </div>
-              )}
-
-              {usage && usage.blocked > 0 && (
-                <div className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
-                  <p className="font-semibold">
-                    {usage.remaining === 0
-                      ? tr("Daily MCQ limit reached", "দৈনিক MCQ সীমা শেষ")
-                      : tr("Daily MCQ limit partially reached", "দৈনিক MCQ সীমা আংশিক শেষ")}
-                  </p>
-                  <p className="mt-1 text-muted-foreground">
-                    {tr(
-                      `Used ${num(usage.used)} of ${usage.limit === null ? "unlimited" : num(usage.limit)} MCQs today. Some questions on this page are locked until your limit resets at midnight (Asia/Dhaka) or you upgrade.`,
-                      `আজ ${usage.limit === null ? "আনলিমিটেড" : num(usage.limit)}টির মধ্যে ${num(usage.used)}টি MCQ ব্যবহার হয়েছে। সীমা মধ্যরাতে (Asia/Dhaka) রিসেট হওয়ার আগে বা আপগ্রেড করার পরে এই পেজের কিছু প্রশ্ন লক থাকবে।`,
-                    )}
-                  </p>
-                  <Button asChild size="sm" variant="outline" className="mt-2 h-7 text-xs">
-                    <Link href="/plans">{tr("Upgrade plan", "প্ল্যান আপগ্রেড")}</Link>
-                  </Button>
                 </div>
               )}
 

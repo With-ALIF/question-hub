@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ExternalLink,
@@ -9,10 +10,12 @@ import {
   LayoutDashboard,
   ListChecks,
   LogOut,
+  Menu,
   ShieldCheck,
   SlidersHorizontal,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
 import { adminSignOutAction } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
@@ -80,14 +83,27 @@ export function AdminSidebar({
   role = "admin",
   totalQuestions,
 }: AdminSidebarProps) {
-  const isDashboardActive =
-    currentPath === "/admin/dashboard" || currentPath === "/admin";
-  const isQuestionsActive = currentPath.startsWith("/admin/questions");
-  const isReportsActive = currentPath.startsWith("/admin/reports");
-  const isOrdersActive = currentPath.startsWith("/admin/orders");
-  const isSubscriptionsActive = currentPath.startsWith("/admin/subscriptions");
-  const isPlansActive = currentPath.startsWith("/admin/plans");
-  const isHomeSliderActive = currentPath.startsWith("/admin/home-slider");
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
+
+  const isActive = (href: string) =>
+    href === "/admin/dashboard"
+      ? currentPath === "/admin/dashboard" || currentPath === "/admin"
+      : currentPath.startsWith(href);
 
   return (
     <>
@@ -122,10 +138,7 @@ export function AdminSidebar({
               </p>
               <nav className="space-y-1">
                 {navigationItems.map((item) => {
-                  const isActive =
-                    item.href === "/admin/dashboard"
-                      ? isDashboardActive
-                      : currentPath.startsWith(item.href);
+                  const active = isActive(item.href);
 
                   return (
                     <Link
@@ -133,7 +146,7 @@ export function AdminSidebar({
                       href={item.href}
                       className={cn(
                         "flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all group",
-                        isActive
+                        active
                           ? "bg-primary text-primary-foreground shadow-sm font-semibold"
                           : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                       )}
@@ -147,7 +160,7 @@ export function AdminSidebar({
                           <span
                             className={cn(
                               "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                              isActive
+                              active
                                 ? "bg-primary-foreground/20 text-primary-foreground"
                                 : "bg-secondary text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
                             )}
@@ -203,8 +216,8 @@ export function AdminSidebar({
         </div>
       </aside>
 
-      {/* Mobile Top Header (compact banner on mobile) */}
-      <div className="flex h-12 w-full shrink-0 items-center justify-between border-b border-border bg-card/90 px-4 lg:hidden sticky top-0 z-20 backdrop-blur">
+      {/* Mobile Top Header with hamburger menu */}
+      <div className="sticky top-0 z-50 flex h-12 w-full shrink-0 items-center justify-between border-b border-border bg-card/95 px-4 backdrop-blur lg:hidden">
         <div className="flex items-center gap-2.5">
           <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <ShieldCheck className="size-4" aria-hidden="true" />
@@ -213,191 +226,118 @@ export function AdminSidebar({
             Admin Portal
           </span>
         </div>
-        <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary uppercase">
-          {role.replace("_", " ")}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary uppercase">
+            {role.replace("_", " ")}
+          </span>
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-expanded={menuOpen}
+            aria-controls="admin-mobile-menu"
+            aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+            className="flex size-9 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:bg-secondary"
+          >
+            {menuOpen ? (
+              <X className="size-5" aria-hidden="true" />
+            ) : (
+              <Menu className="size-5" aria-hidden="true" />
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* Mobile Fixed Bottom Navigation Bar */}
-      <nav
-        aria-label="Admin mobile navigation"
-        className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-card/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md shadow-lg lg:hidden"
-      >
-        <div className="flex h-16 items-center justify-around px-2">
-          {/* Dashboard */}
-          <Link
-            href="/admin/dashboard"
-            className={cn(
-              "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors",
-              isDashboardActive
-                ? "font-semibold text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
+      {/* Mobile Slide-down Navigation Menu */}
+      {menuOpen && (
+        <>
+          <button
+            type="button"
+            onClick={() => setMenuOpen(false)}
+            aria-label="Close navigation menu"
+            className="fixed inset-0 z-40 cursor-default bg-black/50 backdrop-blur-sm lg:hidden"
+          />
+          <nav
+            id="admin-mobile-menu"
+            aria-label="Admin mobile navigation"
+            className="fixed inset-x-0 top-12 z-50 flex max-h-[calc(100vh-3rem)] flex-col overflow-hidden bg-card shadow-xl lg:hidden"
           >
-            <span
-              className={cn(
-                "flex size-7 items-center justify-center rounded-lg transition-colors",
-                isDashboardActive && "bg-primary/10 text-primary"
-              )}
-            >
-              <LayoutDashboard className="size-4.5" aria-hidden="true" />
-            </span>
-            <span className="text-[10px] tracking-tight">ড্যাশবোর্ড</span>
-          </Link>
+            <div className="flex-1 overflow-y-auto p-3">
+              <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                Navigation
+              </p>
+              <div className="space-y-1">
+                {navigationItems.map((item) => {
+                  const active = isActive(item.href);
 
-          {/* Questions */}
-          <Link
-            href="/admin/questions"
-            className={cn(
-              "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors relative",
-              isQuestionsActive
-                ? "font-semibold text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <span
-              className={cn(
-                "flex size-7 items-center justify-center rounded-lg transition-colors",
-                isQuestionsActive && "bg-primary/10 text-primary"
-              )}
-            >
-              <ListChecks className="size-4.5" aria-hidden="true" />
-            </span>
-            <span className="text-[10px] tracking-tight">প্রশ্ন</span>
-          </Link>
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMenuOpen(false)}
+                      className={cn(
+                        "flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                        active
+                          ? "bg-primary font-semibold text-primary-foreground"
+                          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      )}
+                    >
+                      <span className="flex items-center gap-3">
+                        <item.icon className="size-4 shrink-0" aria-hidden="true" />
+                        <span>{item.label}</span>
+                      </span>
+                      {item.badgeKey === "questions" &&
+                        typeof totalQuestions === "number" && (
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                              active
+                                ? "bg-primary-foreground/20 text-primary-foreground"
+                                : "bg-secondary text-muted-foreground"
+                            )}
+                          >
+                            {totalQuestions.toLocaleString()}
+                          </span>
+                        )}
+                    </Link>
+                  );
+                })}
+              </div>
 
-          {/* Reports */}
-          <Link
-            href="/admin/reports"
-            className={cn(
-              "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors relative",
-              isReportsActive
-                ? "font-semibold text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <span
-              className={cn(
-                "flex size-7 items-center justify-center rounded-lg transition-colors",
-                isReportsActive && "bg-primary/10 text-primary"
-              )}
-            >
-              <Flag className="size-4.5" aria-hidden="true" />
-            </span>
-            <span className="text-[10px] tracking-tight">রিপোর্ট</span>
-          </Link>
+              <p className="px-3 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                Quick Links
+              </p>
+              <Link
+                href="/"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <span className="flex items-center gap-3">
+                  <Globe className="size-4 shrink-0" aria-hidden="true" />
+                  <span>Visit Website</span>
+                </span>
+                <ExternalLink
+                  className="size-3 text-muted-foreground/60"
+                  aria-hidden="true"
+                />
+              </Link>
+            </div>
 
-          {/* Payments */}
-          <Link
-            href="/admin/orders"
-            className={cn(
-              "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors relative",
-              isOrdersActive
-                ? "font-semibold text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <span
-              className={cn(
-                "flex size-7 items-center justify-center rounded-lg transition-colors",
-                isOrdersActive && "bg-primary/10 text-primary"
-              )}
-            >
-              <Wallet className="size-4.5" aria-hidden="true" />
-            </span>
-            <span className="text-[10px] tracking-tight">পেমেন্ট</span>
-          </Link>
-
-          {/* Subscriptions */}
-          <Link
-            href="/admin/subscriptions"
-            className={cn(
-              "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors relative",
-              isSubscriptionsActive
-                ? "font-semibold text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <span
-              className={cn(
-                "flex size-7 items-center justify-center rounded-lg transition-colors",
-                isSubscriptionsActive && "bg-primary/10 text-primary"
-              )}
-            >
-              <ShieldCheck className="size-4.5" aria-hidden="true" />
-            </span>
-            <span className="text-[10px] tracking-tight">প্ল্যান</span>
-          </Link>
-
-          {/* Plans & Limits */}
-          <Link
-            href="/admin/plans"
-            className={cn(
-              "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors relative",
-              isPlansActive
-                ? "font-semibold text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <span
-              className={cn(
-                "flex size-7 items-center justify-center rounded-lg transition-colors",
-                isPlansActive && "bg-primary/10 text-primary"
-              )}
-            >
-              <SlidersHorizontal className="size-4.5" aria-hidden="true" />
-            </span>
-            <span className="text-[10px] tracking-tight">লিমিট</span>
-          </Link>
-
-          {/* Slider */}
-          <Link
-            href="/admin/home-slider"
-            className={cn(
-              "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors",
-              isHomeSliderActive
-                ? "font-semibold text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <span
-              className={cn(
-                "flex size-7 items-center justify-center rounded-lg transition-colors",
-                isHomeSliderActive && "bg-primary/10 text-primary"
-              )}
-            >
-              <Images className="size-4.5" aria-hidden="true" />
-            </span>
-            <span className="text-[10px] tracking-tight">স্লাইডার</span>
-          </Link>
-
-          {/* Website */}
-          <Link
-            href="/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-1 flex-col items-center justify-center gap-1 py-1 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <span className="flex size-7 items-center justify-center rounded-lg">
-              <Globe className="size-4.5" aria-hidden="true" />
-            </span>
-            <span className="text-[10px] tracking-tight">সাইট</span>
-          </Link>
-
-          {/* Logout */}
-          <form action={adminSignOutAction} className="flex-1">
-            <button
-              type="submit"
-              className="flex w-full flex-col items-center justify-center gap-1 py-1 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-            >
-              <span className="flex size-7 items-center justify-center rounded-lg">
-                <LogOut className="size-4.5" aria-hidden="true" />
-              </span>
-              <span className="text-[10px] tracking-tight">লগআউট</span>
-            </button>
-          </form>
-        </div>
-      </nav>
+            <div className="border-t border-border p-3">
+              <form action={adminSignOutAction}>
+                <button
+                  type="submit"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 cursor-pointer"
+                >
+                  <LogOut className="size-4" aria-hidden="true" />
+                  <span>Sign out</span>
+                </button>
+              </form>
+            </div>
+          </nav>
+        </>
+      )}
     </>
   );
 }

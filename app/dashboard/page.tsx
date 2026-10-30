@@ -17,11 +17,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { AudienceGate } from "@/components/dashboard/AudienceGate";
 import { FreeSubjectPicker } from "@/components/dashboard/FreeSubjectPicker";
 import { DatabasePicker } from "@/components/dashboard/DatabasePicker";
 import { Navbar } from "@/components/site/Navbar";
 import { signOutAction } from "@/lib/auth/actions";
-import { getCurrentProfile, getCurrentUser } from "@/lib/auth/session";
+import { getCurrentAudience, getCurrentProfile, getCurrentUser } from "@/lib/auth/session";
 import { isAdminRole } from "@/lib/auth/roles";
 import { getEntitlement } from "@/lib/access";
 import { getActiveDatabases } from "@/lib/access/databases";
@@ -65,13 +66,15 @@ export default async function UserDashboard(props: DashboardPageProps) {
     redirect("/login");
   }
 
-  const [profile, manifest, entitlement, pendingOrder, databases] = await Promise.all([
-    getCurrentProfile(),
-    getQuestionManifest().catch(() => null),
-    getEntitlement(user.id),
-    getMyPendingOrder(),
-    getActiveDatabases(),
-  ]);
+  const [profile, manifest, entitlement, pendingOrder, databases, chosenAudience] =
+    await Promise.all([
+      getCurrentProfile(),
+      getQuestionManifest().catch(() => null),
+      getEntitlement(user.id),
+      getMyPendingOrder(),
+      getActiveDatabases(),
+      getCurrentAudience(),
+    ]);
 
   if (isAdminRole(profile?.role)) {
     redirect("/admin/dashboard");
@@ -87,7 +90,10 @@ export default async function UserDashboard(props: DashboardPageProps) {
     tr("Student", "শিক্ষার্থী");
 
   const isPaid = entitlement.paidAccess && entitlement.status === "active";
-  const freePlanName = tr("Starter (Free)", "Starter (ফ্রি)");
+  // Free users show whichever free plan their role resolves to: Starter for
+  // students, Educator for teachers.
+  const freePlanName =
+    entitlement.planName ?? tr("Starter (Free)", "Starter (ফ্রি)");
   // Paid users see their paid plan; cancelled, expired, or non-paying users automatically see the Free Plan
   const planName =
     entitlement.status === "unavailable"
@@ -196,6 +202,8 @@ export default async function UserDashboard(props: DashboardPageProps) {
   return (
     <div className="flex min-h-screen flex-col bg-background font-sans">
       <Navbar initialUser={user} audience={entitlement.audience} />
+
+      {profile && !chosenAudience ? <AudienceGate /> : null}
 
       <main className="flex-1">
         <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
@@ -378,13 +386,6 @@ export default async function UserDashboard(props: DashboardPageProps) {
 
               <div className="mt-4 grid gap-4 sm:grid-cols-3">
                 {[
-                  {
-                    key: "mcq",
-                    label: tr("MCQ practice", "MCQ অনুশীলন"),
-                    used: entitlement.usage.mcq,
-                    limit: entitlement.limits.dailyMcq,
-                    remaining: entitlement.remaining.mcq,
-                  },
                   ...(entitlement.audience === "student"
                     ? [
                         {
@@ -401,30 +402,10 @@ export default async function UserDashboard(props: DashboardPageProps) {
                                 label: tr("Model tests (total)", "মডেল টেস্ট (মোট)"),
                                 used: entitlement.usage.modelTestTotal,
                                 limit: entitlement.limits.totalModelTest,
-                                remaining: entitlement.remaining.modelTestTotal,
+                                remaining: entitlement.remaining.totalModelTest,
                               },
                             ]
                           : []),
-                      ]
-                    : []),
-                  {
-                    key: "saved",
-                    label: tr("Saved questions", "সেভ করা প্রশ্ন"),
-                    used: entitlement.usage.savedQuestions,
-                    limit: entitlement.limits.savedQuestions,
-                    remaining: entitlement.remaining.savedQuestions,
-                  },
-                  ...(entitlement.audience === "teacher" &&
-                  (entitlement.limits.examPapers !== null ||
-                    entitlement.usage.examPapers > 0)
-                    ? [
-                        {
-                          key: "exam-papers",
-                          label: tr("Exam papers", "পরীক্ষাপত্র"),
-                          used: entitlement.usage.examPapers,
-                          limit: entitlement.limits.examPapers,
-                          remaining: entitlement.remaining.examPapers,
-                        },
                       ]
                     : []),
                 ].map((row) => {

@@ -9,27 +9,18 @@ export type UsageFeature = "mcq" | "model_test";
 
 export type EntitlementLimits = {
   /** null means unlimited. */
-  dailyMcq: number | null;
   dailyModelTest: number | null;
   totalModelTest: number | null;
-  savedQuestions: number | null;
-  examPapers: number | null;
 };
 
 export type EntitlementUsage = {
-  mcq: number;
   modelTest: number;
   modelTestTotal: number;
-  savedQuestions: number;
-  examPapers: number;
 };
 
 export type EntitlementRemaining = {
-  mcq: number | null;
   modelTest: number | null;
-  modelTestTotal: number | null;
-  savedQuestions: number | null;
-  examPapers: number | null;
+  totalModelTest: number | null;
 };
 
 export type Entitlement = {
@@ -58,8 +49,6 @@ export type Entitlement = {
   access: {
     /** null means all subjects are accessible. */
     subjects: string[] | null;
-    /** null means all chapters are accessible. */
-    chapters: string[] | null;
     /** Selected database slugs; null when the plan includes every database. */
     databases: string[] | null;
     /** Database slugs the plan permits choosing; null means all databases. */
@@ -93,16 +82,6 @@ export type ConsumeUsageResult = {
   error?: string;
 };
 
-export type SavedSlotResult = {
-  ok: boolean;
-  alreadySaved?: boolean;
-  used: number;
-  /** null means unlimited. */
-  limit: number | null;
-  remaining: number | null;
-  error?: "auth" | "invalid_input" | "limit_reached" | "failed";
-};
-
 export type SelectionChoiceState = {
   ok: boolean;
   value?: string;
@@ -112,12 +91,10 @@ export type SelectionChoiceState = {
 export type SubjectChoiceState = SelectionChoiceState;
 export type DatabaseChoiceState = SelectionChoiceState;
 
-export type ConsumeExamPaperResult = {
+export type AudienceChoice = "student" | "teacher";
+
+export type AudienceChoiceState = {
   ok: boolean;
-  alreadyCounted?: boolean;
-  used: number;
-  limit: number | null;
-  remaining: number | null;
-  reason?: "limit_reached";
-  error?: string;
+  value?: AudienceChoice;
+  error?: "auth" | "invalid_selection" | "locked" | "failed";
 };
