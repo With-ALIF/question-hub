@@ -13,6 +13,20 @@ export type OrderStatus = "pending" | "approved" | "rejected" | "cancelled";
 export type SubscriptionStatus = "active" | "expired" | "cancelled";
 export type SubscriptionSource = "payment" | "custom";
 export type UsageFeature = "mcq" | "model_test";
+export type TicketCategory =
+  | "payment_issue"
+  | "subscription_plan"
+  | "account_login"
+  | "qa_error"
+  | "model_test_issue"
+  | "subject_chapter_issue"
+  | "technical_problem"
+  | "question_making_issue"
+  | "feature_request"
+  | "refund_request"
+  | "general_inquiry"
+  | "other";
+export type TicketStatus = "open" | "in_review" | "resolved" | "closed";
 
 export type QuestionOption = {
   n: number;
@@ -580,6 +594,48 @@ export type Database = {
           id?: string;
           key?: string;
           value?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      qb_tickets: {
+        Row: {
+          id: string;
+          ticket_code: string;
+          user_id: string;
+          category: TicketCategory;
+          message: string;
+          status: TicketStatus;
+          admin_reply: string | null;
+          replied_by: string | null;
+          replied_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          ticket_code: string;
+          user_id: string;
+          category: TicketCategory;
+          message: string;
+          status?: TicketStatus;
+          admin_reply?: string | null;
+          replied_by?: string | null;
+          replied_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          ticket_code?: string;
+          user_id?: string;
+          category?: TicketCategory;
+          message?: string;
+          status?: TicketStatus;
+          admin_reply?: string | null;
+          replied_by?: string | null;
+          replied_at?: string | null;
+          created_at?: string;
           updated_at?: string;
         };
         Relationships: [];

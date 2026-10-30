@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   FileText,
   Layers,
+  LifeBuoy,
   Sparkles,
   Timer,
 } from "lucide-react";
@@ -639,6 +640,35 @@ export default async function UserDashboard(props: DashboardPageProps) {
                 </div>
                 <div className="mt-5 flex items-center text-xs font-semibold text-blue-600 dark:text-blue-400">
                   <span>{tr("View collection", "সংগ্রহ দেখুন")}</span>
+                  <ArrowRight className="ml-1.5 size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                </div>
+              </Link>
+
+              <Link
+                href="/support"
+                className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-violet-500/50 hover:shadow-md"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="flex size-12 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 transition-colors group-hover:bg-violet-500 group-hover:text-white">
+                      <LifeBuoy className="size-6" aria-hidden="true" />
+                    </span>
+                    <Badge variant="outline" className="border-violet-500/30 text-[11px] font-normal text-violet-600 dark:text-violet-400">
+                      {tr("Ticket", "টিকিট")}
+                    </Badge>
+                  </div>
+                  <h3 className="mt-4 font-display text-base font-semibold text-foreground group-hover:text-violet-600 dark:group-hover:text-violet-400">
+                    {tr("Help & support", "সাহায্য ও সাপোর্ট")}
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    {tr(
+                      "Report a payment, account or question problem — the admin replies inside the ticket.",
+                      "পেমেন্ট, অ্যাকাউন্ট বা প্রশ্নের সমস্যা জানান — এডমিন টিকিটেই উত্তর দেন।",
+                    )}
+                  </p>
+                </div>
+                <div className="mt-5 flex items-center text-xs font-semibold text-violet-600 dark:text-violet-400">
+                  <span>{tr("Open a ticket", "টিকিট খুলুন")}</span>
                   <ArrowRight className="ml-1.5 size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </div>
               </Link>

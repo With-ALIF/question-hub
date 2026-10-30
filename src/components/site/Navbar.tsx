@@ -11,6 +11,7 @@ import {
   Home,
   Layers,
   LayoutDashboard,
+  LifeBuoy,
   LogIn,
   LogOut,
   Menu,
@@ -50,6 +51,7 @@ const loggedInNavLinks: NavItem[] = [
   { href: "/saved", label: ["Saved Questions", "সেভ করা প্রশ্ন"], icon: BookmarkCheck },
   { href: "/model-test", label: ["Model Test", "মডেল টেস্ট"], icon: Timer },
   { href: "/plans", label: ["Plans", "প্ল্যান"], icon: Sparkles },
+  { href: "/support", label: ["Support", "সাপোর্ট"], icon: LifeBuoy },
 ];
 
 const loggedOutMobileLinks: NavItem[] = [
@@ -67,6 +69,7 @@ const loggedInMobileLinks: NavItem[] = [
   { href: "/saved", label: ["Saved", "সেভড"], icon: BookmarkCheck },
   { href: "/model-test", label: ["Model Test", "মডেল টেস্ট"], icon: Timer },
   { href: "/plans", label: ["Plans", "প্ল্যান"], icon: Sparkles },
+  { href: "/support", label: ["Support", "সাপোর্ট"], icon: LifeBuoy },
 ];
 
 function isActivePath(pathname: string, href: string) {

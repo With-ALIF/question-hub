@@ -8,6 +8,7 @@ import {
   Globe,
   Images,
   LayoutDashboard,
+  LifeBuoy,
   ListChecks,
   LogOut,
   Menu,
@@ -45,6 +46,12 @@ const navigationItems = [
     label: "Reports",
     labelBn: "ভুল রিপোর্টসমূহ",
     icon: Flag,
+  },
+  {
+    href: "/admin/support",
+    label: "Support",
+    labelBn: "সাপোর্ট টিকিট",
+    icon: LifeBuoy,
   },
   {
     href: "/admin/orders",
