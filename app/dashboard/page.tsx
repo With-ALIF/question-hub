@@ -12,6 +12,7 @@ import {
   Layers,
   LifeBuoy,
   Sparkles,
+  Target,
   Timer,
 } from "lucide-react";
 
@@ -175,7 +176,6 @@ export default async function UserDashboard(props: DashboardPageProps) {
       : allSubjects.filter((subject) => allowedSubjectSlugs.includes(subject.slug));
 
   const totalAccessibleMcq = accessibleSubjects.reduce((sum, subject) => sum + (subject.mcq ?? 0), 0);
-  const accessibleNames = accessibleSubjects.map((subject) => subjectName(subject.slug, subject.name));
   const subjectSelectionLimit = entitlement.subjectSelectionLimit;
   const selectedSubject = allowedSubjectSlugs?.[0] ?? null;
   const subjectOptions = allSubjects.map((subject) => ({
@@ -190,15 +190,40 @@ export default async function UserDashboard(props: DashboardPageProps) {
       ? databases
       : databases.filter((database) => allowedDatabaseSlugs.includes(database.slug));
 
-  const limitLabel = (limit: number | null) =>
-    limit === null ? tr("Unlimited", "আনলিমিটেড") : num(limit);
-  const remainingLabel = (remaining: number | null) =>
-    remaining === null ? tr("Unlimited", "আনলিমিটেড") : num(remaining);
-  const usagePercent = (used: number, limit: number | null) => {
-    if (limit === null) return 0;
-    if (limit <= 0) return 100;
-    return Math.min(100, Math.round((used / limit) * 100));
-  };
+  const isStudentAudience = entitlement.audience === "student";
+  const selectedSubjectInfo =
+    accessibleSubjects.find((subject) => subject.slug === selectedSubject) ??
+    accessibleSubjects[0] ??
+    null;
+  const needsSubjectChoice = !selectedSubjectInfo && subjectSelectionLimit > 0;
+  const needsDatabaseChoice = databaseSelectionLimit > 0 && selectedDatabase === null;
+
+  const dailyModelUsed = entitlement.usage.modelTest;
+  const dailyModelLimit = entitlement.limits.dailyModelTest;
+  const dailyModelRemaining = entitlement.remaining.modelTest;
+  const dailyGoalPercent =
+    dailyModelLimit === null
+      ? dailyModelUsed > 0
+        ? 100
+        : 0
+      : dailyModelLimit <= 0
+        ? 100
+        : Math.min(100, Math.round((dailyModelUsed / dailyModelLimit) * 100));
+  const dailyGoalMet = dailyModelLimit !== null && dailyModelUsed >= dailyModelLimit;
+  const subjectCoveragePercent =
+    allSubjects.length > 0
+      ? Math.min(100, Math.round((accessibleSubjects.length / allSubjects.length) * 100))
+      : 0;
+
+  const continueHref = needsDatabaseChoice
+    ? "#choose-database"
+    : !isStudentAudience
+      ? "/exam-paper"
+      : selectedSubjectInfo
+        ? `/questions?subject=${selectedSubjectInfo.slug}`
+        : needsSubjectChoice
+          ? "#choose-subject"
+          : "/plans";
 
   return (
     <div className="flex min-h-screen flex-col bg-background font-sans">
@@ -263,252 +288,365 @@ export default async function UserDashboard(props: DashboardPageProps) {
             </div>
           )}
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-border/70 shadow-sm transition-all hover:border-primary/40">
+          <div className="mt-8 overflow-hidden rounded-2xl border border-primary/20 bg-linear-to-br from-primary/10 via-card to-card p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-4">
+                <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                  {isStudentAudience ? (
+                    <BookOpen className="size-6" aria-hidden="true" />
+                  ) : (
+                    <FileText className="size-6" aria-hidden="true" />
+                  )}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+                    {tr("Continue", "চালিয়ে যান")}
+                  </p>
+                  <h2 className="mt-0.5 font-display text-lg font-bold tracking-tight text-foreground sm:text-xl">
+                    {needsDatabaseChoice
+                      ? tr("Choose your database", "আপনার ডেটাবেস বেছে নিন")
+                      : isStudentAudience
+                        ? selectedSubjectInfo
+                          ? tr("Continue where you left off", "যেখানে ছিলেন সেখান থেকেই শুরু করুন")
+                          : needsSubjectChoice
+                            ? tr("Choose your free subject", "আপনার ফ্রি বিষয় বেছে নিন")
+                            : tr("Unlock your first subject", "প্রথম বিষয় আনলক করুন")
+                        : tr("Build a new exam paper", "নতুন পরীক্ষাপত্র তৈরি করুন")}
+                  </h2>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    {needsDatabaseChoice
+                      ? tr(
+                          "Pick your HSC, Admission or Job database first.",
+                          "প্রথমে আপনার HSC, Admission বা Job ডেটাবেস বেছে নিন।",
+                        )
+                      : isStudentAudience
+                        ? selectedSubjectInfo
+                          ? tr(
+                              `${subjectName(selectedSubjectInfo.slug, selectedSubjectInfo.name)} · ${num(selectedSubjectInfo.mcq ?? 0)} MCQs available`,
+                              `${subjectName(selectedSubjectInfo.slug, selectedSubjectInfo.name)} · ${num(selectedSubjectInfo.mcq ?? 0)}টি MCQ উপলব্ধ`,
+                            )
+                          : needsSubjectChoice
+                            ? tr(
+                                "Pick one subject to start practising right away.",
+                                "এখনই অনুশীলন শুরু করতে একটি বিষয় বেছে নিন।",
+                              )
+                            : tr(
+                                "Upgrade or renew your plan to access the question bank.",
+                                "প্রশ্ন ব্যাংক ব্যবহার করতে প্ল্যান আপগ্রেড বা রিনিউ করুন।",
+                              )
+                        : tr(
+                            "Select questions, arrange them and export a printable PDF.",
+                            "প্রশ্ন বেছে নিন, সাজান এবং প্রিন্টযোগ্য PDF এক্সপোর্ট করুন।",
+                          )}
+                  </p>
+                </div>
+              </div>
+              <Button asChild size="sm" className="shrink-0 gap-1.5">
+                <Link href={continueHref}>
+                  {needsDatabaseChoice
+                    ? tr("Choose database", "ডেটাবেস বেছে নিন")
+                    : isStudentAudience
+                      ? selectedSubjectInfo
+                        ? tr("Resume practice", "অনুশীলন চালিয়ে যান")
+                        : needsSubjectChoice
+                          ? tr("Choose subject", "বিষয় বেছে নিন")
+                          : tr("View plans", "প্ল্যান দেখুন")
+                      : tr("Open builder", "বিল্ডার খুলুন")}
+                  <ArrowRight className="size-3.5" aria-hidden="true" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <Card className="border-border/70 shadow-sm">
               <CardContent className="p-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {tr("Current plan", "বর্তমান প্ল্যান")}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {isStudentAudience
+                        ? tr("Today's goal", "আজকের লক্ষ্য")
+                        : tr("Question bank access", "প্রশ্ন ব্যাংক অ্যাক্সেস")}
+                    </span>
+                    <h3 className="mt-1 font-display text-lg font-bold text-foreground">
+                      {isStudentAudience
+                        ? tr("Model tests", "মডেল টেস্ট")
+                        : tr(
+                            `${num(accessibleSubjects.length)} subjects`,
+                            `${num(accessibleSubjects.length)}টি বিষয়`,
+                          )}
+                    </h3>
+                  </div>
+                  <span className="flex size-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <Target className="size-4" aria-hidden="true" />
                   </span>
+                </div>
+
+                <div className="mt-4 flex items-center gap-5">
+                  <div className="relative size-20 shrink-0">
+                    <svg
+                      viewBox="0 0 64 64"
+                      className="size-20 -rotate-90"
+                      role="img"
+                      aria-label={
+                        isStudentAudience
+                          ? tr("Daily model test progress", "দৈনিক মডেল টেস্ট অগ্রগতি")
+                          : tr("Subject coverage", "বিষয় কভারেজ")
+                      }
+                    >
+                      <circle
+                        cx="32"
+                        cy="32"
+                        r="26"
+                        fill="none"
+                        strokeWidth="6"
+                        className="stroke-secondary"
+                      />
+                      <circle
+                        cx="32"
+                        cy="32"
+                        r="26"
+                        fill="none"
+                        strokeWidth="6"
+                        strokeLinecap="round"
+                        strokeDasharray={2 * Math.PI * 26}
+                        strokeDashoffset={
+                          2 * Math.PI * 26 * (1 - (isStudentAudience ? dailyGoalPercent : subjectCoveragePercent) / 100)
+                        }
+                        className={
+                          isStudentAudience
+                            ? dailyGoalMet
+                              ? "stroke-emerald-500"
+                              : "stroke-primary"
+                            : subjectCoveragePercent >= 100
+                              ? "stroke-emerald-500"
+                              : "stroke-primary"
+                        }
+                      />
+                    </svg>
+                    <span className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                      <span className="font-display text-sm font-bold text-foreground">
+                        {isStudentAudience
+                          ? dailyModelLimit === null
+                            ? num(dailyModelUsed)
+                            : `${num(Math.min(dailyModelUsed, dailyModelLimit))}/${num(dailyModelLimit)}`
+                          : `${num(accessibleSubjects.length)}/${num(allSubjects.length)}`}
+                      </span>
+                      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                        {isStudentAudience
+                          ? tr("done", "সম্পন্ন")
+                          : tr("access", "অ্যাক্সেস")}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="min-w-0 text-xs leading-relaxed text-muted-foreground">
+                    {isStudentAudience ? (
+                      <>
+                        <p className="text-sm font-semibold text-foreground">
+                          {dailyModelLimit === null
+                            ? tr(
+                                `${num(dailyModelUsed)} model tests today`,
+                                `আজ ${num(dailyModelUsed)}টি মডেল টেস্ট`,
+                              )
+                            : tr(
+                                `${num(dailyModelUsed)} of ${num(dailyModelLimit)} model tests today`,
+                                `আজ ${num(dailyModelLimit)}টির মধ্যে ${num(dailyModelUsed)}টি মডেল টেস্ট`,
+                              )}
+                        </p>
+                        <p className="mt-1">
+                          {dailyModelLimit === null
+                            ? tr("Unlimited on your plan", "আপনার প্ল্যানে আনলিমিটেড")
+                            : `${tr("Remaining:", "বাকি:")} ${num(dailyModelRemaining ?? 0)}`}
+                        </p>
+                        {entitlement.limits.totalModelTest !== null && (
+                          <p className="mt-1">
+                            {tr("Lifetime:", "সর্বমোট:")}{" "}
+                            {num(entitlement.usage.modelTestTotal)} /{" "}
+                            {num(entitlement.limits.totalModelTest)}
+                          </p>
+                        )}
+                        <p className="mt-1 text-[11px] text-muted-foreground/80">
+                          {tr("Counters reset at midnight", "গণনা মধ্যরাতে রিসেট হয়")}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold text-foreground">
+                          {num(totalAccessibleMcq)} {tr("MCQs available", "টি MCQ উপলব্ধ")}
+                        </p>
+                        <p className="mt-1">
+                          {tr(
+                            "These subjects are included in your current plan.",
+                            "এই বিষয়গুলো আপনার বর্তমান প্ল্যানে অন্তর্ভুক্ত।",
+                          )}
+                        </p>
+                        <p className="mt-1 text-[11px] text-muted-foreground/80">
+                          {tr("Manage them from the dashboard.", "ড্যাশবোর্ড থেকেই ব্যবস্থাপনা করুন।")}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border/70 shadow-sm">
+              <CardContent className="flex h-full flex-col justify-between p-5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {tr("Current plan", "বর্তমান প্ল্যান")}
+                    </span>
+                    <h3 className="mt-1 font-display text-lg font-bold text-foreground">
+                      {planName}
+                    </h3>
+                    <div className={`mt-1 flex items-center gap-1.5 text-xs font-medium ${accessStatus.className}`}>
+                      {accessStatus.icon === "alert" ? (
+                        <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
+                      ) : accessStatus.icon === "clock" ? (
+                        <CalendarClock className="size-3.5 shrink-0" aria-hidden="true" />
+                      ) : (
+                        <CheckCircle2 className="size-3.5 shrink-0" aria-hidden="true" />
+                      )}
+                      <span>{accessStatus.label}</span>
+                    </div>
+                  </div>
                   <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Sparkles className="size-4" aria-hidden="true" />
                   </span>
                 </div>
-                <div className="mt-3">
-                  <h3 className="font-display text-lg font-bold text-foreground">
-                    {planName}
-                  </h3>
-                  <div className={`mt-1 flex items-center gap-1.5 text-xs font-medium ${accessStatus.className}`}>
-                    {accessStatus.icon === "alert" ? (
-                      <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
-                    ) : accessStatus.icon === "clock" ? (
-                      <CalendarClock className="size-3.5 shrink-0" aria-hidden="true" />
-                    ) : (
-                      <CheckCircle2 className="size-3.5 shrink-0" aria-hidden="true" />
-                    )}
-                    <span>{accessStatus.label}</span>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg border border-border/70 bg-background/60 p-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {tr("Remaining", "বাকি")}
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold text-foreground">
+                      {remainingDaysText}
+                    </p>
                   </div>
-                  {!isPaid && (
-                    <Button asChild size="sm" className="mt-3 h-7 text-xs">
-                      <Link href="/plans">
-                        {entitlement.status === "expired"
-                          ? tr("Renew plan", "প্ল্যান রিনিউ")
-                          : tr("Upgrade plan", "প্ল্যান আপগ্রেড")}
-                      </Link>
-                    </Button>
-                  )}
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {tr("Expiry", "মেয়াদ")}
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold text-foreground">
+                      {expiryDateFormatted || tr("No paid term", "পেইড মেয়াদ নেই")}
+                    </p>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
 
-            <Card className="border-border/70 shadow-sm transition-all hover:border-primary/40">
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {tr("Time remaining", "মেয়াদ বাকি")}
-                  </span>
-                  <span className="flex size-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                    <CalendarClock className="size-4" aria-hidden="true" />
-                  </span>
-                </div>
-                <div className="mt-3">
-                  <h3 className="font-display text-lg font-bold text-foreground">
-                    {remainingDaysText}
-                  </h3>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {expiryDateFormatted
-                      ? tr(`Expiry: ${expiryDateFormatted}`, `মেয়াদ: ${expiryDateFormatted}`)
-                      : tr("No paid subscription term", "কোনো পেইড সাবস্ক্রিপশন মেয়াদ নেই")}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/70 shadow-sm transition-all hover:border-primary/40">
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {tr("Total accessible MCQs", "মোট অ্যাক্সেসযোগ্য MCQ")}
-                  </span>
-                  <span className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                    <CheckCircle2 className="size-4" aria-hidden="true" />
-                  </span>
-                </div>
-                <div className="mt-3">
-                  <h3 className="font-display text-2xl font-bold tracking-tight text-foreground">
-                    {num(totalAccessibleMcq)}{" "}
-                    <span className="text-sm font-normal text-muted-foreground">
-                      {tr("total", "টি")}
-                    </span>
-                  </h3>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {tr("Available in your selected subjects", "আপনার সিলেক্টেড বিষয়ে উপলব্ধ")}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/70 shadow-sm transition-all hover:border-primary/40">
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {tr("Subjects with access", "অ্যাক্সেস পাওয়া বিষয়")}
-                  </span>
-                  <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    <Layers className="size-4" aria-hidden="true" />
-                  </span>
-                </div>
-                <div className="mt-3">
-                  <h3 className="font-display text-2xl font-bold tracking-tight text-foreground">
-                    {num(accessibleSubjects.length)}{" "}
-                    <span className="text-sm font-normal text-muted-foreground">
-                      {tr("subjects", "টি বিষয়")}
-                    </span>
-                  </h3>
-                  <p className="mt-1 text-xs text-muted-foreground truncate" title={accessibleNames.join(", ")}>
-                    {accessibleNames.slice(0, 3).join(", ")}
-                    {accessibleSubjects.length > 3 ? "..." : ""}
-                  </p>
-                </div>
+                {!isPaid && (
+                  <Button asChild size="sm" className="mt-4 w-full">
+                    <Link href="/plans">
+                      {entitlement.status === "expired"
+                        ? tr("Renew plan", "প্ল্যান রিনিউ")
+                        : tr("Upgrade plan", "প্ল্যান আপগ্রেড")}
+                    </Link>
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>
 
-          <Card className="mt-4 border-border/70 bg-card/60 shadow-sm">
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {tr("Usage summary", "ব্যবহারের সারসংক্ষেপ")}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {tr("Daily counters reset at midnight", "দৈনিক গণনা মধ্যরাতে রিসেট হবে")} · {entitlement.usageDate}
-                </span>
-              </div>
-
-              <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                {[
-                  ...(entitlement.audience === "student"
-                    ? [
-                        {
-                          key: "model",
-                          label: tr("Model tests (today)", "মডেল টেস্ট (আজ)"),
-                          used: entitlement.usage.modelTest,
-                          limit: entitlement.limits.dailyModelTest,
-                          remaining: entitlement.remaining.modelTest,
-                        },
-                        ...(entitlement.limits.totalModelTest !== null
-                          ? [
-                              {
-                                key: "model-total",
-                                label: tr("Model tests (total)", "মডেল টেস্ট (মোট)"),
-                                used: entitlement.usage.modelTestTotal,
-                                limit: entitlement.limits.totalModelTest,
-                                remaining: entitlement.remaining.totalModelTest,
-                              },
-                            ]
-                          : []),
-                      ]
-                    : []),
-                ].map((row) => {
-                  const percent = usagePercent(row.used, row.limit);
-                  return (
-                    <div key={row.key} className="rounded-lg border border-border/70 bg-background/60 p-3">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-medium text-foreground">{row.label}</span>
-                        <span className="text-muted-foreground">
-                          {num(row.used)} / {limitLabel(row.limit)}
-                        </span>
-                      </div>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-secondary">
-                        <div
-                          className={`h-full rounded-full ${
-                            percent >= 100 ? "bg-destructive" : "bg-primary"
-                          }`}
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                      <p className="mt-1.5 text-[11px] text-muted-foreground">
-                        {tr("Remaining:", "বাকি:")} {remainingLabel(row.remaining)}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {(!isPaid || entitlement.status === "cancelled") && (
-                <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-                  {entitlement.status === "cancelled"
-                    ? tr(
-                        "Your subscription was cancelled. Paid explanations and model tests are locked.",
-                        "আপনার সাবস্ক্রিপশন বাতিল হয়েছে। পেইড ব্যাখ্যা ও মডেল টেস্ট লক করা আছে।",
-                      )
-                    : entitlement.status === "expired"
-                      ? tr(
-                          "Your paid access has expired automatically. Renew your plan to restore it.",
-                          "আপনার পেইড অ্যাক্সেস স্বয়ংক্রিয়ভাবে শেষ হয়েছে। ফিরে পেতে প্ল্যান রিনিউ করুন।",
-                        )
-                      : tr(
-                          "You are on the free plan. Explanations, more model tests and database access require an upgrade.",
-                          "আপনি ফ্রি প্ল্যানে আছেন। ব্যাখ্যা, বেশি মডেল টেস্ট ও ডেটাবেস অ্যাক্সেসের জন্য আপগ্রেড করুন।",
-                        )}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          {(!isPaid || entitlement.status === "cancelled") && (
+            <p className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs leading-relaxed text-amber-700 dark:text-amber-400">
+              {entitlement.status === "cancelled"
+                ? tr(
+                    "Your subscription was cancelled. Paid explanations and model tests are locked.",
+                    "আপনার সাবস্ক্রিপশন বাতিল হয়েছে। পেইড ব্যাখ্যা ও মডেল টেস্ট লক করা আছে।",
+                  )
+                : entitlement.status === "expired"
+                  ? tr(
+                      "Your paid access has expired automatically. Renew your plan to restore it.",
+                      "আপনার পেইড অ্যাক্সেস স্বয়ংক্রিয়ভাবে শেষ হয়েছে। ফিরে পেতে প্ল্যান রিনিউ করুন।",
+                    )
+                  : tr(
+                      "You are on the free plan. Explanations, more model tests and database access require an upgrade.",
+                      "আপনি ফ্রি প্ল্যানে আছেন। ব্যাখ্যা, বেশি মডেল টেস্ট ও ডেটাবেস অ্যাক্সেসের জন্য আপগ্রেড করুন।",
+                    )}
+            </p>
+          )}
 
           {databaseSelectionLimit > 0 && (
-            <DatabasePicker
-              databases={selectableDatabases.map((database) => ({
-                slug: database.slug,
-                name: database.name,
-                name_bn: database.name_bn,
-                description: database.description,
-              }))}
-              selected={selectedDatabase}
-            />
+            <div id="choose-database">
+              <DatabasePicker
+                databases={selectableDatabases.map((database) => ({
+                  slug: database.slug,
+                  name: database.name,
+                  name_bn: database.name_bn,
+                  description: database.description,
+                }))}
+                selected={selectedDatabase}
+              />
+            </div>
           )}
 
           {subjectSelectionLimit > 0 && (
-            <FreeSubjectPicker
-              subjects={subjectOptions}
-              selected={selectedSubject}
-              limit={subjectSelectionLimit}
-            />
+            <div id="choose-subject">
+              <FreeSubjectPicker
+                subjects={subjectOptions}
+                selected={selectedSubject}
+                limit={subjectSelectionLimit}
+              />
+            </div>
           )}
 
           <Card className="mt-4 border-border/70 bg-card/60 shadow-sm">
             <CardContent className="p-4 sm:p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {tr("Subjects you can access:", "অ্যাক্সেস পাওয়া বিষয়সমূহের তালিকা:")}
+                  {tr("Subjects you can access", "অ্যাক্সেস পাওয়া বিষয়সমূহ")}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  {tr(
-                    "Click any subject to practise its questions directly",
-                    "যেকোনো বিষয়ে ক্লিক করে সরাসরি প্রশ্ন অনুশীলন করুন",
-                  )}
-                </span>
+                <Link
+                  href="/subjects"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  {tr("Browse all subjects", "সব বিষয় দেখুন")}
+                  <ArrowRight className="size-3" aria-hidden="true" />
+                </Link>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {accessibleSubjects.length === 0 ? (
-                  <span className="text-xs text-muted-foreground">
-                    {tr("No subject access found", "কোনো বিষয়ের অ্যাক্সেস পাওয়া যায়নি")}
-                  </span>
-                ) : (
-                  accessibleSubjects.map((sub) => (
+              {accessibleSubjects.length === 0 ? (
+                <p className="mt-4 rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
+                  {needsSubjectChoice
+                    ? tr(
+                        "Choose your free subject above to get started.",
+                        "শুরু করতে উপরে আপনার ফ্রি বিষয় বেছে নিন।",
+                      )
+                    : tr(
+                        "No subject access found in your current plan.",
+                        "আপনার বর্তমান প্ল্যানে কোনো বিষয়ের অ্যাক্সেস নেই।",
+                      )}
+                </p>
+              ) : (
+                <div className="mt-4 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {accessibleSubjects.map((sub) => (
                     <Link
                       key={sub.slug}
                       href={`/questions?subject=${sub.slug}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
+                      className="group flex items-center justify-between gap-2 rounded-xl border border-border/70 bg-background/60 p-3 transition-colors hover:border-primary/50 hover:bg-primary/5"
                     >
-                      <span>{subjectName(sub.slug, sub.name)}</span>
-                      <span className="rounded-full bg-background px-1.5 py-0.2 text-[10px] text-muted-foreground">
-                        {num(sub.mcq)}
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <Layers className="size-4" aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-foreground group-hover:text-primary">
+                            {subjectName(sub.slug, sub.name)}
+                          </span>
+                          <span className="block text-[11px] text-muted-foreground">
+                            {num(sub.mcq ?? 0)} {tr("MCQs", "টি MCQ")}
+                          </span>
+                        </span>
                       </span>
+                      <ArrowRight
+                        className="size-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5 group-hover:text-primary"
+                        aria-hidden="true"
+                      />
                     </Link>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
