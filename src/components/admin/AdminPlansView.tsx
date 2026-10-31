@@ -426,26 +426,27 @@ export function AdminPlansView({
 
           <div className="grid gap-3 sm:grid-cols-4">
             <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs">Student email</Label>
-              <Input
-                type="email"
-                list="grant-email-options"
+              <Label className="text-xs">Student</Label>
+              <select
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="student@example.com"
-                className="h-8 text-xs"
-              />
-              <datalist id="grant-email-options">
+                className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+              >
+                <option value="">
+                  {grantableUsers.length > 0
+                    ? "শিক্ষার্থী বেছে নিন"
+                    : "এখনো কোনো ইউজার লগ-ইন করেনি"}
+                </option>
                 {grantableUsers.map((user) => (
                   <option key={user.email} value={user.email}>
-                    {user.fullName ?? ""}
+                    {user.fullName ? `${user.fullName} — ${user.email}` : user.email}
                   </option>
                 ))}
-              </datalist>
+              </select>
               <p className="text-[11px] text-muted-foreground">
                 {grantableUsers.length > 0
-                  ? `তালিকা থেকে বেছে নিন বা টাইপ করে খুঁজুন (${grantableUsers.length} জন লগ-ইন করা ইউজার)`
-                  : "এখনো কোনো ইউজার লগ-ইন করেনি।"}
+                  ? `তালিকায় ${grantableUsers.length} জন লগ-ইন করা ইউজার`
+                  : "ইউজার লগ-ইন করলে এখানে দেখা যাবে।"}
               </p>
             </div>
             <div className="space-y-1.5">

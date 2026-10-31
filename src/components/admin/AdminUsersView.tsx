@@ -3,12 +3,9 @@
 import { useMemo, useState } from "react";
 import {
   Calendar,
-  Check,
   Clock3,
-  Copy,
   GraduationCap,
   Layers,
-  LogIn,
   Mail,
   Search,
   Shield,
@@ -18,21 +15,8 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { AdminSubscriberUser } from "@/lib/payments/types";
-
-function formatDate(iso?: string | null) {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
 
 function formatDateShort(iso?: string | null) {
   if (!iso) return "—";
@@ -90,7 +74,6 @@ export function AdminUsersView({
   const [users] = useState<AdminSubscriberUser[]>(initialUsers);
   const [filter, setFilter] = useState<UserFilter>("all");
   const [search, setSearch] = useState("");
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const counts = useMemo(() => {
     return users.reduce(
@@ -131,12 +114,6 @@ export function AdminUsersView({
           user.id.toLowerCase().includes(q)),
     );
   }, [filter, search, users]);
-
-  const handleCopy = (text: string, id: string) => {
-    void navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 1500);
-  };
 
   return (
     <div className="space-y-6">
@@ -273,9 +250,18 @@ export function AdminUsersView({
               >
                 {/* Left: User Identity */}
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-xs uppercase shadow-2xs">
-                    {initials}
-                  </div>
+                  <Avatar className="size-10 shrink-0 rounded-xl border border-border/60">
+                    {user.avatarUrl ? (
+                      <AvatarImage
+                        src={user.avatarUrl}
+                        alt={user.fullName || user.email || "User"}
+                        className="rounded-xl object-cover"
+                      />
+                    ) : null}
+                    <AvatarFallback className="rounded-xl bg-primary/10 text-primary font-bold text-xs uppercase shadow-2xs">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
 
                   <div className="space-y-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -310,20 +296,6 @@ export function AdminUsersView({
                           <span>{user.email}</span>
                         </span>
                       )}
-
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(user.id, `user-${user.id}`)}
-                        className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
-                        title="ইউজার আইডি কপি করুন"
-                      >
-                        {copiedId === `user-${user.id}` ? (
-                          <Check className="size-2.5 text-emerald-500" />
-                        ) : (
-                          <Copy className="size-2.5" />
-                        )}
-                        <span>{user.id.slice(0, 8)}…</span>
-                      </button>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground pt-0.5">
@@ -331,13 +303,6 @@ export function AdminUsersView({
                         <Calendar className="size-3" aria-hidden="true" />
                         জয়েন: {formatDateShort(user.createdAt)}
                       </span>
-
-                      {user.lastSignInAt && (
-                        <span className="inline-flex items-center gap-1">
-                          <LogIn className="size-3" aria-hidden="true" />
-                          শেষ সাইন-ইন: {formatDate(user.lastSignInAt)}
-                        </span>
-                      )}
 
                       {user.selectedSubjects && user.selectedSubjects.length > 0 && (
                         <span className="inline-flex items-center gap-1 text-primary">

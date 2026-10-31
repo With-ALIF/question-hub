@@ -43,6 +43,7 @@ export type AdminSubscriberUser = {
   id: string;
   email: string | null;
   fullName: string | null;
+  avatarUrl?: string | null;
   role: string | null;
   createdAt: string;
   lastSignInAt?: string | null;

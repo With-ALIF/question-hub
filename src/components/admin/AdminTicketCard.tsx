@@ -43,7 +43,7 @@ const STATUS_META: Record<TicketStatus, string> = {
   closed: "border-border bg-muted text-muted-foreground",
 };
 
-const STATUS_ORDER: TicketStatus[] = ["open", "in_review", "resolved"];
+const STATUS_ORDER = Object.keys(TICKET_STATUS_LABELS) as TicketStatus[];
 
 type PendingAction =
   | { kind: "status"; status: TicketStatus }
@@ -91,11 +91,19 @@ function confirmCopy(current: TicketStatus, next: TicketStatus, sendsReply: bool
 
 type Props = {
   ticket: AdminTicket;
+  reply: string;
+  onReplyChange: (value: string) => void;
+  onReplyFocus: () => void;
   onUpdated: (ticketId: string, patch: Partial<AdminTicket>) => void;
 };
 
-export function AdminTicketCard({ ticket, onUpdated }: Props) {
-  const [reply, setReply] = useState(ticket.admin_reply ?? "");
+export function AdminTicketCard({
+  ticket,
+  reply,
+  onReplyChange,
+  onReplyFocus,
+  onUpdated,
+}: Props) {
   const [status, setStatus] = useState<TicketStatus>(ticket.status);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,8 +132,10 @@ export function AdminTicketCard({ ticket, onUpdated }: Props) {
       return false;
     }
 
+    const saved = reply.trim();
+    onReplyChange(saved);
     onUpdated(ticket.id, {
-      admin_reply: reply.trim(),
+      admin_reply: saved,
       status: nextStatus,
       replied_at: new Date().toISOString(),
     });
@@ -253,12 +263,13 @@ export function AdminTicketCard({ ticket, onUpdated }: Props) {
             </div>
 
             <Textarea
-              rows={4}
+              rows={5}
               maxLength={TICKET_MESSAGE_MAX}
-              placeholder="শিক্ষার্থীকে উত্তর লিখুন…"
+              placeholder="শিক্ষার্থীকে উত্তর লিখুন… (উপরের রেডি উত্তর টেমপ্লেট থেকে বসাতে পারেন)"
               value={reply}
+              onFocus={onReplyFocus}
               onChange={(event) => {
-                setReply(event.target.value);
+                onReplyChange(event.target.value);
                 setError(null);
               }}
               className="resize-none text-xs"
@@ -284,24 +295,39 @@ export function AdminTicketCard({ ticket, onUpdated }: Props) {
                 </select>
               </label>
 
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleSave}
-                disabled={saving || reply.trim().length === 0}
-                className="h-8 gap-1.5 text-xs cursor-pointer"
-              >
-                {saving ? (
-                  <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-                ) : (
-                  <Save className="size-3.5" aria-hidden="true" />
-                )}
-                {saving
-                  ? "সংরক্ষণ হচ্ছে…"
-                  : isLockedTicketStatus(status)
-                    ? "উত্তর দিয়ে লক করুন"
-                    : "উত্তর সংরক্ষণ করুন"}
-              </Button>
+              <div className="flex items-center gap-2">
+                {reply ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onReplyChange("");
+                      setError(null);
+                    }}
+                    className="cursor-pointer text-[11px] font-semibold text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
+                  >
+                    মুছুন
+                  </button>
+                ) : null}
+
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={saving || reply.trim().length === 0}
+                  className="h-8 cursor-pointer gap-1.5 text-xs"
+                >
+                  {saving ? (
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Save className="size-3.5" aria-hidden="true" />
+                  )}
+                  {saving
+                    ? "সংরক্ষণ হচ্ছে…"
+                    : isLockedTicketStatus(status)
+                      ? "উত্তর দিয়ে লক করুন"
+                      : "উত্তর সংরক্ষণ করুন"}
+                </Button>
+              </div>
             </div>
 
             {error ? (

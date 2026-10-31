@@ -7,7 +7,9 @@ import { CheckCircle2, Inbox, LifeBuoy, RefreshCw, SearchX } from "lucide-react"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminTicketCard } from "@/components/admin/AdminTicketCard";
+import { TicketTemplateSection } from "@/components/admin/TicketTemplateSection";
 import {
+  isLockedTicketStatus,
   TICKET_CATEGORIES,
   TICKET_STATUS_LABELS,
   type AdminTicket,
@@ -33,6 +35,8 @@ export function AdminSupportView({ initialTickets }: { initialTickets: AdminTick
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
   const [categoryFilter, setCategoryFilter] = useState<TicketCategory | "all">("all");
   const [refreshing, setRefreshing] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [pickedTicketId, setPickedTicketId] = useState<string | null>(null);
 
   const counts = useMemo(() => {
     const base: Record<StatusFilter, number> = {
@@ -63,6 +67,33 @@ export function AdminSupportView({ initialTickets }: { initialTickets: AdminTick
   const handleUpdated = (ticketId: string, patch: Partial<AdminTicket>) => {
     setTickets((prev) => prev.map((ticket) => (ticket.id === ticketId ? { ...ticket, ...patch } : ticket)));
   };
+
+  /** Tickets still open for a written answer, in list order. */
+  const editableTickets = useMemo(
+    () => visible.filter((ticket) => !isLockedTicketStatus(ticket.status)),
+    [visible],
+  );
+
+  const targetTicketId =
+    pickedTicketId && editableTickets.some((ticket) => ticket.id === pickedTicketId)
+      ? pickedTicketId
+      : editableTickets[0]?.id ?? null;
+
+  const writeDraft = (ticketId: string, value: string) => {
+    setDrafts((prev) => ({ ...prev, [ticketId]: value }));
+  };
+
+  const appendDraft = (ticketId: string, body: string) => {
+    setDrafts((prev) => {
+      const current =
+        prev[ticketId] ?? tickets.find((ticket) => ticket.id === ticketId)?.admin_reply ?? "";
+      const trimmed = current.trimEnd();
+
+      return { ...prev, [ticketId]: trimmed ? `${trimmed}\n\n${body}` : body };
+    });
+  };
+
+  const draftFor = (ticket: AdminTicket) => drafts[ticket.id] ?? ticket.admin_reply ?? "";
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -174,6 +205,19 @@ export function AdminSupportView({ initialTickets }: { initialTickets: AdminTick
         </select>
       </div>
 
+      {tickets.length > 0 ? (
+        <TicketTemplateSection
+          editableTickets={editableTickets}
+          targetTicketId={targetTicketId}
+          onTargetChange={setPickedTicketId}
+          onPick={(body) => {
+            if (targetTicketId) {
+              appendDraft(targetTicketId, body);
+            }
+          }}
+        />
+      ) : null}
+
       {tickets.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/50 p-12 text-center">
           <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600">
@@ -192,7 +236,14 @@ export function AdminSupportView({ initialTickets }: { initialTickets: AdminTick
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {visible.map((ticket) => (
-            <AdminTicketCard key={ticket.id} ticket={ticket} onUpdated={handleUpdated} />
+            <AdminTicketCard
+              key={ticket.id}
+              ticket={ticket}
+              reply={draftFor(ticket)}
+              onReplyChange={(value) => writeDraft(ticket.id, value)}
+              onReplyFocus={() => setPickedTicketId(ticket.id)}
+              onUpdated={handleUpdated}
+            />
           ))}
         </div>
       )}

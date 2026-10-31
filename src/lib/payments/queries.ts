@@ -238,6 +238,7 @@ export async function getAdminSubscriberUsers(): Promise<AdminSubscriberUser[]> 
         id: string;
         email: string | null;
         fullName: string | null;
+        avatarUrl: string | null;
         role: string | null;
         createdAt: string;
         lastSignInAt: string | null;
@@ -255,11 +256,18 @@ export async function getAdminSubscriberUsers(): Promise<AdminSubscriberUser[]> 
           : typeof meta["name"] === "string" && meta["name"].trim()
             ? meta["name"].trim()
             : null;
+      const avatarUrl =
+        typeof meta["avatar_url"] === "string" && meta["avatar_url"].trim()
+          ? meta["avatar_url"].trim()
+          : typeof meta["picture"] === "string" && meta["picture"].trim()
+            ? meta["picture"].trim()
+            : null;
 
       userMap.set(au.id, {
         id: au.id,
         email: au.email ?? null,
         fullName,
+        avatarUrl,
         role: "user",
         createdAt: au.created_at ?? new Date().toISOString(),
         lastSignInAt: au.last_sign_in_at ?? null,
@@ -275,6 +283,7 @@ export async function getAdminSubscriberUsers(): Promise<AdminSubscriberUser[]> 
         id: profile.id,
         email: profile.email ?? existing?.email ?? null,
         fullName: profile.full_name?.trim() || existing?.fullName || null,
+        avatarUrl: profile.avatar_url ?? existing?.avatarUrl ?? null,
         role: profile.role ?? existing?.role ?? "user",
         createdAt: profile.created_at ?? existing?.createdAt ?? new Date().toISOString(),
         lastSignInAt: existing?.lastSignInAt ?? null,

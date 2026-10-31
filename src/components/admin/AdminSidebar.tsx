@@ -127,9 +127,6 @@ export function AdminSidebar({
                 <span className="font-display text-base font-bold text-foreground">
                   Admin Portal
                 </span>
-                <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary uppercase">
-                  {role.replace("_", " ")}
-                </span>
               </div>
               <p className="truncate text-xs text-muted-foreground">
                 QuestionBank Management

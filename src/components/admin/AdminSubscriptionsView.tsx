@@ -4,10 +4,8 @@ import { useMemo, useState } from "react";
 import {
   AlertCircle,
   Calendar,
-  Check,
   CheckCircle2,
   Clock3,
-  Copy,
   Loader2,
   Mail,
   Search,
@@ -112,7 +110,6 @@ export function AdminSubscriptionsView({
   const [cancelReason, setCancelReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const counts = useMemo(() => {
     return subscriptions.reduce(
@@ -144,12 +141,6 @@ export function AdminSubscriptionsView({
           sub.user_id.toLowerCase().includes(q)),
     );
   }, [filter, search, subscriptions]);
-
-  const handleCopy = (text: string, id: string) => {
-    void navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 1500);
-  };
 
   const handleConfirmCancel = async () => {
     if (!cancellingSub) return;
@@ -403,20 +394,6 @@ export function AdminSubscriptionsView({
                         <span>{sub.customerEmail}</span>
                       </span>
                     )}
-
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(sub.user_id, `uid-${sub.id}`)}
-                      className="inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
-                      title="ইউজার আইডি কপি করুন"
-                    >
-                      {copiedId === `uid-${sub.id}` ? (
-                        <Check className="size-2.5 text-emerald-500" />
-                      ) : (
-                        <Copy className="size-2.5" />
-                      )}
-                      <span>ID: {sub.user_id.slice(0, 8)}…</span>
-                    </button>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground pt-0.5">
