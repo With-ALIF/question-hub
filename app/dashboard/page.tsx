@@ -293,9 +293,9 @@ export default async function UserDashboard(props: DashboardPageProps) {
               <div className="flex items-start gap-4">
                 <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
                   {isStudentAudience ? (
-                    <BookOpen className="size-6" aria-hidden="true" />
+                    <BookOpen className="size-5 sm:size-6" aria-hidden="true" />
                   ) : (
-                    <FileText className="size-6" aria-hidden="true" />
+                    <FileText className="size-5 sm:size-6" aria-hidden="true" />
                   )}
                 </span>
                 <div className="min-w-0">
@@ -663,31 +663,31 @@ export default async function UserDashboard(props: DashboardPageProps) {
               </p>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
               <Link
                 href="/questions"
-                className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/50 hover:shadow-md"
+                className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5 transition-all duration-200 hover:-translate-y-1 hover:border-primary/50 hover:shadow-md"
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                      <BookOpen className="size-6" aria-hidden="true" />
+                    <span className="flex size-10 items-center justify-center rounded-xl sm:size-12 bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                      <BookOpen className="size-5 sm:size-6" aria-hidden="true" />
                     </span>
-                    <Badge variant="outline" className="border-primary/30 text-[11px] font-normal text-primary">
+                    <Badge variant="outline" className="border-primary/30 text-[10px] font-normal sm:text-[11px] text-primary">
                       {tr("Practice", "অনুশীলন")}
                     </Badge>
                   </div>
-                  <h3 className="mt-4 font-display text-base font-semibold text-foreground group-hover:text-primary">
+                  <h3 className="mt-3 font-display text-sm font-semibold sm:mt-4 sm:text-base text-foreground group-hover:text-primary">
                     {tr("Practise questions", "প্রশ্ন অনুশীলন")}
                   </h3>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed sm:text-xs">
                     {tr(
                       "Pick subjects and chapters, then practise curated questions with explanations.",
                       "বিষয় ও অধ্যায় নির্বাচন করে সাজানো প্রশ্ন ও ব্যাখ্যাসহ সমাধান অনুশীলন করুন।",
                     )}
                   </p>
                 </div>
-                <div className="mt-5 flex items-center text-xs font-semibold text-primary">
+                <div className="mt-4 flex items-center text-[11px] font-semibold sm:mt-5 sm:text-xs text-primary">
                   <span>{tr("Start practising", "অনুশীলন শুরু করুন")}</span>
                   <ArrowRight className="ml-1.5 size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </div>
@@ -696,28 +696,28 @@ export default async function UserDashboard(props: DashboardPageProps) {
               {entitlement.audience === "teacher" ? (
                 <Link
                   href="/exam-paper"
-                  className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-emerald-500/50 hover:shadow-md"
+                  className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5 transition-all duration-200 hover:-translate-y-1 hover:border-emerald-500/50 hover:shadow-md"
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="flex size-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
-                        <FileText className="size-6" aria-hidden="true" />
+                      <span className="flex size-10 items-center justify-center rounded-xl sm:size-12 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 transition-colors group-hover:bg-emerald-500 group-hover:text-white">
+                        <FileText className="size-5 sm:size-6" aria-hidden="true" />
                       </span>
-                      <Badge variant="outline" className="border-emerald-500/30 text-[11px] font-normal text-emerald-600 dark:text-emerald-400">
+                      <Badge variant="outline" className="border-emerald-500/30 text-[10px] font-normal sm:text-[11px] text-emerald-600 dark:text-emerald-400">
                         {tr("Teacher", "শিক্ষক")}
                       </Badge>
                     </div>
-                    <h3 className="mt-4 font-display text-base font-semibold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                    <h3 className="mt-3 font-display text-sm font-semibold sm:mt-4 sm:text-base text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
                       {tr("Exam paper builder", "পরীক্ষাপত্র তৈরি")}
                     </h3>
-                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed sm:text-xs">
                       {tr(
                         "Select questions to build custom 4-set question sheets and downloadable PDFs.",
                         "কাস্টম ৪-সেট প্রশ্নপত্র ও সমাধান প্রিন্টযোগ্য PDF তৈরি করতে প্রশ্ন নির্বাচন করুন।",
                       )}
                     </p>
                   </div>
-                  <div className="mt-5 flex items-center text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                  <div className="mt-4 flex items-center text-[11px] font-semibold sm:mt-5 sm:text-xs text-emerald-600 dark:text-emerald-400">
                     <span>{tr("Build exam paper", "পরীক্ষাপত্র বানান")}</span>
                     <ArrowRight className="ml-1.5 size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                   </div>
@@ -725,28 +725,28 @@ export default async function UserDashboard(props: DashboardPageProps) {
               ) : (
                 <Link
                   href="/model-test"
-                  className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-amber-500/50 hover:shadow-md"
+                  className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5 transition-all duration-200 hover:-translate-y-1 hover:border-amber-500/50 hover:shadow-md"
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="flex size-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 transition-colors group-hover:bg-amber-500 group-hover:text-white">
-                        <Timer className="size-6" aria-hidden="true" />
+                      <span className="flex size-10 items-center justify-center rounded-xl sm:size-12 bg-amber-500/10 text-amber-600 dark:text-amber-400 transition-colors group-hover:bg-amber-500 group-hover:text-white">
+                        <Timer className="size-5 sm:size-6" aria-hidden="true" />
                       </span>
-                      <Badge variant="outline" className="border-amber-500/30 text-[11px] font-normal text-amber-600 dark:text-amber-400">
+                      <Badge variant="outline" className="border-amber-500/30 text-[10px] font-normal sm:text-[11px] text-amber-600 dark:text-amber-400">
                         {tr("Timer", "টাইমার")}
                       </Badge>
                     </div>
-                    <h3 className="mt-4 font-display text-base font-semibold text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400">
+                    <h3 className="mt-3 font-display text-sm font-semibold sm:mt-4 sm:text-base text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400">
                       {tr("Model test", "মডেল টেস্ট")}
                     </h3>
-                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed sm:text-xs">
                       {tr(
                         "Take timed tests to prepare yourself and learn proper time management.",
                         "নির্দিষ্ট সময়ে পরীক্ষা দিয়ে নিজেকে প্রস্তুত করুন এবং সঠিক টাইম ম্যানেজমেন্ট শিখুন।",
                       )}
                     </p>
                   </div>
-                  <div className="mt-5 flex items-center text-xs font-semibold text-amber-600 dark:text-amber-400">
+                  <div className="mt-4 flex items-center text-[11px] font-semibold sm:mt-5 sm:text-xs text-amber-600 dark:text-amber-400">
                     <span>{tr("Take a test", "পরীক্ষা দিন")}</span>
                     <ArrowRight className="ml-1.5 size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                   </div>
@@ -755,28 +755,28 @@ export default async function UserDashboard(props: DashboardPageProps) {
 
               <Link
                 href="/saved"
-                className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-blue-500/50 hover:shadow-md"
+                className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5 transition-all duration-200 hover:-translate-y-1 hover:border-blue-500/50 hover:shadow-md"
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="flex size-12 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 transition-colors group-hover:bg-blue-500 group-hover:text-white">
-                      <BookmarkCheck className="size-6" aria-hidden="true" />
+                    <span className="flex size-10 items-center justify-center rounded-xl sm:size-12 bg-blue-500/10 text-blue-600 dark:text-blue-400 transition-colors group-hover:bg-blue-500 group-hover:text-white">
+                      <BookmarkCheck className="size-5 sm:size-6" aria-hidden="true" />
                     </span>
-                    <Badge variant="outline" className="border-blue-500/30 text-[11px] font-normal text-blue-600 dark:text-blue-400">
+                    <Badge variant="outline" className="border-blue-500/30 text-[10px] font-normal sm:text-[11px] text-blue-600 dark:text-blue-400">
                       {tr("Revision", "রিভিশন")}
                     </Badge>
                   </div>
-                  <h3 className="mt-4 font-display text-base font-semibold text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                  <h3 className="mt-3 font-display text-sm font-semibold sm:mt-4 sm:text-base text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400">
                     {tr("Saved questions", "সেভ করা প্রশ্ন")}
                   </h3>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed sm:text-xs">
                     {tr(
                       "Keep important and difficult questions saved for quick revision.",
                       "রিভিশন দেওয়ার জন্য গুরুত্বপূর্ণ ও কঠিন প্রশ্নগুলো সহজে সংরক্ষণ করে রাখুন।",
                     )}
                   </p>
                 </div>
-                <div className="mt-5 flex items-center text-xs font-semibold text-blue-600 dark:text-blue-400">
+                <div className="mt-4 flex items-center text-[11px] font-semibold sm:mt-5 sm:text-xs text-blue-600 dark:text-blue-400">
                   <span>{tr("View collection", "সংগ্রহ দেখুন")}</span>
                   <ArrowRight className="ml-1.5 size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </div>
@@ -784,28 +784,28 @@ export default async function UserDashboard(props: DashboardPageProps) {
 
               <Link
                 href="/support"
-                className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-violet-500/50 hover:shadow-md"
+                className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5 transition-all duration-200 hover:-translate-y-1 hover:border-violet-500/50 hover:shadow-md"
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="flex size-12 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 transition-colors group-hover:bg-violet-500 group-hover:text-white">
-                      <LifeBuoy className="size-6" aria-hidden="true" />
+                    <span className="flex size-10 items-center justify-center rounded-xl sm:size-12 bg-violet-500/10 text-violet-600 dark:text-violet-400 transition-colors group-hover:bg-violet-500 group-hover:text-white">
+                      <LifeBuoy className="size-5 sm:size-6" aria-hidden="true" />
                     </span>
-                    <Badge variant="outline" className="border-violet-500/30 text-[11px] font-normal text-violet-600 dark:text-violet-400">
+                    <Badge variant="outline" className="border-violet-500/30 text-[10px] font-normal sm:text-[11px] text-violet-600 dark:text-violet-400">
                       {tr("Ticket", "টিকিট")}
                     </Badge>
                   </div>
-                  <h3 className="mt-4 font-display text-base font-semibold text-foreground group-hover:text-violet-600 dark:group-hover:text-violet-400">
+                  <h3 className="mt-3 font-display text-sm font-semibold sm:mt-4 sm:text-base text-foreground group-hover:text-violet-600 dark:group-hover:text-violet-400">
                     {tr("Help & support", "সাহায্য ও সাপোর্ট")}
                   </h3>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed sm:text-xs">
                     {tr(
                       "Report a payment, account or question problem — the admin replies inside the ticket.",
                       "পেমেন্ট, অ্যাকাউন্ট বা প্রশ্নের সমস্যা জানান — এডমিন টিকিটেই উত্তর দেন।",
                     )}
                   </p>
                 </div>
-                <div className="mt-5 flex items-center text-xs font-semibold text-violet-600 dark:text-violet-400">
+                <div className="mt-4 flex items-center text-[11px] font-semibold sm:mt-5 sm:text-xs text-violet-600 dark:text-violet-400">
                   <span>{tr("Open a ticket", "টিকিট খুলুন")}</span>
                   <ArrowRight className="ml-1.5 size-3.5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
                 </div>
