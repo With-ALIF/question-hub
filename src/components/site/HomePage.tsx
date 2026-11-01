@@ -310,7 +310,7 @@ export function HomePage({
         <HomeClosingCta />
       </main>
 
-      <Footer />
+      <Footer variant="mega" subjects={subjects} />
     </div>
   );
 }
