@@ -52,6 +52,16 @@ export default async function SubjectsPage() {
     }
   }
 
+  // Subjects the student can open stay visible first, locked ones move down.
+  const orderedSubjects = (manifest?.subjects ?? [])
+    .map((subject, index) => ({ subject, index }))
+    .sort((a, b) => {
+      const lockedDelta =
+        Number(lockedSlugs.has(a.subject.slug)) - Number(lockedSlugs.has(b.subject.slug));
+      return lockedDelta || a.index - b.index;
+    })
+    .map((item) => item.subject);
+
   return (
     <div className="flex min-h-screen flex-col bg-background font-sans">
       <Navbar initialUser={user} audience={entitlement?.audience} />
@@ -100,11 +110,14 @@ export default async function SubjectsPage() {
             </Card>
           ) : (
             <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
-              {manifest?.subjects.map((subject) => (
+              {orderedSubjects.map((subject) => (
                 <StorageSubjectCard
                   key={subject.slug}
                   subject={subject}
                   locked={lockedSlugs.has(subject.slug)}
+                  highlighted={
+                    Boolean(user && entitlement) && !lockedSlugs.has(subject.slug)
+                  }
                 />
               ))}
             </div>

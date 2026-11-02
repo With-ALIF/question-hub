@@ -218,6 +218,40 @@
   }
 }
 
+@property --subject-ring-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes subject-ring-spin {
+  to {
+    --subject-ring-angle: 360deg;
+  }
+}
+
+.subject-ring-glow {
+  background: conic-gradient(
+    from var(--subject-ring-angle),
+    transparent 0deg,
+    var(--chart-1) 55deg,
+    var(--chart-2) 120deg,
+    var(--chart-4) 190deg,
+    var(--chart-5) 250deg,
+    transparent 315deg,
+    transparent 360deg
+  );
+  animation: subject-ring-spin 7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subject-ring-glow {
+    animation: none;
+    background: linear-gradient(135deg, var(--chart-1), var(--chart-2), var(--chart-4));
+  }
+}
+
+
 
 .rich-text {
   overflow-wrap: anywhere;
