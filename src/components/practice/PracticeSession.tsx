@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Flag,
   MinusCircle,
@@ -88,7 +86,6 @@ export function PracticeSession({
   const [answers, setAnswers] = useState<Array<number | null>>(() =>
     Array.from({ length: total }, () => null),
   );
-  const [current, setCurrent] = useState(0);
   const [remaining, setRemaining] = useState(totalSeconds);
   const [phase, setPhase] = useState<Phase>("active");
   const [timedOut, setTimedOut] = useState(false);
@@ -136,9 +133,6 @@ export function PracticeSession({
   const answeredCount = answers.filter((value) => value !== null).length;
   const progress = total > 0 ? Math.round((answeredCount / total) * 100) : 0;
 
-  const question = questions[current];
-  const currentAnswer = answers[current] ?? null;
-
   const digitize = (value: string) =>
     lang === "bn" ? value.replace(/\d/g, (digit) => "০১২৩৪৫৬৭৮৯"[Number(digit)] ?? digit) : value;
 
@@ -147,24 +141,12 @@ export function PracticeSession({
       String(seconds % 60).padStart(2, "0"),
     )}`;
 
-  const selectOption = (optionIndex: number) => {
+  const toggleOption = (questionIndex: number, optionIndex: number) => {
     setAnswers((previous) => {
       const next = [...previous];
-      next[current] = optionIndex;
+      next[questionIndex] = next[questionIndex] === optionIndex ? null : optionIndex;
       return next;
     });
-  };
-
-  const clearAnswer = () => {
-    setAnswers((previous) => {
-      const next = [...previous];
-      next[current] = null;
-      return next;
-    });
-  };
-
-  const goTo = (next: number) => {
-    setCurrent(Math.min(total - 1, Math.max(0, next)));
   };
 
   const result = useMemo(() => {
@@ -202,7 +184,6 @@ export function PracticeSession({
   const restart = () => {
     deadlineRef.current = Date.now() + totalSeconds * 1000;
     setAnswers(Array.from({ length: total }, () => null));
-    setCurrent(0);
     setRemaining(totalSeconds);
     setTimedOut(false);
     setConfirmKind(null);
@@ -331,20 +312,20 @@ export function PracticeSession({
                   const options = Array.isArray(item.options) ? item.options : [];
 
                   return (
-                    <details
+                    <Card
                       key={item.id}
-                      className="group rounded-xl border border-border bg-card"
+                      className={cn(
+                        "overflow-hidden border-l-4",
+                        state === "correct" && "border-l-emerald-500",
+                        state === "wrong" && "border-l-destructive",
+                        state === "skipped" && "border-l-muted-foreground/40",
+                      )}
                     >
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3">
-                        <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {num(index + 1)}.
-                          </span>
-                          <span className="truncate">
-                            {String(item.question_text || "")
-                              .replace(/<[^>]*>/g, " ")
-                              .replace(/\s+/g, " ")
-                              .trim() || tr("Question", "প্রশ্ন")}
+                      <div className="flex items-center justify-between gap-2 border-b border-border bg-secondary/30 px-4 py-2">
+                        <span className="text-sm font-semibold text-foreground">
+                          {tr("Question", "প্রশ্ন")} {num(index + 1)}
+                          <span className="ml-1 text-xs font-normal text-muted-foreground">
+                            / {num(total)}
                           </span>
                         </span>
                         <Badge
@@ -363,9 +344,9 @@ export function PracticeSession({
                               ? tr("Wrong", "ভুল")
                               : tr("Skipped", "বাদ")}
                         </Badge>
-                      </summary>
+                      </div>
 
-                      <div className="space-y-3 border-t border-border px-4 py-4">
+                      <div className="space-y-3 px-4 py-3">
                         <RichText
                           html={item.question_html}
                           text={item.question_text}
@@ -438,7 +419,7 @@ export function PracticeSession({
                           </div>
                         )}
                       </div>
-                    </details>
+                    </Card>
                   );
                 })}
               </div>
@@ -449,20 +430,19 @@ export function PracticeSession({
     );
   }
 
-  const options = question && Array.isArray(question.options) ? question.options : [];
-
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       <header className="border-b border-border bg-card/95 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-3 py-2.5 sm:px-6">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-foreground">{subjectLabel}</p>
             <p className="text-[11px] text-muted-foreground">
-              {tr("MCQ practice", "MCQ অনুশীলন")} · {num(total)} {tr("questions", "টি প্রশ্ন")}
+              {tr("MCQ practice", "MCQ অনুশীলন")} · {num(total)} {tr("questions", "টি প্রশ্ন")} ·{" "}
+              {tr(`${num(answeredCount)} answered`, `${num(answeredCount)}টি উত্তর দেওয়া হয়েছে`)}
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
             <span
               className={cn(
                 "flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-sm font-semibold tabular-nums",
@@ -475,6 +455,16 @@ export function PracticeSession({
               <Clock className="size-3.5" aria-hidden="true" />
               {formatClock(remaining)}
             </span>
+            <Button
+              type="button"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setConfirmKind("submit")}
+              aria-label={tr("Submit practice", "অনুশীলন সাবমিট করুন")}
+            >
+              <Flag className="size-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">{tr("Submit", "সাবমিট")}</span>
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -495,164 +485,92 @@ export function PracticeSession({
       </header>
 
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-4xl px-4 py-5 sm:px-6 sm:py-6">
-          <div className="grid gap-4 lg:grid-cols-[1fr_220px]">
-            <aside className="order-first lg:order-none lg:col-start-2 lg:row-start-1">
-              <Card>
-                <CardContent className="p-3">
-                  <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span className="font-semibold uppercase tracking-wide">
-                      {tr("Questions", "প্রশ্নসমূহ")}
-                    </span>
-                    <span>
-                      {num(answeredCount)}/{num(total)}
-                    </span>
-                  </div>
+        <div className="mx-auto max-w-3xl space-y-3 px-3 py-3 sm:px-6 sm:py-5">
+          <p className="text-[11px] text-muted-foreground">
+            {tr(
+              "Answer all questions on this page. Tap a selected option again to clear it.",
+              "এক পেজে সব প্রশ্নের উত্তর দিন। নির্বাচিত অপশনে আবার চাপ দিলে উত্তর মুছে যাবে।",
+            )}
+          </p>
 
-                  <div className="grid grid-cols-8 gap-1.5 sm:grid-cols-10 lg:grid-cols-5">
-                    {questions.map((item, index) => {
-                      const isAnswered = (answers[index] ?? null) !== null;
-                      const isCurrent = index === current;
+          {questions.map((item, index) => {
+            const selected = answers[index] ?? null;
+            const itemOptions = Array.isArray(item.options) ? item.options : [];
+
+            return (
+              <Card key={item.id} className="overflow-hidden">
+                <div className="flex items-center justify-between gap-2 border-b border-border bg-secondary/30 px-3 py-1.5 text-[11px] text-muted-foreground sm:px-4">
+                  <span className="font-semibold text-foreground">
+                    {tr("Question", "প্রশ্ন")} {num(index + 1)}
+                    <span className="font-normal text-muted-foreground"> / {num(total)}</span>
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {selected !== null && (
+                      <span className="font-medium text-primary">
+                        {tr("Answered", "উত্তর দেওয়া")}
+                      </span>
+                    )}
+                    {item.source_db && <Badge variant="secondary">{item.source_db}</Badge>}
+                  </div>
+                </div>
+
+                <CardContent className="space-y-3 p-3 sm:p-4">
+                  <RichText
+                    html={item.question_html}
+                    text={item.question_text}
+                    className="text-sm font-medium leading-relaxed text-foreground"
+                  />
+
+                  <div className="grid gap-1.5">
+                    {itemOptions.map((option, optionIndex) => {
+                      const isSelected = selected === optionIndex;
 
                       return (
                         <button
-                          key={item.id}
+                          key={`${item.id}-${optionIndex}`}
                           type="button"
-                          onClick={() => goTo(index)}
-                          aria-current={isCurrent ? "step" : undefined}
-                          aria-label={tr(`Go to question ${index + 1}`, `প্রশ্ন ${num(index + 1)}-এ যান`)}
+                          aria-pressed={isSelected}
+                          onClick={() => toggleOption(index, optionIndex)}
                           className={cn(
-                            "flex h-8 items-center justify-center rounded-md border text-xs font-semibold transition-colors",
-                            isCurrent
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : isAnswered
-                                ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
-                                : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                            "flex w-full items-start gap-2.5 rounded-lg border p-2.5 text-left text-sm transition-colors",
+                            isSelected
+                              ? "border-primary bg-primary/5"
+                              : "border-border bg-background hover:border-primary/40 hover:bg-secondary/50",
                           )}
                         >
-                          {num(index + 1)}
+                          <span
+                            className={cn(
+                              "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border font-mono text-[10px] font-semibold",
+                              isSelected
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-current",
+                            )}
+                          >
+                            {String.fromCharCode(65 + optionIndex)}
+                          </span>
+                          <span
+                            className="leading-relaxed"
+                            dangerouslySetInnerHTML={{
+                              __html: renderMathInContent(option.t || option.h || "—"),
+                            }}
+                          />
                         </button>
                       );
                     })}
                   </div>
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="mt-3 w-full gap-1.5"
-                    onClick={() => setConfirmKind("submit")}
-                  >
-                    <Flag className="size-3.5" aria-hidden="true" />
-                    {tr("Submit", "সাবমিট করুন")}
-                  </Button>
                 </CardContent>
               </Card>
-            </aside>
+            );
+          })}
 
-            <section className="lg:col-start-1 lg:row-start-1">
-              {question && (
-                <Card className="overflow-hidden">
-                  <div className="flex items-center justify-between gap-2 border-b border-border bg-secondary/30 px-4 py-2 text-[11px] text-muted-foreground sm:px-5">
-                    <span className="font-semibold text-foreground">
-                      {tr("Question", "প্রশ্ন")} {num(current + 1)}{" "}
-                      <span className="font-normal text-muted-foreground">
-                        / {num(total)}
-                      </span>
-                    </span>
-                    {question.source_db && <Badge variant="secondary">{question.source_db}</Badge>}
-                  </div>
-
-                  <CardContent className="space-y-5 p-4 sm:p-6">
-                    <RichText
-                      html={question.question_html}
-                      text={question.question_text}
-                      className="text-base font-medium leading-relaxed text-foreground"
-                    />
-
-                    <div className="grid gap-2">
-                      {options.map((option, optionIndex) => {
-                        const isSelected = currentAnswer === optionIndex;
-
-                        return (
-                          <button
-                            key={`${question.id}-${optionIndex}`}
-                            type="button"
-                            aria-pressed={isSelected}
-                            onClick={() => selectOption(optionIndex)}
-                            className={cn(
-                              "flex w-full items-start gap-3 rounded-lg border p-3 text-left text-sm transition-colors",
-                              isSelected
-                                ? "border-primary bg-primary/5"
-                                : "border-border bg-background hover:border-primary/40 hover:bg-secondary/50",
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-xs font-semibold",
-                                isSelected
-                                  ? "border-primary bg-primary text-primary-foreground"
-                                  : "border-current",
-                              )}
-                            >
-                              {String.fromCharCode(65 + optionIndex)}
-                            </span>
-                            <span
-                              className="leading-relaxed"
-                              dangerouslySetInnerHTML={{
-                                __html: renderMathInContent(option.t || option.h || "—"),
-                              }}
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => goTo(current - 1)}
-                          disabled={current === 0}
-                        >
-                          <ChevronLeft className="size-4" aria-hidden="true" />
-                          {tr("Previous", "আগের")}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={clearAnswer}
-                          disabled={currentAnswer === null}
-                        >
-                          {tr("Clear", "মুছুন")}
-                        </Button>
-                      </div>
-
-                      {current < total - 1 ? (
-                        <Button type="button" size="sm" onClick={() => goTo(current + 1)}>
-                          {tr("Next", "পরের")}
-                          <ChevronRight className="size-4" aria-hidden="true" />
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="gap-1.5"
-                          onClick={() => setConfirmKind("submit")}
-                        >
-                          <Flag className="size-3.5" aria-hidden="true" />
-                          {tr("Submit", "সাবমিট করুন")}
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </section>
-          </div>
+          <Button
+            type="button"
+            className="w-full gap-1.5"
+            onClick={() => setConfirmKind("submit")}
+          >
+            <Flag className="size-3.5" aria-hidden="true" />
+            {tr("Submit", "সাবমিট করুন")}
+          </Button>
         </div>
       </main>
 
