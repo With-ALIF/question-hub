@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clock,
   Flag,
+  Loader2,
   MinusCircle,
   RotateCcw,
   X,
@@ -24,6 +25,7 @@ type PracticeSessionProps = {
   minutes: number;
   negative: number;
   subjectLabel: string;
+  onRestart: () => Promise<boolean>;
   onExit: () => void;
 };
 
@@ -77,6 +79,7 @@ export function PracticeSession({
   minutes,
   negative,
   subjectLabel,
+  onRestart,
   onExit,
 }: PracticeSessionProps) {
   const { tr, num, lang } = useI18n();
@@ -90,6 +93,8 @@ export function PracticeSession({
   const [phase, setPhase] = useState<Phase>("active");
   const [timedOut, setTimedOut] = useState(false);
   const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
+  const [restarting, setRestarting] = useState(false);
+  const [restartError, setRestartError] = useState(false);
   const deadlineRef = useRef(0);
 
   useEffect(() => {
@@ -181,13 +186,20 @@ export function PracticeSession({
     setPhase("result");
   };
 
-  const restart = () => {
-    deadlineRef.current = Date.now() + totalSeconds * 1000;
-    setAnswers(Array.from({ length: total }, () => null));
-    setRemaining(totalSeconds);
-    setTimedOut(false);
-    setConfirmKind(null);
-    setPhase("active");
+  const restart = async () => {
+    if (restarting) return;
+
+    setRestartError(false);
+    setRestarting(true);
+
+    try {
+      const ok = await onRestart();
+      if (!ok) setRestartError(true);
+    } catch {
+      setRestartError(true);
+    } finally {
+      setRestarting(false);
+    }
   };
 
   const handleExit = () => {
@@ -289,13 +301,27 @@ export function PracticeSession({
             </Card>
 
             <div className="flex flex-wrap items-center justify-center gap-3">
-              <Button onClick={restart} className="gap-2">
-                <RotateCcw className="size-4" aria-hidden="true" />
-                {tr("Practise again", "আবার অনুশীলন করুন")}
+              <Button onClick={restart} disabled={restarting} className="gap-2">
+                {restarting ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <RotateCcw className="size-4" aria-hidden="true" />
+                )}
+                {restarting
+                  ? tr("Preparing...", "প্রস্তুত হচ্ছে...")
+                  : tr("Practise again", "আবার অনুশীলন করুন")}
               </Button>
               <Button variant="outline" onClick={onExit}>
                 {tr("Back to questions", "প্রশ্নে ফিরে যান")}
               </Button>
+              {restartError && (
+                <p className="w-full text-center text-xs text-destructive">
+                  {tr(
+                    "Could not prepare new questions. Please try again.",
+                    "নতুন প্রশ্ন আনা যায়নি। আবার চেষ্টা করুন।",
+                  )}
+                </p>
+              )}
             </div>
 
             <div>

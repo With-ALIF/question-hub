@@ -66,6 +66,7 @@ export function PracticeSetupCard({
     "auth" | "forbidden" | "no_questions" | "failed" | null
   >(null);
   const [session, setSession] = useState<SessionState | null>(null);
+  const [sessionVersion, setSessionVersion] = useState(0);
 
   const effectiveCount = Math.max(1, Math.min(count, Math.max(1, availableCount)));
 
@@ -111,8 +112,8 @@ export function PracticeSetupCard({
     applyParams(params);
   };
 
-  const handleStart = async () => {
-    if (starting || availableCount === 0) return;
+  const requestSession = async (): Promise<boolean> => {
+    if (starting || availableCount === 0) return false;
 
     setStarting(true);
     setError(null);
@@ -128,7 +129,7 @@ export function PracticeSetupCard({
 
       if (!result.ok) {
         setError(result.error);
-        return;
+        return false;
       }
 
       setSession({
@@ -136,8 +137,11 @@ export function PracticeSetupCard({
         minutes: result.minutes,
         negative: result.negative,
       });
+      setSessionVersion((version) => version + 1);
+      return true;
     } catch {
       setError("failed");
+      return false;
     } finally {
       setStarting(false);
     }
@@ -467,7 +471,7 @@ export function PracticeSetupCard({
 
               <Button
                 type="button"
-                onClick={handleStart}
+                onClick={requestSession}
                 disabled={starting || availableCount === 0 || isPending}
                 className="w-full shrink-0 gap-2 sm:w-auto"
               >
@@ -502,10 +506,12 @@ export function PracticeSetupCard({
 
       {session && (
         <PracticeSession
+          key={sessionVersion}
           questions={session.questions}
           minutes={session.minutes}
           negative={session.negative}
           subjectLabel={subjectLabel}
+          onRestart={requestSession}
           onExit={() => setSession(null)}
         />
       )}
