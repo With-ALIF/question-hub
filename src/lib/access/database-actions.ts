@@ -44,6 +44,23 @@ export async function chooseDatabaseAction(
   try {
     const supabase = createSupabaseAdminClient();
 
+    // Restriction: once selected, database cannot be changed and is locked.
+    const { data: existingProfile } = await supabase
+      .from("qb_profiles")
+      .select("selected_databases")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const existing = Array.isArray(existingProfile?.selected_databases)
+      ? existingProfile.selected_databases.filter(
+          (d): d is string => typeof d === "string" && d.trim().length > 0,
+        )
+      : [];
+
+    if (existing.length > 0) {
+      return { ok: false, error: "locked" };
+    }
+
     const { data: database, error: databaseError } = await supabase
       .from("qb_databases")
       .select("slug")

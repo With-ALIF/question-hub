@@ -14,8 +14,10 @@ import {
   Sparkles,
   Target,
   Timer,
+  User,
 } from "lucide-react";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,7 +30,7 @@ import { getCurrentAudience, getCurrentProfile, getCurrentUser } from "@/lib/aut
 import { isAdminRole } from "@/lib/auth/roles";
 import { getEntitlement } from "@/lib/access";
 import { getActiveDatabases } from "@/lib/access/databases";
-import { getQuestionManifest } from "@/lib/questions/storage";
+import { getDatabaseSubjectCounts, getQuestionManifest } from "@/lib/questions/storage";
 import { getMyPendingOrder } from "@/lib/payments/queries";
 import { localeForLanguage } from "@/lib/i18n/config";
 import { getI18n } from "@/lib/i18n/server";
@@ -90,6 +92,13 @@ export default async function UserDashboard(props: DashboardPageProps) {
     (typeof meta["full_name"] === "string" ? meta["full_name"] : "") ||
     user.email?.split("@")[0] ||
     tr("Student", "শিক্ষার্থী");
+  const avatarUrl =
+    (profile?.avatar_url && profile.avatar_url.trim()) ||
+    (typeof meta["avatar_url"] === "string" && meta["avatar_url"].trim()
+      ? meta["avatar_url"].trim()
+      : typeof meta["picture"] === "string" && meta["picture"].trim()
+        ? meta["picture"].trim()
+        : null);
 
   const isPaid = entitlement.paidAccess && entitlement.status === "active";
   // Free users show whichever free plan their role resolves to: Starter for
@@ -175,7 +184,25 @@ export default async function UserDashboard(props: DashboardPageProps) {
       ? allSubjects
       : allSubjects.filter((subject) => allowedSubjectSlugs.includes(subject.slug));
 
-  const totalAccessibleMcq = accessibleSubjects.reduce((sum, subject) => sum + (subject.mcq ?? 0), 0);
+  const databaseCounts = await getDatabaseSubjectCounts(
+    accessibleSubjects,
+    entitlement.access.databaseCodes,
+  );
+
+  const accessibleSubjectsWithCounts = accessibleSubjects.map((sub) => {
+    const counts = databaseCounts.get(sub.slug);
+    if (!counts) return sub;
+    return {
+      ...sub,
+      mcq: counts.mcq,
+      total: counts.total,
+    };
+  });
+
+  const totalAccessibleMcq = accessibleSubjectsWithCounts.reduce(
+    (sum, subject) => sum + (subject.mcq ?? 0),
+    0,
+  );
   const subjectSelectionLimit = entitlement.subjectSelectionLimit;
   const selectedSubject = allowedSubjectSlugs?.[0] ?? null;
   const subjectOptions = allSubjects.map((subject) => ({
@@ -192,8 +219,8 @@ export default async function UserDashboard(props: DashboardPageProps) {
 
   const isStudentAudience = entitlement.audience === "student";
   const selectedSubjectInfo =
-    accessibleSubjects.find((subject) => subject.slug === selectedSubject) ??
-    accessibleSubjects[0] ??
+    accessibleSubjectsWithCounts.find((subject) => subject.slug === selectedSubject) ??
+    accessibleSubjectsWithCounts[0] ??
     null;
   const needsSubjectChoice = !selectedSubjectInfo && subjectSelectionLimit > 0;
   const needsDatabaseChoice = databaseSelectionLimit > 0 && selectedDatabase === null;
@@ -233,17 +260,32 @@ export default async function UserDashboard(props: DashboardPageProps) {
 
       <main className="flex-1">
         <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-6">
-            <div>
-              <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                {tr("Welcome,", "স্বাগতম,")} {displayName.split(" ")[0]}
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {tr(
-                  "Your study access and exam preparation dashboard",
-                  "আপনার স্টাডি অ্যাক্সেস ও পরীক্ষার প্রস্তুতি ড্যাশবোর্ড",
-                )}
-              </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-6">
+            <div className="flex items-center gap-3">
+              <Avatar className="size-10 shrink-0 rounded-full border border-border/70 shadow-2xs">
+                {avatarUrl ? (
+                  <AvatarImage
+                    src={avatarUrl}
+                    alt={displayName}
+                    referrerPolicy="no-referrer"
+                    className="size-full rounded-full object-cover"
+                  />
+                ) : null}
+                <AvatarFallback className="bg-primary/10 text-primary rounded-full">
+                  <User className="size-5" aria-hidden="true" />
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                  {tr("Welcome,", "স্বাগতম,")} {displayName.split(" ")[0]}
+                </h1>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {tr(
+                    "Your study access and exam preparation dashboard",
+                    "আপনার স্টাডি অ্যাক্সেস ও পরীক্ষার প্রস্তুতি ড্যাশবোর্ড",
+                  )}
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-3 pt-2 sm:pt-0">
@@ -313,32 +355,35 @@ export default async function UserDashboard(props: DashboardPageProps) {
                             : tr("Unlock your first subject", "প্রথম বিষয় আনলক করুন")
                         : tr("Build a new exam paper", "নতুন পরীক্ষাপত্র তৈরি করুন")}
                   </h2>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    {needsDatabaseChoice
-                      ? tr(
-                          "Pick your HSC, Admission or Job database first.",
-                          "প্রথমে আপনার HSC, Admission বা Job ডেটাবেস বেছে নিন।",
-                        )
-                      : isStudentAudience
-                        ? selectedSubjectInfo
+                  {needsDatabaseChoice ? (
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {tr(
+                        "Pick your HSC, Admission or Job database first.",
+                        "প্রথমে আপনার HSC, Admission বা Job ডেটাবেস বেছে নিন।",
+                      )}
+                    </p>
+                  ) : isStudentAudience ? (
+                    !selectedSubjectInfo ? (
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        {needsSubjectChoice
                           ? tr(
-                              `${subjectName(selectedSubjectInfo.slug, selectedSubjectInfo.name)} · ${num(selectedSubjectInfo.mcq ?? 0)} MCQs available`,
-                              `${subjectName(selectedSubjectInfo.slug, selectedSubjectInfo.name)} · ${num(selectedSubjectInfo.mcq ?? 0)}টি MCQ উপলব্ধ`,
+                              "Pick one subject to start practising right away.",
+                              "এখনই অনুশীলন শুরু করতে একটি বিষয় বেছে নিন।",
                             )
-                          : needsSubjectChoice
-                            ? tr(
-                                "Pick one subject to start practising right away.",
-                                "এখনই অনুশীলন শুরু করতে একটি বিষয় বেছে নিন।",
-                              )
-                            : tr(
-                                "Upgrade or renew your plan to access the question bank.",
-                                "প্রশ্ন ব্যাংক ব্যবহার করতে প্ল্যান আপগ্রেড বা রিনিউ করুন।",
-                              )
-                        : tr(
-                            "Select questions, arrange them and export a printable PDF.",
-                            "প্রশ্ন বেছে নিন, সাজান এবং প্রিন্টযোগ্য PDF এক্সপোর্ট করুন।",
-                          )}
-                  </p>
+                          : tr(
+                              "Upgrade or renew your plan to access the question bank.",
+                              "প্রশ্ন ব্যাংক ব্যবহার করতে প্ল্যান আপগ্রেড বা রিনিউ করুন।",
+                            )}
+                      </p>
+                    ) : null
+                  ) : (
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {tr(
+                        "Select questions, arrange them and export a printable PDF.",
+                        "প্রশ্ন বেছে নিন, সাজান এবং প্রিন্টযোগ্য PDF এক্সপোর্ট করুন।",
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
               <Button asChild size="sm" className="shrink-0 gap-1.5">
@@ -620,7 +665,7 @@ export default async function UserDashboard(props: DashboardPageProps) {
                 </p>
               ) : (
                 <div className="mt-4 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                  {accessibleSubjects.map((sub) => (
+                  {accessibleSubjectsWithCounts.map((sub) => (
                     <Link
                       key={sub.slug}
                       href={`/questions?subject=${sub.slug}`}

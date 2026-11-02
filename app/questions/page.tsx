@@ -16,6 +16,8 @@ import {
 } from "@/lib/access";
 import {
   QUESTION_FILTER_KEYS,
+  formatSetLabel,
+  formatUnitLabel,
   hasActiveFilters,
   sanitizeFilters,
   type QuestionFilterKey,
@@ -39,6 +41,8 @@ type QuestionsSearchParams = Promise<{
   page?: string | string[];
   db?: string | string[];
   un?: string | string[];
+  unit?: string | string[];
+  set?: string | string[];
   year?: string | string[];
   paper?: string | string[];
   chapter?: string | string[];
@@ -157,6 +161,8 @@ export default async function QuestionsPage({
           page,
           type,
           filters: requestedFilters,
+          allowedDatabaseCodes: databaseCodes,
+          allowedSubjectSlugs,
         });
 
   if (!entitlementUnavailable && allowedSubjectSlugs !== null) {
@@ -186,8 +192,22 @@ export default async function QuestionsPage({
 
   const subjectsForForm = result.subjects;
   const subject = result.subject;
-  const displaySubjectName = subject ? subjectName(subject.slug, subject.name) : "";
   const currentSubjectSlug = subject?.slug ?? (effectiveSubject || "physics");
+
+  const selectedSubjectSlugs = currentSubjectSlug
+    .split(",")
+    .map((slug) => slug.trim())
+    .filter(Boolean);
+  const isAllSubjectsSelected =
+    currentSubjectSlug === "all" ||
+    (subjectsForForm.length > 1 &&
+      subjectsForForm.every((item) => selectedSubjectSlugs.includes(item.slug)));
+
+  const displaySubjectName = isAllSubjectsSelected
+    ? tr("All subjects", "সকল বিষয়")
+    : subject
+      ? subjectName(subject.slug, subject.name)
+      : "";
   const facetFilters = result.filters;
   const activeFilters = result.activeFilters;
   const filtering = hasActiveFilters(activeFilters);
@@ -205,7 +225,19 @@ export default async function QuestionsPage({
               ? formatChapterLabel(activeFilters[key])
               : key === "paper"
                 ? formatPaperLabel(activeFilters[key])
-                : activeFilters[key]
+                : key === "unit"
+                  ? (activeFilters[key] ?? "")
+                      .split(",")
+                      .filter(Boolean)
+                      .map((value) => formatUnitLabel(value))
+                      .join(", ")
+                  : key === "set"
+                    ? (activeFilters[key] ?? "")
+                        .split(",")
+                        .filter(Boolean)
+                        .map((value) => formatSetLabel(value))
+                        .join(", ")
+                    : activeFilters[key]
           }`,
   );
 
@@ -392,7 +424,19 @@ export default async function QuestionsPage({
                               .join(", ")
                           : key === "paper"
                             ? formatPaperLabel(activeFilters[key])
-                            : activeFilters[key]}
+                            : key === "unit"
+                              ? (activeFilters[key] ?? "")
+                                  .split(",")
+                                  .filter(Boolean)
+                                  .map((value) => formatUnitLabel(value))
+                                  .join(", ")
+                              : key === "set"
+                                ? (activeFilters[key] ?? "")
+                                    .split(",")
+                                    .filter(Boolean)
+                                    .map((value) => formatSetLabel(value))
+                                    .join(", ")
+                                : activeFilters[key]}
                       </span>
                       <X className="size-3" aria-hidden="true" />
                     </Link>
@@ -429,10 +473,37 @@ export default async function QuestionsPage({
 
                 {result.manifest && (
                   <Badge variant="outline" className="font-normal">
-                    {tr(
-                      `${num(result.manifest.totalQuestions)} questions in storage`,
-                      `স্টোরেজে ${num(result.manifest.totalQuestions)}টি প্রশ্ন`,
-                    )}
+                    {databaseCodes !== null
+                      ? tr(
+                          `${num(
+                            result.subjects.reduce(
+                              (sum, s) =>
+                                sum +
+                                (type === "mcq"
+                                  ? s.mcq
+                                  : type === "written"
+                                    ? s.written
+                                    : s.total),
+                              0,
+                            ),
+                          )} questions in selected database`,
+                          `নির্বাচিত ডেটাবেসে ${num(
+                            result.subjects.reduce(
+                              (sum, s) =>
+                                sum +
+                                (type === "mcq"
+                                  ? s.mcq
+                                  : type === "written"
+                                    ? s.written
+                                    : s.total),
+                              0,
+                            ),
+                          )}টি প্রশ্ন`,
+                        )
+                      : tr(
+                          `${num(result.manifest.totalQuestions)} questions in storage`,
+                          `স্টোরেজে ${num(result.manifest.totalQuestions)}টি প্রশ্ন`,
+                        )}
                   </Badge>
                 )}
               </div>

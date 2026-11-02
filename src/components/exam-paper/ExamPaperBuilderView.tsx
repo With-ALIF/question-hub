@@ -106,6 +106,8 @@ export function ExamPaperBuilderView({
   const isFiltering = Boolean(
     activeFilters.db ||
     activeFilters.un ||
+    activeFilters.unit ||
+    activeFilters.set ||
     activeFilters.year ||
     activeFilters.paper ||
     activeFilters.chapter ||

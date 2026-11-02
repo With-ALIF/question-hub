@@ -46,23 +46,62 @@ export function QuestionFiltersForm({
   const [isPending, startTransition] = useTransition();
   const { tr, num, filterLabel, typeLabel, subjectName } = useI18n();
 
+  const allSubjectSlugs = useMemo(() => subjects.map((item) => item.slug), [subjects]);
+
   const selectedSubjectList = useMemo(() => {
-    return selectedSubject.split(",").map((s) => s.trim()).filter(Boolean);
-  }, [selectedSubject]);
+    const selected = selectedSubject.split(",").map((s) => s.trim()).filter(Boolean);
+
+    if (
+      allSubjectSlugs.length > 1 &&
+      selected.length === allSubjectSlugs.length &&
+      allSubjectSlugs.every((slug) => selected.includes(slug))
+    ) {
+      return ["all"];
+    }
+
+    return selected;
+  }, [selectedSubject, allSubjectSlugs]);
 
   const subjectOptions = useMemo<QuestionFilterOption[]>(() => {
-    return subjects.map((item) => ({
+    const options = subjects.map((item) => ({
       value: item.slug,
       label: subjectName(item.slug, item.name),
       count: type === "mcq" ? item.mcq : type === "written" ? item.written : item.total,
     }));
-  }, [subjects, type, subjectName]);
+
+    if (options.length <= 1) return options;
+
+    const total = options.reduce((acc: number, cur: QuestionFilterOption) => acc + cur.count, 0);
+    return [
+      { value: "all", label: tr("All subjects", "সকল বিষয়"), count: total },
+      ...options,
+    ];
+  }, [subjects, type, subjectName, tr]);
 
   const totalSubjectsCount = useMemo(() => {
-    return subjectOptions.reduce((acc: number, cur: QuestionFilterOption) => acc + cur.count, 0);
+    return subjectOptions.reduce(
+      (acc: number, cur: QuestionFilterOption) => (cur.value === "all" ? acc : acc + cur.count),
+      0,
+    );
   }, [subjectOptions]);
 
-  const currentSubjectObj = subjects.find((s) => s.slug === selectedSubject);
+  const selectedSubjects = useMemo(() => {
+    if (!selectedSubject || selectedSubject === "all") return subjects;
+
+    const slugs = selectedSubject.split(",").map((s) => s.trim()).filter(Boolean);
+    return subjects.filter((item) => slugs.includes(item.slug));
+  }, [subjects, selectedSubject]);
+
+  const currentTypeCounts = useMemo(() => {
+    return selectedSubjects.reduce(
+      (acc, item) => ({
+        all: acc.all + item.total,
+        mcq: acc.mcq + item.mcq,
+        written: acc.written + item.written,
+      }),
+      { all: 0, mcq: 0, written: 0 },
+    );
+  }, [selectedSubjects]);
 
   const handleSubjectChange = (newSubject: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -74,11 +113,21 @@ export function QuestionFiltersForm({
     params.delete("chapter");
     params.delete("paper");
     params.delete("topic");
+    params.delete("unit");
+    params.delete("set");
     params.delete("page");
 
     startTransition(() => {
       router.push(`${actionPath}?${params.toString()}`);
     });
+  };
+
+  const handleSubjectSelection = (values: string[]) => {
+    const nextValues = values.includes("all")
+      ? allSubjectSlugs
+      : values.filter((value) => value !== "all");
+
+    handleSubjectChange(nextValues.join(","));
   };
 
   const handleTypeChange = (newType: string) => {
@@ -124,7 +173,13 @@ export function QuestionFiltersForm({
     const formData = new FormData(e.currentTarget);
     const params = new URLSearchParams();
 
-    const subjectVal = String(formData.get("subject") ?? selectedSubject);
+    const submittedSubjects = String(formData.get("subject") ?? selectedSubject)
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const subjectVal = submittedSubjects.includes("all")
+      ? allSubjectSlugs.join(",")
+      : submittedSubjects.join(",");
     params.set("subject", subjectVal);
 
     const typeVal = String(formData.get("type") ?? type);
@@ -179,8 +234,9 @@ export function QuestionFiltersForm({
             options={subjectOptions}
             selectedValues={selectedSubjectList}
             totalCount={totalSubjectsCount}
+            exclusiveValue="all"
             disabled={isPending}
-            onChange={(values) => handleSubjectChange(values.join(","))}
+            onChange={handleSubjectSelection}
           />
         </div>
 
@@ -196,13 +252,7 @@ export function QuestionFiltersForm({
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed"
           >
             {QUESTION_TYPES.map((item) => {
-              const count = currentSubjectObj
-                ? item === "mcq"
-                  ? currentSubjectObj.mcq
-                  : item === "written"
-                    ? currentSubjectObj.written
-                    : currentSubjectObj.total
-                : 0;
+              const count = currentTypeCounts[item];
 
               return (
                 <option key={item} value={item}>
@@ -256,6 +306,38 @@ export function QuestionFiltersForm({
                     totalCount={facet.all}
                     disabled={isPending}
                     onChange={(values) => handleFilterChange("un", values.join(","))}
+                  />
+                </div>
+              );
+            }
+
+            if (key === "unit" || key === "set") {
+              const selectedValues = selected.split(",").map((s) => s.trim()).filter(Boolean);
+              if (facet.options.length === 0 && selectedValues.length === 0) return null;
+
+              const isUnit = key === "unit";
+              return (
+                <div key={key} className="space-y-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {filterLabel(key)}
+                  </span>
+                  <FilterMultiSelect
+                    name={key}
+                    title={
+                      isUnit
+                        ? tr("Select University Unit", "বিশ্ববিদ্যালয় ইউনিট নির্বাচন করুন")
+                        : tr("Select Question Set", "প্রশ্ন সেট নির্বাচন করুন")
+                    }
+                    searchPlaceholder={
+                      isUnit ? tr("Search unit...", "ইউনিট খুঁজুন...") : tr("Search set...", "সেট খুঁজুন...")
+                    }
+                    allLabel={isUnit ? tr("All units", "সকল ইউনিট") : tr("All sets", "সকল সেট")}
+                    unitLabel={isUnit ? tr("units selected", "টি ইউনিট") : tr("sets selected", "টি সেট")}
+                    options={facet.options}
+                    selectedValues={selectedValues}
+                    totalCount={facet.all}
+                    disabled={isPending}
+                    onChange={(values) => handleFilterChange(key, values.join(","))}
                   />
                 </div>
               );

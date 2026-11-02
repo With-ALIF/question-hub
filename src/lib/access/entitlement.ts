@@ -175,7 +175,14 @@ export function canAccessSubject(entitlement: Entitlement, subjectSlug: string):
   if (!subjectSlug) return false;
   if (entitlement.status === "unavailable") return false;
   if (entitlement.access.subjects === null) return true;
-  return entitlement.access.subjects.includes(subjectSlug);
+
+  const requested = subjectSlug
+    .split(",")
+    .map((slug) => slug.trim())
+    .filter(Boolean);
+
+  if (requested.length === 0) return false;
+  return requested.every((slug) => entitlement.access.subjects!.includes(slug));
 }
 
 export function canAccessDatabase(

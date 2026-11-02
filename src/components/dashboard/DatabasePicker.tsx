@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { CheckCircle2, Database, Loader2 } from "lucide-react";
+import { CheckCircle2, Database, Loader2, Lock, Sparkles } from "lucide-react";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,10 +33,14 @@ export function DatabasePicker({
     INITIAL_STATE,
   );
 
-  const defaultValue = selected ?? databases[0]?.slug ?? "";
+  const currentSlug = (state.ok && state.value) ? state.value : selected;
+  const isLocked = Boolean(currentSlug);
+
   const labelFor = (database: DatabaseOption) =>
     lang === "bn" && database.name_bn ? database.name_bn : database.name;
-  const selectedName = databases.find((database) => database.slug === selected);
+
+  const selectedDatabase = databases.find((database) => database.slug === currentSlug);
+  const selectedName = selectedDatabase ? labelFor(selectedDatabase) : currentSlug;
 
   const errorText =
     state.error === "auth"
@@ -45,11 +50,70 @@ export function DatabasePicker({
             "Your current plan does not allow choosing a database.",
             "আপনার বর্তমান প্ল্যানে ডেটাবেস বেছে নেওয়ার সুযোগ নেই।",
           )
-        : state.error === "invalid_selection"
-          ? tr("That database is not available.", "এই ডেটাবেসটি পাওয়া যাচ্ছে না।")
-          : state.error === "failed"
-            ? tr("Could not save your database. Try again.", "ডেটাবেস সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।")
-            : null;
+        : state.error === "locked"
+          ? tr(
+              "Databases cannot be changed once selected. Upgrade your plan to access all databases.",
+              "একবার ডেটাবেস নির্বাচন করার পর তা আর পরিবর্তন করা যাবে না। সব ডেটাবেস পেতে প্ল্যান আপগ্রেড করুন।",
+            )
+          : state.error === "invalid_selection"
+            ? tr("That database is not available.", "এই ডেটাবেসটি পাওয়া যাচ্ছে না।")
+            : state.error === "failed"
+              ? tr("Could not save your database. Try again.", "ডেটাবেস সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।")
+              : null;
+
+  if (isLocked) {
+    return (
+      <Card className="mt-4 border-primary/30 bg-primary/5 shadow-sm">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Lock className="size-5" aria-hidden="true" />
+              </span>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="font-display text-base font-semibold text-foreground">
+                    {tr("Database selected", "ডেটাবেস নির্ধারিত")}
+                  </h2>
+                  <Badge
+                    variant="outline"
+                    className="border-emerald-500/40 bg-emerald-500/10 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400"
+                  >
+                    <CheckCircle2 className="mr-1 size-3" />
+                    {selectedName}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className="border-amber-500/40 bg-amber-500/10 text-[10px] font-medium text-amber-700 dark:text-amber-400"
+                  >
+                    <Lock className="mr-1 size-2.5" />
+                    {tr("Locked", "লক করা")}
+                  </Badge>
+                </div>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                  {tr(
+                    "You have selected this database. Once chosen, it cannot be changed unless you upgrade your plan. Upgrade your plan to access all databases.",
+                    "আপনি এই ডেটাবেসটি নির্বাচন করেছেন। একবার নির্বাচন করার পর এটি আর পরিবর্তন করা যাবে না। সব ডেটাবেস আনলক করতে প্ল্যান আপগ্রেড করুন।",
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1 sm:pt-0">
+              <Button asChild size="sm" variant="default" className="h-8 gap-1.5 text-xs font-semibold">
+                <Link href="/plans">
+                  <Sparkles className="size-3.5" />
+                  {tr("Upgrade to unlock all", "সব আনলক করতে আপগ্রেড করুন")}
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const defaultValue = databases[0]?.slug ?? "";
 
   return (
     <Card className="mt-4 border-primary/30 bg-primary/5 shadow-sm">
@@ -71,15 +135,6 @@ export function DatabasePicker({
               </p>
             </div>
           </div>
-
-          {selectedName && (
-            <Badge
-              variant="outline"
-              className="self-start border-primary/30 bg-primary/10 text-[11px] font-medium text-primary"
-            >
-              {tr("Selected", "নির্বাচিত")}: {labelFor(selectedName)}
-            </Badge>
-          )}
         </div>
 
         <form action={formAction} className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -98,7 +153,7 @@ export function DatabasePicker({
           <Button
             type="submit"
             size="sm"
-            className="h-9 shrink-0 gap-1.5"
+            className="h-9 shrink-0 gap-1.5 font-semibold"
             disabled={isPending || databases.length === 0}
           >
             {isPending ? (
@@ -110,12 +165,14 @@ export function DatabasePicker({
           </Button>
         </form>
 
-        <div aria-live="polite" className="mt-2 min-h-4 text-xs">
-          {state.ok && state.value && (
-            <p className="text-emerald-600 dark:text-emerald-400">
-              {tr("Database updated.", "ডেটাবেস আপডেট হয়েছে।")}
-            </p>
+        <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">
+          {tr(
+            "Warning: Once saved, your database selection will be locked and cannot be changed.",
+            "সতর্কতা: একবার নির্বাচন ও সংরক্ষণ করলে নিজের পক্ষ থেকে তা আর পরিবর্তন করা যাবে না (লক হয়ে যাবে)।",
           )}
+        </p>
+
+        <div aria-live="polite" className="mt-2 min-h-4 text-xs">
           {errorText && <p className="text-destructive">{errorText}</p>}
         </div>
       </CardContent>

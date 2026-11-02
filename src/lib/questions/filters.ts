@@ -7,6 +7,8 @@ export * from "./constants";
 import {
   INDEX_FILTER_KEYS,
   QUESTION_FILTER_KEYS,
+  formatSetLabel,
+  formatUnitLabel,
   type IndexFilterKey,
   type QuestionFilterKey,
   type QuestionFilters,
@@ -33,9 +35,13 @@ const COLUMN: Record<IndexFilterKey, number> = {
   paper: 3,
   chapter: 4,
   topic: 5,
+  unit: 7,
+  set: 8,
 };
 
 const IS_MCQ_COLUMN = 6;
+
+const FILTER_INDEX_VERSION = 2;
 
 const INDEX_LOADERS: Record<string, () => Promise<unknown>> = {
   physics: () => import("@/data/filters/physics.json"),
@@ -56,12 +62,16 @@ function isQuestionFilterIndex(value: unknown): value is QuestionFilterIndex {
   if (!value || typeof value !== "object") return false;
 
   const index = value as Partial<QuestionFilterIndex>;
+  if (index.version !== FILTER_INDEX_VERSION) return false;
   if (typeof index.subject !== "string" || typeof index.shardSize !== "number") return false;
   if (typeof index.total !== "number" || typeof index.mcq !== "number") return false;
   if (typeof index.written !== "number" || !Array.isArray(index.rows)) return false;
   if (!index.dict || typeof index.dict !== "object") return false;
 
-  return INDEX_FILTER_KEYS.every((key) => isStringArray(index.dict?.[key]));
+  return (
+    index.rows.every((row) => Array.isArray(row) && row.length >= 9) &&
+    INDEX_FILTER_KEYS.every((key) => isStringArray(index.dict?.[key]))
+  );
 }
 
 export function getQuestionFilterIndex(subject: string): Promise<QuestionFilterIndex | null> {
@@ -74,8 +84,8 @@ export function getQuestionFilterIndex(subject: string): Promise<QuestionFilterI
     if (!loader) return null;
 
     try {
-      const module = (await loader()) as { default?: unknown } | undefined;
-      const payload = module?.default ?? module;
+      const loaded = (await loader()) as { default?: unknown } | undefined;
+      const payload = loaded?.default ?? loaded;
       return isQuestionFilterIndex(payload) ? payload : null;
     } catch {
       return null;
@@ -92,7 +102,7 @@ export function filterIndexMatches(
   shardSize: number,
 ): boolean {
   return (
-    index.version === 1 &&
+    index.version === FILTER_INDEX_VERSION &&
     index.subject === subject.slug &&
     index.shardSize === shardSize &&
     Math.abs(index.total - subject.total) <= 10 &&
@@ -195,13 +205,16 @@ export function selectFilterRows(
   index: QuestionFilterIndex,
   filters: QuestionFilters,
   type: "all" | "mcq" | "written",
+  allowedDbCells?: ReadonlySet<number>,
 ): number[] {
   const wanted = wantedIndices(index, filters);
   const matched: number[] = [];
 
   for (let position = 0; position < index.rows.length; position += 1) {
     const row = index.rows[position];
-    if (row && rowMatches(row, wanted, type)) matched.push(position);
+    if (!row || !rowMatches(row, wanted, type)) continue;
+    if (allowedDbCells && !allowedDbCells.has(row[0] ?? -1)) continue;
+    matched.push(position);
   }
 
   return matched;
@@ -209,6 +222,20 @@ export function selectFilterRows(
 
 function compareByCount(a: QuestionFilterOption, b: QuestionFilterOption) {
   return b.count - a.count || a.label.localeCompare(b.label);
+}
+
+export function compareSetValues(a: QuestionFilterOption, b: QuestionFilterOption) {
+  const left = a.value.replace(/^Set-/, "");
+  const right = b.value.replace(/^Set-/, "");
+  const leftNumber = Number(left);
+  const rightNumber = Number(right);
+
+  if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+    return leftNumber - rightNumber;
+  }
+  if (Number.isFinite(leftNumber)) return -1;
+  if (Number.isFinite(rightNumber)) return 1;
+  return left.localeCompare(right);
 }
 
 function buildOptions(
@@ -231,7 +258,11 @@ function buildOptions(
         ? formatChapterLabel(value)
         : key === "paper"
           ? formatPaperLabel(value)
-          : value || "Unspecified";
+          : key === "unit"
+            ? formatUnitLabel(value)
+            : key === "set"
+              ? formatSetLabel(value)
+              : value || "Unspecified";
 
     options.push({ value, label, count });
   }
@@ -250,6 +281,10 @@ function buildOptions(
     options.sort((a, b) => compareChapterCodes(a.value, b.value));
   } else if (key === "paper") {
     options.sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true }));
+  } else if (key === "unit") {
+    options.sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true }));
+  } else if (key === "set") {
+    options.sort(compareSetValues);
   } else {
     options.sort(compareByCount);
   }
@@ -261,6 +296,7 @@ export function buildFilterOptions(
   index: QuestionFilterIndex,
   filters: QuestionFilters,
   type: "all" | "mcq" | "written",
+  allowedDbCells?: ReadonlySet<number>,
 ): QuestionFilterOptions {
   const wanted = wantedIndices(index, filters);
   const options = {} as QuestionFilterOptions;
@@ -272,6 +308,7 @@ export function buildFilterOptions(
 
     for (const row of index.rows) {
       if (!row) continue;
+      if (allowedDbCells && !allowedDbCells.has(row[0] ?? -1)) continue;
 
       const isMcq = row[IS_MCQ_COLUMN] === 1;
       if (type === "mcq" && !isMcq) continue;

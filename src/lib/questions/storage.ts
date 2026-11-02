@@ -7,12 +7,14 @@ import { compareChapterCodes } from "@/data/chapters";
 
 import {
   buildFilterOptions,
+  compareSetValues,
   filterIndexMatches,
   getQuestionFilterIndex,
   sanitizeFilters,
   selectFilterRows,
   INDEX_FILTER_KEYS,
   QUESTION_FILTER_KEYS,
+  type QuestionFilterIndex,
   type QuestionFilterKey,
   type QuestionFilterOption,
   type QuestionFilterOptions,
@@ -351,26 +353,154 @@ async function loadQuestionsAt(
   return questions;
 }
 
+function allowedDbCells(
+  index: QuestionFilterIndex,
+  dbAccess: ReadonlySet<string> | null,
+): Set<number> | undefined {
+  if (!dbAccess) return undefined;
+
+  const cells = new Set<number>();
+  for (const code of dbAccess) {
+    const cell = index.dict.db.indexOf(code);
+    if (cell >= 0) cells.add(cell);
+  }
+
+  return cells;
+}
+
+function isDbAllowed(
+  question: Pick<StorageQuestion, "source_db">,
+  dbAccess: ReadonlySet<string> | null,
+): boolean {
+  if (!dbAccess) return true;
+  return typeof question.source_db === "string" && dbAccess.has(question.source_db);
+}
+
+/**
+ * Computes the effective question and MCQ counts for subjects filtered by allowed database codes.
+ * If allowedDatabaseCodes is null (unrestricted), returns the original manifest counts.
+ * If allowedDatabaseCodes is an empty array, returns 0.
+ */
+export async function getDatabaseSubjectCounts(
+  subjects: { slug: string; mcq?: number; total?: number; written?: number }[],
+  allowedDatabaseCodes?: string[] | null,
+): Promise<Map<string, { total: number; mcq: number; written: number }>> {
+  const counts = new Map<string, { total: number; mcq: number; written: number }>();
+
+  if (allowedDatabaseCodes === undefined || allowedDatabaseCodes === null) {
+    for (const sub of subjects) {
+      counts.set(sub.slug, {
+        total: sub.total ?? sub.mcq ?? 0,
+        mcq: sub.mcq ?? 0,
+        written: sub.written ?? 0,
+      });
+    }
+    return counts;
+  }
+
+  if (allowedDatabaseCodes.length === 0) {
+    for (const sub of subjects) {
+      counts.set(sub.slug, { total: 0, mcq: 0, written: 0 });
+    }
+    return counts;
+  }
+
+  const dbSet = new Set(allowedDatabaseCodes);
+
+  await Promise.all(
+    subjects.map(async (sub) => {
+      try {
+        const index = await getQuestionFilterIndex(sub.slug);
+        if (!index) {
+          counts.set(sub.slug, {
+            total: sub.total ?? sub.mcq ?? 0,
+            mcq: sub.mcq ?? 0,
+            written: sub.written ?? 0,
+          });
+          return;
+        }
+
+        const allowedCells = allowedDbCells(index, dbSet);
+        if (!allowedCells || allowedCells.size === 0) {
+          counts.set(sub.slug, { total: 0, mcq: 0, written: 0 });
+          return;
+        }
+
+        const mcqMatched = selectFilterRows(index, {}, "mcq", allowedCells);
+        const writtenMatched = selectFilterRows(index, {}, "written", allowedCells);
+        const allMatched = selectFilterRows(index, {}, "all", allowedCells);
+        counts.set(sub.slug, {
+          total: allMatched.length,
+          mcq: mcqMatched.length,
+          written: writtenMatched.length,
+        });
+      } catch {
+        counts.set(sub.slug, {
+          total: sub.total ?? sub.mcq ?? 0,
+          mcq: sub.mcq ?? 0,
+          written: sub.written ?? 0,
+        });
+      }
+    }),
+  );
+
+  return counts;
+}
+
 export async function getQuestionPage({
   subject,
   page,
   type = "all",
   filters,
+  allowedDatabaseCodes,
+  allowedSubjectSlugs,
 }: {
   subject: string;
   page: number;
   type?: QuestionType;
   filters?: QuestionFiltersInput;
+  allowedDatabaseCodes?: string[] | null;
+  allowedSubjectSlugs?: string[] | null;
 }): Promise<QuestionPageResult> {
   const selectedType: QuestionType = isQuestionType(type) ? type : "all";
   const activeFilters = sanitizeFilters(filters);
   const filterNoExplanation = activeFilters.no_explanation === "true";
   const filterHasExplanation = activeFilters.has_explanation === "true";
+  const dbAccess =
+    allowedDatabaseCodes === undefined || allowedDatabaseCodes === null
+      ? null
+      : new Set(allowedDatabaseCodes);
   const legacyQuery = activeFilters.chapter ?? activeFilters.topic ?? "";
 
   try {
     const manifest = await getQuestionManifest();
-    const subjects = manifest.subjects;
+    const rawSubjects = manifest.subjects;
+    let subjects = rawSubjects;
+
+    if (allowedSubjectSlugs !== null && allowedSubjectSlugs !== undefined) {
+      const allowedSet = new Set(allowedSubjectSlugs);
+      subjects = subjects.filter((s) => allowedSet.has(s.slug));
+    }
+
+    if (dbAccess) {
+      const dbCounts = await getDatabaseSubjectCounts(subjects, allowedDatabaseCodes);
+      subjects = subjects.map((sub) => {
+        const c = dbCounts.get(sub.slug);
+        if (!c) return sub;
+        return {
+          ...sub,
+          total: c.total,
+          mcq: c.mcq,
+          written: c.written,
+        };
+      });
+    }
+
+    // Access-restricted plans need per-subject indexes so database filtering
+    // happens before pagination instead of emptying whole pages afterwards.
+    if (subject === "all" && dbAccess) {
+      subject = subjects.map((item) => item.slug).join(",");
+    }
 
     if (subject === "all") {
       const pageSize = manifest.pageSize > 0 ? manifest.pageSize : QUESTION_PAGE_SIZE;
@@ -489,8 +619,9 @@ export async function getQuestionPage({
 
         const subResults = await Promise.all(
           selectedSubjects.map(async (sub) => {
+            const rawSub = rawSubjects.find((s) => s.slug === sub.slug) ?? sub;
             const index = await getQuestionFilterIndex(sub.slug);
-            const indexUsable = index !== null && filterIndexMatches(index, sub, shardSize);
+            const indexUsable = index !== null && filterIndexMatches(index, rawSub, shardSize);
 
             if (index && indexUsable) {
               const subFilters: QuestionFilters = { ...activeFilters };
@@ -510,8 +641,9 @@ export async function getQuestionPage({
                 }
               }
 
-              const matched = selectFilterRows(index, subFilters, selectedType);
-              const filterOptions = buildFilterOptions(index, subFilters, selectedType);
+              const allowedCells = allowedDbCells(index, dbAccess);
+              const matched = selectFilterRows(index, subFilters, selectedType, allowedCells);
+              const filterOptions = buildFilterOptions(index, subFilters, selectedType, allowedCells);
               return { sub, matched, filterOptions, index };
             }
 
@@ -551,6 +683,10 @@ export async function getQuestionPage({
             opts.sort((a, b) => compareChapterCodes(a.value, b.value));
           } else if (key === "paper") {
             opts.sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true }));
+          } else if (key === "unit") {
+            opts.sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true }));
+          } else if (key === "set") {
+            opts.sort(compareSetValues);
           } else {
             opts.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
           }
@@ -686,6 +822,8 @@ export async function getQuestionPage({
 
     const selectedSubject =
       subjects.find((item) => item.slug === subject) ?? subjects[0] ?? null;
+    const rawSelectedSubject =
+      rawSubjects.find((item) => item.slug === (selectedSubject?.slug ?? subject)) ?? selectedSubject;
 
     if (!selectedSubject) {
       return {
@@ -712,16 +850,19 @@ export async function getQuestionPage({
         : selectedType === "written"
           ? selectedSubject.written
           : selectedSubject.total;
-    const maxShards = selectedSubject.shards[selectedType] ?? 0;
+    const maxShards = rawSelectedSubject?.shards?.[selectedType] ?? 0;
 
     const index = await getQuestionFilterIndex(selectedSubject.slug);
-    const indexUsable = index !== null && filterIndexMatches(index, selectedSubject, shardSize);
+    const indexUsable =
+      index !== null &&
+      rawSelectedSubject !== null &&
+      filterIndexMatches(index, rawSelectedSubject, shardSize);
 
     if (index && !indexUsable) {
       console.warn(
         `[questions] filter index for "${selectedSubject.slug}" does not match Storage ` +
           `(index ${index.total}/${index.mcq}/${index.written}, ` +
-          `manifest ${selectedSubject.total}/${selectedSubject.mcq}/${selectedSubject.written}). ` +
+          `manifest ${rawSelectedSubject?.total}/${rawSelectedSubject?.mcq}/${rawSelectedSubject?.written}). ` +
           "Run scripts/build-filter-index.mjs after rebuilding the shards.",
       );
     }
@@ -745,8 +886,18 @@ export async function getQuestionPage({
         }
       }
 
-      const matched = selectFilterRows(index, validFilters, selectedType);
-      const filterOptions = buildFilterOptions(index, validFilters, selectedType);
+      const allowedCells = allowedDbCells(index, dbAccess);
+      const matched = selectFilterRows(index, validFilters, selectedType, allowedCells);
+      const filterOptions = buildFilterOptions(index, validFilters, selectedType, allowedCells);
+
+      const subjectWithDbCount = dbAccess
+        ? {
+            ...selectedSubject,
+            total: selectFilterRows(index, {}, "all", allowedCells).length,
+            mcq: selectFilterRows(index, {}, "mcq", allowedCells).length,
+            written: selectFilterRows(index, {}, "written", allowedCells).length,
+          }
+        : selectedSubject;
 
       if (filterHasExplanation || filterNoExplanation) {
         if (filterHasExplanation) validFilters.has_explanation = "true";
@@ -768,7 +919,7 @@ export async function getQuestionPage({
         return {
           manifest,
           subjects,
-          subject: selectedSubject,
+          subject: subjectWithDbCount,
           type: selectedType,
           questions: postFiltered.slice(start, start + pageSize),
           page: safePage,
@@ -794,7 +945,7 @@ export async function getQuestionPage({
       return {
         manifest,
         subjects,
-        subject: selectedSubject,
+        subject: subjectWithDbCount,
         type: selectedType,
         questions: await loadQuestionsAt(selectedSubject.slug, positions),
         page: safePage,
@@ -834,7 +985,9 @@ export async function getQuestionPage({
       }
       const loadedShards = await Promise.all(shardPromises);
       const allQuestions = loadedShards.flat();
-      let filtered = allQuestions.filter((q) => matchesChapterQuery(q, query));
+      let filtered = allQuestions
+        .filter((q) => isDbAllowed(q, dbAccess))
+        .filter((q) => matchesChapterQuery(q, query));
       if (filterHasExplanation) {
         filtered = filtered.filter(hasExplanation);
       } else if (filterNoExplanation) {
@@ -870,9 +1023,9 @@ export async function getQuestionPage({
       }
       const loadedShards = await Promise.all(shardPromises);
       const allQuestions = loadedShards.flat();
-      const filtered = allQuestions.filter((q) =>
-        filterHasExplanation ? hasExplanation(q) : !hasExplanation(q),
-      );
+      const filtered = allQuestions
+        .filter((q) => isDbAllowed(q, dbAccess))
+        .filter((q) => (filterHasExplanation ? hasExplanation(q) : !hasExplanation(q)));
 
       const filteredTotal = filtered.length;
       const filteredTotalPages = Math.max(1, Math.ceil(filteredTotal / pageSize));
@@ -926,6 +1079,7 @@ export async function getQuestionPage({
       subject: selectedSubject,
       type: selectedType,
       questions: shard
+        .filter((q) => isDbAllowed(q, dbAccess))
         .slice(offset, offset + pageSize)
         .map((q) => ({ ...q, _shard: shardNumber })),
       page: safePage,

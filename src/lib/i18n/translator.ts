@@ -47,6 +47,8 @@ export type Translator = {
 const FILTER_LABELS: Record<string, { en: string; bn: string }> = {
   db: { en: "Source DB", bn: "সোর্স ডেটাবেস" },
   un: { en: "University / Institute", bn: "বিশ্ববিদ্যালয় / প্রতিষ্ঠান" },
+  unit: { en: "Unit", bn: "ইউনিট" },
+  set: { en: "Set", bn: "সেট" },
   year: { en: "Year", bn: "সাল" },
   paper: { en: "Paper", bn: "পত্র" },
   chapter: { en: "Chapter", bn: "অধ্যায়" },

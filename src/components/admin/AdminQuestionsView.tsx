@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatChapterLabel } from "@/data/chapters";
+import { formatSetLabel, formatUnitLabel } from "@/lib/questions/constants";
 import type { QuestionFilterOptions, QuestionFilters } from "@/lib/questions/filters";
 import type {
   QuestionManifest,
@@ -129,6 +130,8 @@ export function AdminQuestionsView({
       chapter: null,
       topic: null,
       un: null,
+      unit: null,
+      set: null,
       year: null,
       q: null,
     });
@@ -387,7 +390,12 @@ export function AdminQuestionsView({
                 </div>
 
                 {/* Reset Filters button */}
-                {(activeFilters.un || activeFilters.year || activeFilters.chapter || searchParams.get("q")) && (
+                {(activeFilters.un ||
+                  activeFilters.unit ||
+                  activeFilters.set ||
+                  activeFilters.year ||
+                  activeFilters.chapter ||
+                  searchParams.get("q")) && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -465,6 +473,46 @@ export function AdminQuestionsView({
                     </select>
                   </div>
                 )}
+
+                {/* University Unit Filter */}
+                {facetFilters?.unit?.options && facetFilters.unit.options.length > 0 && (
+                  <div>
+                    <select
+                      value={activeFilters.unit ?? ""}
+                      onChange={(e) =>
+                        updateUrlParams({ unit: e.target.value || null, page: "1" })
+                      }
+                      className="h-9 w-full rounded-xl border border-input bg-background px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <option value="">সকল ইউনিট (Unit)</option>
+                      {facetFilters.unit.options.map((facet) => (
+                        <option key={facet.value} value={facet.value}>
+                          {formatUnitLabel(facet.value)} ({facet.count})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* University Set Filter */}
+                {facetFilters?.set?.options && facetFilters.set.options.length > 0 && (
+                  <div>
+                    <select
+                      value={activeFilters.set ?? ""}
+                      onChange={(e) =>
+                        updateUrlParams({ set: e.target.value || null, page: "1" })
+                      }
+                      className="h-9 w-full rounded-xl border border-input bg-background px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <option value="">সকল সেট (Set)</option>
+                      {facetFilters.set.options.map((facet) => (
+                        <option key={facet.value} value={facet.value}>
+                          {formatSetLabel(facet.value)} ({facet.count})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -494,7 +542,7 @@ export function AdminQuestionsView({
                   <div className="flex items-center gap-1.5 font-semibold text-foreground">
                     {hasRepeatsInView && <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400" />}
                     <span>
-                      "<strong>{activeSearch}</strong>" দিয়ে সার্চ করা হয়েছে
+                      &quot;<strong>{activeSearch}</strong>&quot; দিয়ে সার্চ করা হয়েছে
                     </span>
                   </div>
                   <p className="text-muted-foreground mt-0.5">

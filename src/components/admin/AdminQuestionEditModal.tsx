@@ -2,19 +2,9 @@
 
 import { useState, useTransition } from "react";
 import {
-  AlertCircle,
-  Check,
-  CheckCircle2,
-  Copy,
-  ExternalLink,
-  Eye,
-  EyeOff,
-  Image as ImageIcon,
-  Loader2,
-  Plus,
-  Save,
-  Sparkles,
-  Trash2,
+  AlertCircle, Check, CheckCircle2, Copy,
+  ExternalLink, Eye, EyeOff, Image as ImageIcon,
+  Loader2, Plus, Save, Sparkles, Trash2,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

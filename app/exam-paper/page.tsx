@@ -42,6 +42,8 @@ type SearchParams = Promise<{
   page?: string | string[];
   db?: string | string[];
   un?: string | string[];
+  unit?: string | string[];
+  set?: string | string[];
   year?: string | string[];
   paper?: string | string[];
   chapter?: string | string[];
@@ -138,6 +140,8 @@ export default async function ExamPaperPage({
         page,
         type,
         filters: requestedFilters,
+        allowedDatabaseCodes: databaseCodes,
+        allowedSubjectSlugs: allowedSubjects,
       })
     : null;
 

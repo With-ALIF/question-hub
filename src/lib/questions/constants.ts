@@ -1,6 +1,8 @@
 export const INDEX_FILTER_KEYS = [
   "db",
   "un",
+  "unit",
+  "set",
   "year",
   "paper",
   "chapter",
@@ -39,6 +41,8 @@ export type QuestionFilterOptions = Partial<Record<QuestionFilterKey, QuestionFi
 export const QUESTION_FILTER_LABELS: Record<QuestionFilterKey, string> = {
   db: "Source DB",
   un: "University / Institute",
+  unit: "Unit",
+  set: "Set",
   year: "Year",
   paper: "Paper",
   chapter: "Chapter",
@@ -46,6 +50,16 @@ export const QUESTION_FILTER_LABELS: Record<QuestionFilterKey, string> = {
   no_explanation: "No Explanation",
   has_explanation: "Has Explanation",
 };
+
+export function formatUnitLabel(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.trim().replace(/^Unit\s*[-–—]?\s*/i, "Unit ");
+}
+
+export function formatSetLabel(value: string | null | undefined): string {
+  if (!value) return "";
+  return value.trim().replace(/^Set\s*[-–—]?\s*/i, "Set ");
+}
 
 export const QUESTION_TYPES = ["all", "mcq", "written"] as const;
 

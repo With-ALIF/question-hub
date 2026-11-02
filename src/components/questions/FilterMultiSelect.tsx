@@ -21,6 +21,8 @@ export interface FilterMultiSelectProps {
   selectedValues: string[];
   totalCount: number;
   onChange: (values: string[]) => void;
+  /** Optional option value that acts as a single "select everything" choice. */
+  exclusiveValue?: string | undefined;
   disabled?: boolean | undefined;
   className?: string | undefined;
 }
@@ -35,6 +37,7 @@ export function FilterMultiSelect({
   selectedValues,
   totalCount,
   onChange,
+  exclusiveValue,
   disabled = false,
   className,
 }: FilterMultiSelectProps) {
@@ -42,10 +45,6 @@ export function FilterMultiSelect({
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<string[]>(selectedValues);
   const [search, setSearch] = React.useState("");
-
-  React.useEffect(() => {
-    setDraft(selectedValues);
-  }, [selectedValues]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
@@ -66,12 +65,41 @@ export function FilterMultiSelect({
   }, [options, search]);
 
   const handleToggle = (value: string) => {
+    if (exclusiveValue) {
+      if (value === exclusiveValue) {
+        setDraft((prev) => (prev.includes(value) ? [] : [value]));
+        return;
+      }
+
+      setDraft((prev) => {
+        const withoutExclusive = prev.filter((v) => v !== exclusiveValue);
+        return withoutExclusive.includes(value)
+          ? withoutExclusive.filter((v) => v !== value)
+          : [...withoutExclusive, value];
+      });
+      return;
+    }
+
     setDraft((prev) =>
       prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
     );
   };
 
   const handleSelectAllVisible = () => {
+    if (exclusiveValue) {
+      const visibleValues = filteredOptions
+        .map((o) => o.value)
+        .filter((value) => value !== exclusiveValue);
+      const allValues = options.map((o) => o.value).filter((value) => value !== exclusiveValue);
+
+      if (visibleValues.length === 0) return;
+
+      setDraft(
+        visibleValues.length === allValues.length ? [exclusiveValue] : visibleValues,
+      );
+      return;
+    }
+
     const visibleValues = filteredOptions.map((o) => o.value);
     setDraft((prev) => Array.from(new Set([...prev, ...visibleValues])));
   };
@@ -90,6 +118,9 @@ export function FilterMultiSelect({
     setDraft([]);
     onChange([]);
   };
+
+  const draftIsExclusiveOnly =
+    Boolean(exclusiveValue) && draft.length === 1 && draft[0] === exclusiveValue;
 
   // Calculate selected count and combined question count
   const selectedOptions = options.filter((o) => selectedValues.includes(o.value));
@@ -161,7 +192,7 @@ export function FilterMultiSelect({
                 {title}
               </span>
               <span className="text-xs text-muted-foreground">
-                {draft.length > 0
+                {draft.length > 0 && !draftIsExclusiveOnly
                   ? `${num(draft.length)} ${tr("selected", "টি নির্বাচিত")}`
                   : (allLabel || tr("All", "সব"))}
               </span>
@@ -252,7 +283,7 @@ export function FilterMultiSelect({
             >
               <Check className="size-3.5" />
               <span>
-                {draft.length > 0
+                {draft.length > 0 && !draftIsExclusiveOnly
                   ? `${tr("Apply", "প্রয়োগ করুন")} (${num(draft.length)})`
                   : tr("Apply All", "সব প্রয়োগ করুন")}
               </span>
