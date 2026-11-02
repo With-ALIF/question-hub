@@ -58,6 +58,31 @@ export const SUBJECT_PAPER_NAMES: Record<string, string> = {
   "সাধারন বিজ্ঞান": "সাধারণ বিজ্ঞান",
 };
 
+export const SUBJECT_PAPERS: Record<string, string[]> = {
+  physics: ["P-1", "P-2"],
+  chemistry: ["C-1", "C-2"],
+  biology: ["B-1", "B-2"],
+  mathematics: ["M-1", "M-2"],
+  ict: ["ICT"],
+};
+
+export type SubjectPaper = {
+  code: string;
+  name: string;
+  shortName: string;
+};
+
+export function getSubjectPapers(slug: string): SubjectPaper[] {
+  return (SUBJECT_PAPERS[slug] ?? []).map((code) => {
+    const name = getPaperName(code) ?? code;
+    const ordinal = code.match(/-(\d+)$/)?.[1];
+    const shortName =
+      ordinal === "1" ? "১ম পত্র" : ordinal === "2" ? "২য় পত্র" : name;
+
+    return { code, name, shortName };
+  });
+}
+
 export function getPaperName(code: string | null | undefined): string | null {
   if (!code) return null;
   const trimmed = code.trim();

@@ -105,7 +105,10 @@ export const CHAPTER_NAMES = CHAPTER_NAME;
 export function getChapterName(code: string | null | undefined): string | null {
   if (!code) return null;
   const trimmed = code.trim();
-  return CHAPTER_NAME[trimmed] ?? CHAPTER_NAME[trimmed.toUpperCase()] ?? null;
+  const ict = trimmed.match(/^ICT-(\d+)$/i);
+  const key = ict ? `ICT-${ict[1]!.padStart(2, "0")}` : trimmed;
+
+  return CHAPTER_NAME[key] ?? CHAPTER_NAME[trimmed.toUpperCase()] ?? null;
 }
 
 export function formatChapterLabel(code: string | null | undefined): string {

@@ -6,7 +6,7 @@ import { StorageSubjectCard } from "@/components/site/StorageSubjectCard";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getEntitlement } from "@/lib/access";
+import { canAccessSubject, getEntitlement } from "@/lib/access";
 import { getI18n } from "@/lib/i18n/server";
 import { getQuestionManifest, type QuestionManifest } from "@/lib/questions/storage";
 
@@ -43,6 +43,13 @@ export default async function SubjectsPage() {
             "Could not read the question manifest from Storage.",
             "স্টোরেজ থেকে প্রশ্ন ম্যানিফেস্ট পড়া যায়নি।",
           );
+  }
+
+  const lockedSlugs = new Set<string>();
+  if (user && entitlement) {
+    for (const subject of manifest?.subjects ?? []) {
+      if (!canAccessSubject(entitlement, subject.slug)) lockedSlugs.add(subject.slug);
+    }
   }
 
   return (
@@ -92,9 +99,13 @@ export default async function SubjectsPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
               {manifest?.subjects.map((subject) => (
-                <StorageSubjectCard key={subject.slug} subject={subject} />
+                <StorageSubjectCard
+                  key={subject.slug}
+                  subject={subject}
+                  locked={lockedSlugs.has(subject.slug)}
+                />
               ))}
             </div>
           )}
