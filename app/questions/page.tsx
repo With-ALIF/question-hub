@@ -32,7 +32,8 @@ import {
 } from "@/lib/questions/storage";
 import { formatChapterLabel } from "@/data/chapters";
 import { formatPaperLabel } from "@/data/papers";
-import { QuestionFiltersForm } from "@/components/questions/QuestionFiltersForm";
+import { PracticeSetupCard } from "@/components/practice/PracticeSetupCard";
+import { countPracticeQuestions } from "@/lib/questions/practice";
 import { getI18n } from "@/lib/i18n/server";
 
 type QuestionsSearchParams = Promise<{
@@ -211,6 +212,15 @@ export default async function QuestionsPage({
   const facetFilters = result.filters;
   const activeFilters = result.activeFilters;
   const filtering = hasActiveFilters(activeFilters);
+  const practiceAvailable =
+    !entitlementUnavailable && !noSubjectAccess && !noDatabaseAccess
+      ? await countPracticeQuestions({
+          subject: currentSubjectSlug,
+          filters: activeFilters,
+          allowedSubjectSlugs,
+          allowedDatabaseCodes: databaseCodes,
+        })
+      : 0;
   const pageSize = result.pageSize || QUESTION_PAGE_SIZE;
   const from = (result.page - 1) * pageSize;
   const hasPrevious = result.page > 1;
@@ -373,13 +383,12 @@ export default async function QuestionsPage({
                 </div>
               )}
 
-              <QuestionFiltersForm
-                subjects={subjectsForForm}
-                selectedSubject={currentSubjectSlug}
-                type={type}
-                facetFilters={facetFilters}
+              <PracticeSetupCard
+                subjectLabel={displaySubjectName}
+                subjectSlug={currentSubjectSlug}
                 activeFilters={activeFilters}
-                filtering={filtering}
+                facetFilters={facetFilters}
+                availableCount={practiceAvailable}
               />
 
               {!facetFilters && filtering && (
@@ -545,8 +554,8 @@ export default async function QuestionsPage({
                             `${displaySubjectName} এর জন্য নির্বাচিত ফিল্টারের সাথে মিলে এমন কোনো ${typeLabel(type)} প্রশ্ন পাওয়া যায়নি।`,
                           )
                         : tr(
-                            `No ${typeLabel(type).toLowerCase()} questions found for ${displaySubjectName}. Pick another type or subject above.`,
-                            `${displaySubjectName} এর জন্য কোনো ${typeLabel(type)} প্রশ্ন পাওয়া যায়নি। উপরের অন্য ধরন বা বিষয় বেছে নিন।`,
+                            `No ${typeLabel(type).toLowerCase()} questions found for ${displaySubjectName}. Try clearing the filters or choosing another chapter.`,
+                            `${displaySubjectName} এর জন্য কোনো ${typeLabel(type)} প্রশ্ন পাওয়া যায়নি। ফিল্টার মুছে বা অন্য অধ্যায় বেছে আবার চেষ্টা করুন।`,
                           )}
                     </p>
                     {filtering && (
