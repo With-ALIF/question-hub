@@ -35,38 +35,6 @@ function getAnswerLetter(q: QuestionListItem | undefined): string {
   return letterMap[raw] || raw || "—";
 }
 
-function renderAnswerGridTable(questionsList: QuestionListItem[]): string {
-  const COLS = 10;
-  const total = questionsList.length;
-  if (total === 0) return "";
-  const numRows = Math.ceil(total / COLS);
-  const rowsHtml: string[] = [];
-
-  for (let r = 0; r < numRows; r++) {
-    const cellsHtml: string[] = [];
-    for (let c = 0; c < COLS; c++) {
-      const idx = r * COLS + c;
-      if (idx < total) {
-        const q = questionsList[idx];
-        const qNo = toBanglaNumber(idx + 1);
-        const ansChar = getAnswerLetter(q);
-        cellsHtml.push(`<td class="ans-grid-cell">${qNo}-${ansChar}</td>`);
-      } else {
-        cellsHtml.push(`<td class="ans-grid-cell">&nbsp;</td>`);
-      }
-    }
-    rowsHtml.push(`<tr>${cellsHtml.join("")}</tr>`);
-  }
-
-  return `
-    <table class="ans-grid-table">
-      <tbody>
-        ${rowsHtml.join("")}
-      </tbody>
-    </table>
-  `;
-}
-
 function formatRichContent(
   html: string | null | undefined,
   text: string | null | undefined
@@ -116,7 +84,11 @@ function shuffleArray<T>(array: T[], seed: number): T[] {
   }
   return arr;
 }
-function estimateQuestionHeight(q: QuestionListItem, qSize: number): number {
+function estimateQuestionHeight(
+  q: QuestionListItem,
+  qSize: number,
+  withAnswers = false
+): number {
   let h = 6;
   const text = (q.question_text || "").trim();
   const html = (q.question_html || "").trim();
@@ -149,6 +121,35 @@ function estimateQuestionHeight(q: QuestionListItem, qSize: number): number {
     }
   }
 
+  if (withAnswers) {
+    const expPlain =
+      (q.explanation || "").trim() ||
+      (q.explanation_html || "").replace(/<[^>]*>/g, " ").trim();
+    const hasAnswerLine =
+      (typeof q.correct_option === "number" && q.correct_option > 0) ||
+      Boolean((q.answer || "").trim());
+    if (hasAnswerLine || expPlain) {
+      // Bordered answer box: padding, tab overlap and margins.
+      h += 26;
+      const correctIdx =
+        typeof q.correct_option === "number" && q.correct_option > 0
+          ? q.correct_option - 1
+          : -1;
+      const correctOpt = correctIdx >= 0 ? opts[correctIdx] : undefined;
+      const ansPlain = correctOpt
+        ? (correctOpt.t || (correctOpt.h || "").replace(/<[^>]*>/g, " ")).trim()
+        : (q.answer || "").trim();
+      h += Math.max(1, Math.ceil((ansPlain || " ").length / charsPerLine)) * (qSize * 1.35);
+      if (correctOpt?.h && /<img/i.test(correctOpt.h)) h += 60;
+
+      if (expPlain) {
+        h += Math.max(1, Math.ceil(expPlain.length / charsPerLine)) * (qSize * 1.4) + 6;
+        const expImgs = (q.explanation_html || "").match(/<img[^>]+>/gi);
+        if (expImgs) h += expImgs.length * 100;
+      }
+    }
+  }
+
   return Math.ceil(h);
 }
 
@@ -171,6 +172,8 @@ type PaginationOptions = {
    * `1` means a column must never exceed the cap (used once real heights are known).
    */
   tolerance?: number;
+  /** Render the boxed "উত্তর" section under each question (adds to height estimates). */
+  withAnswers?: boolean;
 };
 
 function findBestPageSplit(
@@ -235,7 +238,8 @@ function paginateSetQuestions(
   if (total === 0) return [];
 
   const getHeight: HeightGetter =
-    options.getHeight ?? ((q) => estimateQuestionHeight(q, qSize));
+    options.getHeight ??
+    ((q) => estimateQuestionHeight(q, qSize, options.withAnswers ?? false));
   const tolerance = options.tolerance ?? 1.08;
 
   const PAGE_1_COL_CAP = options.firstPageColCap ?? 920;
@@ -339,10 +343,44 @@ function escapeAttribute(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
+function renderQuestionAnswerBox(q: QuestionListItem): string {
+  const opts = Array.isArray(q.options) ? q.options : [];
+  const correctIdx =
+    typeof q.correct_option === "number" && q.correct_option > 0
+      ? q.correct_option - 1
+      : -1;
+  const correctOpt = correctIdx >= 0 ? opts[correctIdx] : undefined;
+  const letter = getAnswerLetter(q);
+
+  let answerLine = "";
+  if (correctOpt) {
+    const optText = formatRichContent(correctOpt.h, correctOpt.t);
+    answerLine = `সঠিক উত্তর: (${letter}) ${optText}`;
+  } else if ((q.answer || "").trim()) {
+    answerLine = `সঠিক উত্তর: ${(q.answer || "").trim()}`;
+  }
+
+  const expHtml = formatRichContent(q.explanation_html, q.explanation);
+  if (!answerLine && !expHtml) return "";
+
+  return `
+    <div class="q-answer">
+      <span class="q-answer-tab">উত্তর</span>
+      ${answerLine ? `<div class="q-answer-line">${answerLine}</div>` : ""}
+      ${
+        expHtml
+          ? `<div class="q-answer-exp"><span class="q-answer-exp-label">ব্যাখ্যা:</span> ${expHtml}</div>`
+          : ""
+      }
+    </div>
+  `;
+}
+
 function renderQuestionItem(
   q: QuestionListItem,
   indexNumber: number,
-  qSize: number
+  qSize: number,
+  withAnswers = false
 ): string {
   const num = toBanglaNumber(indexNumber);
   const qHtml = formatRichContent(q.question_html, q.question_text);
@@ -374,6 +412,7 @@ function renderQuestionItem(
     `
         : ""
     }
+    ${withAnswers ? renderQuestionAnswerBox(q) : ""}
   </div>
 `;
 }
@@ -396,16 +435,13 @@ export function generateExamPaperHtml(
   const watermarkOpacity = (config.watermarkOpacity ?? 90) / 100;
   const qSize = config.questionSize ?? 11;
   const hSize = config.headerSize ?? 24;
-  const hasExplanations = questions.some((q) => Boolean(q.explanation || q.explanation_html));
-  const explanationCount = questions.filter(
-    (q) => Boolean(q.explanation || q.explanation_html),
-  ).length;
 
   const measured = renderOptions.measuredHeights;
   const getHeight: HeightGetter | undefined = measured
-    ? (q) => measured[q.id] ?? estimateQuestionHeight(q, qSize)
+    ? (q) => measured[q.id] ?? estimateQuestionHeight(q, qSize, config.withAnswers)
     : undefined;
   const paginationOptions: PaginationOptions = {
+    withAnswers: config.withAnswers,
     ...(getHeight ? { getHeight, tolerance: 1 } : {}),
     ...(renderOptions.firstPageColCap ? { firstPageColCap: renderOptions.firstPageColCap } : {}),
     ...(renderOptions.subPageColCap ? { subPageColCap: renderOptions.subPageColCap } : {}),
@@ -601,178 +637,67 @@ export function generateExamPaperHtml(
       font-weight: 600;
       color: #334155;
     }
-    .answer-key-page,
-    .explanations-page {
-      page-break-before: always;
-      position: relative;
-      z-index: 1;
-    }
-    .answer-key-page {
-      page-break-before: always;
-      position: relative;
-      z-index: 1;
-      box-sizing: border-box;
-      width: 100%;
-      background: #ffffff;
-      padding-top: 10px;
-    }
-    .ans-sheet-header {
+    .paper-instruction {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-top: 6px;
       text-align: center;
-      margin-bottom: 12px;
     }
-    .ans-sheet-title {
-      font-size: 20px;
-      font-weight: 800;
-      color: #000000;
-      margin: 0 0 8px 0;
-      letter-spacing: 0.5px;
+    .q-answer {
+      position: relative;
+      border: 1px solid #1e293b;
+      border-radius: 2px;
+      margin: 11px 2px 3px;
+      padding: 9px 8px 7px;
+      font-size: ${Math.max(qSize - 1, 9)}px;
+      background: #ffffff;
+      line-height: 1.5;
     }
-    .ans-sheet-divider {
-      width: 100%;
-      height: 2px;
-      background: #000000;
-      margin-bottom: 14px;
+    .q-answer-tab {
+      position: absolute;
+      top: -8px;
+      left: 8px;
+      background: #0f172a;
+      color: #ffffff;
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 0 9px;
+      line-height: 15px;
+      border-radius: 2px;
+      letter-spacing: 0.3px;
     }
-    .ans-set-block {
-      margin-bottom: 18px;
-      page-break-inside: avoid;
-      break-inside: avoid;
-    }
-    .ans-set-badge {
-      display: inline-block;
-      font-size: 13px;
+    .q-answer-line {
       font-weight: 700;
       color: #0f172a;
-      border: 1.5px solid #0f172a;
-      padding: 1px 8px;
-      border-radius: 4px;
-      margin-bottom: 6px;
+      margin-bottom: 3px;
     }
-    .ans-grid-table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      margin: 0 0 16px 0;
+    .q-answer-exp {
+      color: #334155;
     }
-    .ans-grid-cell {
-      border: 1px solid #000000;
-      padding: 5px 2px;
-      text-align: center;
-      font-size: 12.5px;
-      font-weight: 600;
-      color: #000000;
-      width: 10%;
-      white-space: nowrap;
-      vertical-align: middle;
-      line-height: 1.25;
-    }
-    .ans-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 11px;
-      margin: 12px 0;
-    }
-    .ans-table th, .ans-table td {
-      border: 1px solid #94a3b8;
-      padding: 4px 6px;
-      text-align: center;
-    }
-    .ans-table th {
-      background: #f1f5f9;
+    .q-answer-exp-label {
       font-weight: 700;
+      color: #0f172a;
     }
-    .explanations {
-      margin-top: 12px;
-      position: relative;
-      z-index: 1;
-      column-count: 2;
-      column-gap: 16px;
-    }
-    .exp-item {
-      display: inline-block;
-      width: 100%;
-      box-sizing: border-box;
-      font-size: 10.5px;
-      background: #ffffff;
-      border: 1px solid #dbe3f0;
-      border-radius: 8px;
-      margin: 0 0 9px;
-      padding: 0;
-      overflow: hidden;
-      break-inside: avoid;
-      break-inside: avoid-column;
-      page-break-inside: avoid;
-    }
-    .exp-header {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 4px 8px;
-      background: #eef2ff;
-      border-bottom: 1px solid #dfe4fd;
-      font-size: 10.5px;
-      font-weight: 700;
-      color: #3730a3;
-    }
-    .exp-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 16px;
-      height: 16px;
-      padding: 0 4px;
-      border-radius: 8px;
-      background: #4f46e5;
-      color: #ffffff;
-      font-size: 9px;
-      font-weight: 700;
-      line-height: 1;
-      flex-shrink: 0;
-    }
-    .exp-title {
-      letter-spacing: 0.1px;
-    }
-    .exp-text {
-      padding: 7px 9px 8px;
-      color: #1e293b;
-      font-size: 10.5px;
-      line-height: 1.62;
-      word-break: break-word;
-      text-align: left;
-    }
-    .exp-text > :first-child {
+    .q-answer-exp > :first-child {
       margin-top: 0;
     }
-    .exp-text > :last-child {
+    .q-answer-exp > :last-child {
       margin-bottom: 0;
     }
-    .exp-text p {
+    .q-answer-exp p {
       margin: 0 0 3px;
     }
-    .exp-text ul,
-    .exp-text ol {
-      margin: 3px 0 4px;
-      padding-left: 15px;
-    }
-    .exp-text li {
-      margin-bottom: 2px;
-    }
-    .exp-text img {
+    .q-answer-exp img {
       display: block;
       max-width: 100%;
       height: auto;
-      margin: 5px auto;
+      margin: 4px auto;
       border-radius: 4px;
     }
-    .exp-text .katex-display {
+    .q-answer-exp .katex-display {
       margin: 3px 0;
       max-width: 100%;
-    }
-    .exp-summary {
-      margin-top: 6px;
-      font-size: 10.5px;
-      font-weight: 600;
-      color: #64748b;
     }
     img {
       max-width: 100%;
@@ -810,6 +735,7 @@ export function generateExamPaperHtml(
                 ${config.hasFourSets ? `<div class="set-badge">সেট: ${s.name}</div>` : ""}
                 <div>পূর্ণমান: ${toBanglaNumber(config.marks || s.questions.length)} &nbsp;|&nbsp; সময়: ${config.time || "৫০ মিনিট"}</div>
               </div>
+              ${config.instruction ? `<div class="paper-instruction">${config.instruction}</div>` : ""}
             </header>
             `
               : `
@@ -822,11 +748,11 @@ export function generateExamPaperHtml(
 
           <div class="paper-columns">
             <div class="paper-col col-left">
-              ${p.left.map((item) => renderQuestionItem(item.question, item.index, qSize)).join("")}
+              ${p.left.map((item) => renderQuestionItem(item.question, item.index, qSize, config.withAnswers)).join("")}
             </div>
             <div class="paper-col-divider"></div>
             <div class="paper-col col-right">
-              ${p.right.map((item) => renderQuestionItem(item.question, item.index, qSize)).join("")}
+              ${p.right.map((item) => renderQuestionItem(item.question, item.index, qSize, config.withAnswers)).join("")}
             </div>
           </div>
         </div>
@@ -837,67 +763,6 @@ export function generateExamPaperHtml(
   `;
     })
     .join("")}
-
-  ${
-    config.withAnswers
-      ? `
-    <div class="answer-key-page">
-      <div class="ans-sheet-header">
-        <h1 class="ans-sheet-title">উত্তর তালিকা</h1>
-        <div class="ans-sheet-divider"></div>
-      </div>
-
-      ${
-        setsData.length > 1
-          ? setsData
-              .map(
-                (s) => `
-        <div class="ans-set-block">
-          <div class="ans-set-badge">সেট: ${s.name}</div>
-          ${renderAnswerGridTable(s.questions)}
-        </div>
-      `
-              )
-              .join("")
-          : renderAnswerGridTable(setsData[0]?.questions || questions)
-      }
-    </div>
-
-    ${
-      hasExplanations
-        ? `
-    <div class="explanations-page">
-      <header class="paper-header">
-        <h1 class="paper-title">বিস্তারিত ব্যাখ্যা ও সমাধান</h1>
-        <div class="paper-subtitle">${config.title || "পরীক্ষাপত্র"}</div>
-        <div class="exp-summary">মোট ${toBanglaNumber(explanationCount)}টি প্রশ্নের ধাপে ধাপে সমাধান</div>
-      </header>
-
-      <div class="explanations">
-        ${questions
-          .map((q, idx) => {
-            const hasExp = Boolean(q.explanation || q.explanation_html);
-            if (!hasExp) return "";
-            const expText = formatRichContent(q.explanation_html, q.explanation);
-            return `
-            <div class="exp-item">
-              <div class="exp-header">
-                <span class="exp-badge">${toBanglaNumber(idx + 1)}</span>
-                <span class="exp-title">নং প্রশ্নের সমাধান</span>
-              </div>
-              <div class="exp-text">${expText}</div>
-            </div>
-          `;
-          })
-          .join("")}
-      </div>
-    </div>
-    `
-        : ""
-    }
-  `
-      : ""
-  }
 </body>
 </html>
   `;

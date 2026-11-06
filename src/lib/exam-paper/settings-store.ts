@@ -8,6 +8,7 @@ export type ExamPaperSettings = {
   title?: string;
   tutorName?: string;
   subtitle?: string;
+  instruction?: string;
   marks?: string;
   time?: string;
   hasFourSets?: boolean;

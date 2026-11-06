@@ -59,6 +59,7 @@ export function ExamPaperPdfModal({
   );
   const [tutor, setTutor] = useState("");
   const [subtitle, setSubtitle] = useState("");
+  const [instruction, setInstruction] = useState("");
   const [marks, setMarks] = useState(String(questions.length || 50));
   const [time, setTime] = useState(() =>
     questions.length
@@ -101,6 +102,7 @@ export function ExamPaperPdfModal({
       if (typeof saved.title === "string") setTitle(saved.title);
       if (typeof saved.tutorName === "string") setTutor(saved.tutorName);
       if (typeof saved.subtitle === "string") setSubtitle(saved.subtitle);
+      if (typeof saved.instruction === "string") setInstruction(saved.instruction);
       if (typeof saved.hasFourSets === "boolean") setHasFourSets(saved.hasFourSets);
       if (typeof saved.withAnswers === "boolean") setWithAnswers(saved.withAnswers);
       if (typeof saved.questionSize === "number") setQuestionSize(saved.questionSize);
@@ -147,6 +149,7 @@ export function ExamPaperPdfModal({
       title,
       tutorName: tutor,
       subtitle,
+      ...(instruction.trim() ? { instruction: instruction.trim() } : {}),
       hasFourSets,
       withAnswers,
       questionSize,
@@ -168,6 +171,7 @@ export function ExamPaperPdfModal({
     title,
     tutor,
     subtitle,
+    instruction,
     hasFourSets,
     withAnswers,
     questionSize,
@@ -217,6 +221,7 @@ export function ExamPaperPdfModal({
     title: title.trim() || tr("Selected questions exam paper", "নির্বাচিত প্রশ্নের পরীক্ষাপত্র"),
     tutorName: tutor.trim() || undefined,
     subtitle: subtitle.trim() || undefined,
+    instruction: instruction.trim() || undefined,
     marks: marks.trim() || String(questions.length),
     time: time.trim() || `${num(50)} ${tr("min", "মিনিট")}`,
     hasFourSets,
@@ -471,6 +476,23 @@ export function ExamPaperPdfModal({
                 </div>
               </div>
 
+              <div className="space-y-1.5">
+                <Label htmlFor="pdfInstruction" className="text-xs font-semibold">
+                  {tr("Instruction line", "নির্দেশনা লেখা")}{" "}
+                  <span className="text-muted-foreground font-normal">({tr("optional", "ঐচ্ছিক")})</span>
+                </Label>
+                <Input
+                  id="pdfInstruction"
+                  value={instruction}
+                  onChange={(e) => setInstruction(e.target.value)}
+                  placeholder={tr(
+                    "e.g. Note: Answer all the questions",
+                    "যেমন: দৃষ্টিগোচর: সকল প্রশ্নের উত্তর দিতে হবে",
+                  )}
+                  className="h-9 text-xs"
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="pdfMarks" className="text-xs font-semibold">
@@ -527,8 +549,8 @@ export function ExamPaperPdfModal({
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     {tr(
-                      "Different order per set · Answer key on one page · Solutions only in set A",
-                      "প্রতি সেটে আলাদা ক্রম · উত্তর তালিকা এক পাতায় · সমাধান শুধু সেট A",
+                      "Different question order per set · Answers under each question",
+                      "প্রতি সেটে আলাদা ক্রম · প্রতি প্রশ্নের নিচে উত্তর",
                     )}
                   </p>
                 </div>
@@ -552,7 +574,10 @@ export function ExamPaperPdfModal({
                   className="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <option value="yes">
-                    {tr("With answers — answer key & solutions", "উত্তরসহ — উত্তর তালিকা ও সমাধানসহ")}
+                    {tr(
+                      "With answers — boxed answer & explanation under each question",
+                      "উত্তরসহ — প্রতি প্রশ্নের নিচে বাক্সভুক্ত উত্তর ও ব্যাখ্যা",
+                    )}
                   </option>
                   <option value="no">{tr("Without answers — questions only", "উত্তর ছাড়া — শুধু প্রশ্ন")}</option>
                 </select>

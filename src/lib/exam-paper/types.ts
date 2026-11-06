@@ -4,6 +4,7 @@ export type ExamPaperConfig = {
   title: string;
   tutorName?: string | undefined;
   subtitle?: string | undefined;
+  instruction?: string | undefined;
   marks: string;
   time: string;
   hasFourSets: boolean;
