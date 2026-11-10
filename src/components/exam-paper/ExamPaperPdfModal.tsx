@@ -526,8 +526,8 @@ export function ExamPaperPdfModal({
                 </div>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                {tr("Header preview:", "হেডারে দেখাবে:")} {tr("Time:", "সময়:")} {time || "—"} |{" "}
-                {tr("Marks:", "পূর্ণমান:")} {num(marks || "0")}
+                {tr("Header preview:", "হেডারে দেখাবে:")} {tr("Marks:", "পূর্ণমান:")}{" "}
+                {num(marks || "0")} | {tr("Time:", "সময়:")} {time || "—"}
               </p>
             </section>
 

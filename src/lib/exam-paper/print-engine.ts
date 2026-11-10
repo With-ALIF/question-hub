@@ -516,7 +516,8 @@ export function generateExamPaperHtml(
       font-weight: 800;
       color: rgba(15, 23, 42, ${1 - watermarkOpacity});
       pointer-events: none;
-      z-index: 0;
+      /* Above the white .exam-page background, below the question text (z-index: 2). */
+      z-index: 1;
       white-space: nowrap;
       user-select: none;
     }
@@ -527,14 +528,15 @@ export function generateExamPaperHtml(
       transform: translate(-50%, -50%);
       max-width: 320px;
       max-height: 320px;
-      opacity: ${1 - watermarkOpacity};
+      /* Photos lose all detail near white paper, so keep a visible floor. */
+      opacity: ${Math.max(0.2, 1 - watermarkOpacity)};
       pointer-events: none;
-      z-index: 0;
+      z-index: 1;
       user-select: none;
     }
     .paper-header {
       position: relative;
-      z-index: 1;
+      z-index: 2;
       text-align: center;
       border-bottom: 1.5px solid #0f172a;
       padding-bottom: 8px;
@@ -548,6 +550,12 @@ export function generateExamPaperHtml(
     }
     .paper-subtitle {
       font-size: 13px;
+      font-weight: 600;
+      margin: 2px 0;
+      color: #334155;
+    }
+    .paper-tutor {
+      font-size: 12px;
       font-weight: 600;
       margin: 2px 0;
       color: #334155;
@@ -568,6 +576,7 @@ export function generateExamPaperHtml(
       font-size: 12px;
       font-weight: 800;
       border-radius: 4px;
+      background: #ffffff;
     }
     .exam-page {
       position: relative;
@@ -589,13 +598,15 @@ export function generateExamPaperHtml(
       border-bottom: 1px solid #cbd5e1;
       padding-bottom: 4px;
       margin-bottom: 10px;
+      position: relative;
+      z-index: 2;
     }
     .paper-columns {
       display: flex;
       align-items: stretch;
       gap: 16px;
       position: relative;
-      z-index: 1;
+      z-index: 2;
     }
     .paper-col {
       flex: 1;
@@ -730,10 +741,11 @@ export function generateExamPaperHtml(
             <header class="paper-header">
               <h1 class="paper-title">${config.title || "পরীক্ষাপত্র"}</h1>
               ${config.subtitle ? `<div class="paper-subtitle">${config.subtitle}</div>` : ""}
+              ${config.tutorName ? `<div class="paper-tutor">শিক্ষক: ${config.tutorName}</div>` : ""}
               <div class="paper-meta-row">
-                <div>${config.tutorName ? `শিক্ষক: ${config.tutorName}` : ""}</div>
-                ${config.hasFourSets ? `<div class="set-badge">সেট: ${s.name}</div>` : ""}
-                <div>পূর্ণমান: ${toBanglaNumber(config.marks || s.questions.length)} &nbsp;|&nbsp; সময়: ${config.time || "৫০ মিনিট"}</div>
+                <div class="set-badge">পূর্ণমান: ${toBanglaNumber(config.marks || s.questions.length)}</div>
+                ${config.hasFourSets ? `<div class="set-badge">সেট: ${s.name}</div>` : `<span></span>`}
+                <div class="set-badge">সময়: ${config.time || "৫০ মিনিট"}</div>
               </div>
               ${config.instruction ? `<div class="paper-instruction">${config.instruction}</div>` : ""}
             </header>
