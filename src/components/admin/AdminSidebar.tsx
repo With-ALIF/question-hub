@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ExternalLink,
+  FileText,
   Flag,
   Globe,
   Images,
@@ -40,6 +41,12 @@ const navigationItems = [
     labelBn: "প্রশ্নব্যাংক পরিচালনা",
     icon: ListChecks,
     badgeKey: "questions",
+  },
+  {
+    href: "/admin/exam-paper",
+    label: "Exam Paper",
+    labelBn: "প্রশ্নপত্র তৈরি",
+    icon: FileText,
   },
   {
     href: "/admin/reports",

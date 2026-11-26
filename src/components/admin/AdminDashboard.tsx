@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, BookOpen, Layers, ListChecks } from "lucide-react";
+import { ArrowRight, BookOpen, FileText, Layers, ListChecks } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +41,12 @@ export function AdminDashboard({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <Button asChild size="sm" variant="outline" className="gap-2">
+              <Link href="/admin/exam-paper">
+                <FileText className="size-4" />
+                <span>প্রশ্নপত্র তৈরি</span>
+              </Link>
+            </Button>
             <Button asChild size="sm" className="gap-2">
               <Link href="/admin/questions">
                 <ListChecks className="size-4" />

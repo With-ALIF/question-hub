@@ -57,6 +57,8 @@ type Props = {
   activeFilters: QuestionFilters;
   canRevealAnswer?: boolean;
   canViewExplanation?: boolean;
+  basePath?: string;
+  isAdmin?: boolean;
 };
 
 export function ExamPaperBuilderView({
@@ -72,6 +74,8 @@ export function ExamPaperBuilderView({
   activeFilters,
   canRevealAnswer = true,
   canViewExplanation = true,
+  basePath = "/exam-paper",
+  isAdmin = false,
 }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -179,7 +183,7 @@ export function ExamPaperBuilderView({
       params.set("page", "1");
     }
     startTransition(() => {
-      router.push(`/exam-paper?${params.toString()}`);
+      router.push(`${basePath}?${params.toString()}`);
       if (key === "page" && typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
@@ -202,6 +206,14 @@ export function ExamPaperBuilderView({
             <h1 className="text-xl sm:text-2xl font-bold font-display text-foreground">
               {tr("Exam Paper Builder", "পরীক্ষাপত্র তৈরি (Exam Paper Builder)")}
             </h1>
+            {(isAdmin || basePath.startsWith("/admin")) && (
+              <Badge
+                variant="secondary"
+                className="bg-primary/15 text-primary border-primary/20 text-[11px] font-semibold"
+              >
+                {tr("Admin Full Access", "এডমিন ফুল অ্যাক্সেস")}
+              </Badge>
+            )}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             {tr(
@@ -321,7 +333,7 @@ export function ExamPaperBuilderView({
             facetFilters={filters}
             activeFilters={activeFilters}
             filtering={isFiltering}
-            actionPath="/exam-paper"
+            actionPath={basePath}
           />
 
           {questions.length === 0 ? (

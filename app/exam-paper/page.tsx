@@ -6,6 +6,7 @@ import { Footer } from "@/components/site/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentRole } from "@/lib/auth/roles";
 import {
   canAccessDatabase,
   canAccessSubject,
@@ -113,15 +114,19 @@ export default async function ExamPaperPage({
   const type: QuestionType = isQuestionType(requestedType) ? requestedType : "all";
   const requestedFilters = sanitizeFilters(params);
 
+  const role = await getCurrentRole();
+  const isAdmin = Boolean(role);
+
   const entitlement = await getEntitlement(user.id);
-  const isStudent = entitlement.audience === "student";
-  const entitlementUnavailable = entitlement.status === "unavailable";
-  const allowedSubjects = entitlement.access.subjects;
-  const databaseCodes = entitlement.access.databaseCodes;
-  const noSubjectAccess = allowedSubjects !== null && allowedSubjects.length === 0;
-  const noDatabaseAccess = databaseCodes !== null && databaseCodes.length === 0;
+  const isStudent = !isAdmin && entitlement.audience === "student";
+  const entitlementUnavailable = !isAdmin && entitlement.status === "unavailable";
+  const allowedSubjects = isAdmin ? null : entitlement.access.subjects;
+  const databaseCodes = isAdmin ? null : entitlement.access.databaseCodes;
+  const noSubjectAccess = !isAdmin && allowedSubjects !== null && allowedSubjects.length === 0;
+  const noDatabaseAccess = !isAdmin && databaseCodes !== null && databaseCodes.length === 0;
   const requestedSubjectSlug = requestedSubject || "physics";
   const subjectBlocked =
+    !isAdmin &&
     !noSubjectAccess &&
     requestedSubjectSlug !== "all" &&
     !canAccessSubject(entitlement, requestedSubjectSlug);
@@ -129,10 +134,11 @@ export default async function ExamPaperPage({
     ? (allowedSubjects?.[0] ?? "all")
     : requestedSubjectSlug;
   const canUseBuilder =
-    !isStudent &&
+    isAdmin ||
+    (!isStudent &&
     !entitlementUnavailable &&
     !noSubjectAccess &&
-    !noDatabaseAccess;
+    !noDatabaseAccess);
 
   const result = canUseBuilder
     ? await getQuestionPage({
@@ -153,14 +159,14 @@ export default async function ExamPaperPage({
     );
   }
 
-  if (result && entitlement.access.databaseCodes !== null) {
+  if (result && !isAdmin && entitlement.access.databaseCodes !== null) {
     result.questions = result.questions.filter((question) =>
       canAccessDatabase(entitlement, question.source_db),
     );
   }
 
-  const canRevealAnswer = entitlement.features.allowAnswer;
-  const canViewExplanation = entitlement.features.allowExplanation;
+  const canRevealAnswer = isAdmin || entitlement.features.allowAnswer;
+  const canViewExplanation = isAdmin || entitlement.features.allowExplanation;
   const pageQuestions = (result?.questions ?? []).map((question) => ({
     ...question,
     answer: canRevealAnswer ? question.answer : null,
@@ -171,7 +177,7 @@ export default async function ExamPaperPage({
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <Navbar initialUser={user} audience={entitlement.audience} />
+      <Navbar initialUser={user} audience={isAdmin ? "teacher" : entitlement.audience} />
       <main className="flex-1">
         <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
           {entitlementUnavailable ? (
@@ -270,6 +276,8 @@ export default async function ExamPaperPage({
               activeFilters={result.activeFilters}
               canRevealAnswer={canRevealAnswer}
               canViewExplanation={canViewExplanation}
+              basePath="/exam-paper"
+              isAdmin={isAdmin}
             />
           ) : null}
         </div>
